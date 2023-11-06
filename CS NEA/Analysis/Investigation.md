@@ -11,5 +11,3 @@ In previous projects I have used either a custom system or the [`serde_json`](ht
 
 # Rendering
 In an earlier prototype I used the Canvas API to render the board, however this required manual rendering from basic shapes, and so I plan to use SVG to render the board.
-
-test
