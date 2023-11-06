@@ -1,0 +1,45 @@
+- Research/decisions
+	- Tools
+		- Backend
+			- Language - Rust
+			- Framework - Warp
+			- Communication - Websocket
+				- probably serde
+		- Frontend
+			- HTML5/CSS
+			- JS or TS?
+				- Probably JS
+			- Rendering
+				- Canvas
+					- Easy to draw, click detection could be more complicated
+				- SVG
+					- Need to figure out rendering but input processing could be easier
+					- Based on experimentation is probably better
+			- Communication
+				- Decoding at client - codegen?
+	- Design
+		- Available tools
+			- Editing tools
+				- Selection
+				- Transform
+				- Group
+				- Undo/Redo??
+			- Pen
+			- Basic shapes
+				- Rectangle
+				- Ellipse
+				- Line
+				- Attributes
+					- Fill col, Border col, Border width
+			- Compound shapes
+				- Multiline/polygon
+				- Bezier curve
+				- Grouped objects
+			- Other
+				- Image embed
+	- Algorithms / complex problems
+		- Change history
+			- Undo/redo
+		- (de)Serialization
+			- Format
+				- JSON? bytes? 
