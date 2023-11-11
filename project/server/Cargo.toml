@@ -2,11 +2,22 @@
 name = "virtual_whiteboard"
 version = "0.1.0"
 edition = "2021"
+default-run = "main"
+
+[[bin]]
+name = "codegen"
+path = "src/codegen.rs"
+
+[[bin]]
+name = "main"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 camino = "1.1.6"
+itertools = "0.11.0"
+ts-rs = "7.0.0"
 
 [dependencies.clap]
 version = "4.4.8"
