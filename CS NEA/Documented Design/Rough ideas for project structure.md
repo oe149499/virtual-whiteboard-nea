@@ -37,7 +37,8 @@
 			- `css/` - CSS files
 			- `img/` - Misc. image files
 			- `icon/` - Icons, probably with a more rigid name system
-		- `typescript/` - Typescript files and JS output
+		- `typescript/` - Typescript files
+			- `out/` - JS output
 # Stored data
 ## Components
 - Media files
