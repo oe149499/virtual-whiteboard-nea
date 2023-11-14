@@ -83,6 +83,7 @@
 		- `img/` - misc. images
 	- `script/` - serve scripts
 		- `gen/` - source-generated script files
+		- `source/` - original TS files for debugging
 	- `api/` - dynamic content and interacting with the server
 		- `board/<name>/ (websocket)` - Main API route for interacting with the board
 		- `upload/` - Uploading media files
