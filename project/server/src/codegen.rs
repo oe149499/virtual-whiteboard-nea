@@ -12,6 +12,7 @@ struct TestType {
 
 }
 
+#[allow(unused)]
 #[derive(TS)]
 enum EnumTest {
 	Message(TestMessage),
