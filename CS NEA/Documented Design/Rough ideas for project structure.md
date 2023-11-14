@@ -14,6 +14,9 @@
 - Code generation and setup
 ## Potential layout (Rust module structure)
 - `crate` - top level
+	- `main.rs` - primary executable
+	- `lib.rs` - common code
+	- `codegen.rs` - separate build target for generating TS code
 	- Interpreting command-line arguments and composing the Warp server
 	- `message` - types for communicating with clients and internally
 	- `client` - setting up a WebSocket filter and handling connections (inc. parsing messages)
