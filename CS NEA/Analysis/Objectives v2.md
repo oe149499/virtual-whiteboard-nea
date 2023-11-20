@@ -85,7 +85,7 @@ The following types of **item** exist:
 	- **Properties**: Transform, Stroke
 4. Image: an image file loaded from a URL
 	- The program should also provide clients with the means to upload images themselves
-	- Properties: Transform
+	- **Properties**: Transform
 		- URL: **string**
 			- The location from which to fetch the image
 			- If the image is uploaded by the program, only a path should be included (e.g. `/upload/12345/image.png`)
@@ -93,7 +93,11 @@ The following types of **item** exist:
 			- An optional description of the image, for screen readers
 5. Text: a text box
 	- The text should be rendered using Markdown to enable formatting
-	- Properties: Transform
+	- Transform is applied to the text box, not the text itself, so font sizing is unaffected by scaling
+	- If the text can no longer fit in the box after editing, the box should be automatically stretched vertically to accommodate this.
+	- **Properties**: Transform
+		- Font style: Enumeration of a small selection of fonts
+		- Font size: Number (standard font size unit)
 		- Text: **text**
 			- If the **item** is **deselected** while the property consists only of whitespace it should be deleted
 	- Actions:
@@ -132,6 +136,7 @@ The following **tools** should be available:
 4. Polygon
 	- On **click**, creates a polygon **item** with one vertex at the cursor, and begins a **multi-press action** for adding points to the polygon
 		- Successive **clicks** add further points
+		- **Clicking** on the start point should close the polygon
 		- Cancelling the action should **deselect** the **item** and not remove it
 	- **Properties**: Stroke, Fill (defaults)
 5. Path
@@ -153,7 +158,7 @@ The **board** should display an **transform box** around the currently **selecte
 	- If a single **item** is **selected**, and that **item** does not have a Transform **property**, the bounding box should default to the smallest aligned rectangle which completely contains the **item**
 	- If multiple **item**s are **selected**, the bounding box should be the smallest aligned rectangle which fully contains the bounding box of every **selected** **item**
 2. The box should be computed once at the beginning of the **selection** and not change relative to the **item**s while the **selection** is active
-	- The exception to this is Text and Link **items**, which may change size when edited
+	- The exception to this is Text and Link **items**, which may change size when edited. As such, no modification to any **item** which may change its size is permitted while multiple **item**s are selected
 3. At the corners and midpoints of the edges of the **transform box**, there should be square stretch handles:
 	- Midpoint handles stretch the **item**(s) only in the direction normal to the edge, such that the opposite edge is not affected by the movement
 	- Corner handles stretch the **item**(s) such that the opposite corner does not move and the aspect ratio of the **selection** is unchanged

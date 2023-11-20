@@ -87,3 +87,332 @@
 	- `api/` - dynamic content and interacting with the server
 		- `board/<name>/ (websocket)` - Main API route for interacting with the board
 		- `upload/` - Uploading media files
+# Board representation
+- ID-Object table
+	- Board-unique IDs with stored counter
+	- Object representation - Enumeration
+		- Null()
+		- BasicShape(Transform, Fill, Stroke, Type)
+		- Line(point, point, Stroke)
+		- Polygon(Stroke, Fill, point\[\])
+		- Path(Transform, Stroke, ???)
+		- Image(url, description, Transform)
+		- Text(Transform, font size, font style, text)
+		- Link(url, description, Transform)
+- Selection
+	- Client ID (globally unique but preserved across reconnects)
+	- List of object IDS
+	- Selection origin
+	- Selection transform
+# WS API
+- Method
+	- takes parameters and unique call ID
+	- response is sent with same ID
+	- Response message consists only of status unless specified otherwise
+- Iterator method?
+	- Method responses sent in parts
+	- Sequence number and end packet
+- Notify-S
+	- Alert server of information but no response expected
+- Notify-C
+	- Information sent to client but no response expected
+- Failure
+	- Sent as response when any of the following is the case:
+		- Malformed message
+		- Server error
+	- Formatted as unspecified JSON
+	- Should be handled as an exception
+## Components
+- Connecting to boards
+	- Connect - method
+		- Parameters - identification
+		- Response - Session code | Error
+	- Reconnect - method
+		- Parameters - session code
+	- Disconnect - notify-s
+	- Client Connected - notify-c
+		- Client ID
+	- Client Disconnected - notify-c
+		- Client ID
+- Selection
+	- Add to selection - method
+		- Parameters - Item IDs
+	- Remove from selection - method
+		- Parameters - IDs, final transform(s)
+	- Move selection - method
+		- relative transform
+	- Items Deselected - notify-c
+		- Client ID, IDs, final transform
+	- Items Selected - notify-c
+		- Client ID, IDs
+	- Selection Moved - notify-c
+		- Client ID, new selection transform
+- Item Editing
+	- Edit Items - method
+		- Item IDs, Item Changes
+	- Edit Item - method
+		- Item ID, Item 
+	- Delete Items - method
+		- Item IDs
+	- Items edited - notify-c
+		- Item IDs, Item Changes
+	- Item edited - notify-c
+		- Item ID, Item
+	- Items Deleted - notify-c
+		- Item IDs
+- Item Creation
+	- Create Item - method
+		- Item info
+		- Response - ID
+	- Item Created - notify-c
+		- Item info, Item ID, Client ID
+	- Begin Path - method
+	- Path Started - notify-c
+		- Client ID
+	- Continue Path - method
+		- ???
+	- Close Path - method
+		- Computed path data, immediate transform
+- Requesting data
+	- Get All IDs - method
+		- Response - list of Item IDs
+	- Get Partial Items - iterate
+		- List of Item IDs
+		- Response - partial information (large fields excluded)
+	- Get Full Items - iterate
+		- List of Item IDs
+		- Response - full item information
+	- Get Client Information - method
+		- Response - ??? (information about all clients)
+	- Get Active Path - iterate
+		- Client ID
+		- Response - path data, sent as processed
+## Types
+```typescript
+enum ErrorCode {
+	NotAvailable, // The client requested a resource which is occupied or does not exist
+}
+
+type Ok<T> = { ok: T };
+type Err<T> = { err: T, info?: any };
+type Result<TOk = null, TErr = ErrorCode> = Ok<TOk> | Err<TErr>;
+
+type ClientInfo = {
+	name: string,
+};
+
+type SessionID = number;
+
+type ClientID = number;
+
+type ItemID = number;
+
+type Point = {
+	x: number,
+	y: number,
+}
+
+type Color = string;
+
+type Stroke = {
+	width: number,
+	color: Color,
+}
+
+type Angle = number;
+
+type Transform = {
+	origin: Point,
+	rotation: Angle,
+	scaleX: number,
+	scaleY: number,
+}
+
+type PartialItem = {
+	transform?: transform,
+	
+}
+
+enum ItemType {
+	Rectangle: "rect",
+	Ellipse: "circle",
+	Line: "line",
+	Polygon: "polygon",
+	Path: "path",
+	Image: "image",
+	Text: "text",
+	Link: "link"
+}
+
+type HasTransform = { transform: Transform };
+
+type HasStroke = { stroke: Stroke };
+
+type HasFill = { fill: Color };
+
+type PathData = "???"
+
+type RectangleItem = HasTransform & HasStroke & HasFill & {
+	type: ItemType.Rectangle,
+}
+
+type EllipseItem = HasTransform & HasStroke & HasFill & {
+	type: ItemType.Ellipse,
+}
+
+type LineItem = HasStroke & {
+	type: ItemType.Line,
+	start: Point,
+	end: Point,
+}
+
+type PolygonItem = HasStroke & HasFill & {
+	type: ItemType.Polygon,
+	points: Point[],
+}
+
+type PathItem = HasStroke & HasTransform & {
+	type: ItemType.Path,
+	path: "???",
+}
+
+type ImageItem = HasTransform & {
+	type: ItemType.Image,
+	url: string,
+	description: string,
+}
+
+type TextItem = HasTransform & {
+	type: ItemType.Text,
+	text: string,
+}
+
+type LinkItem = HasTransform & {
+	type: ItemType.Link,
+	text: string,
+	url: string,
+}
+```
+## Exact Protocol
+```typescript
+// Method syntax:
+async function method(...): ReturnType;
+
+// Notify-S syntax:
+function notifyS(...);
+
+// Notify-C syntax
+async function onNotifyC(...);
+
+// Iterate
+async function * iterate(...): AsyncIterable<ReturnType>;
+
+// # Connection
+async function connect(info: ClientInfo): Result<[SessionID, ClientID]>;
+async function reconnect(session: SessionID): Result;
+function disconnect();
+async function onClientConnected(id: ClientID);
+async function onClientDisconnected(id: ClientID);
+
+// # Selection
+// Returns a result for each individual item
+async function selectionAddItems(items: ItemID[]): Result[];
+type ItemsDeselected = Map<ItemID, Transform | Point[]>;
+// NOTE: Considerations should be taken to ensure that data is never destroyed in this procedure
+async function selectionRemoveItems(items: ItemsDeselected): Result;
+async function selectionMove(newTransform: Transform);
+
+async function onSelectionItemsAdded(client: ClientID, items: ItemID[]);
+async function onSelectionItemsRemoved(client: ClientID, items: ItemsDeselected);
+async function onSelectionMoved(client: ClientID, transform: Transform);
+
+// # Item Editing
+type ItemChanges = Optional<HasStroke & HasFill>;
+
+async function editBatchItems(items: ItemID[], changes: ItemChanges): Result[];
+// NOTES:
+//   - Consider whether items could be allowed to be changed into other types
+//   - "Big" fields could be exluded with a specific coded value e.g. non-printable char, NaN
+async function editSingleItem(id: ItemID, item: Item): Result;
+async function deleteItems(ids: ItemID[]): Result;
+
+async function onBatchItemsEdited(items: ItemID[], changes: ItemChanges);
+// NOTE: same logic as `editSingleItem`
+async function onSingleItemEdited(id: ItemID, item: Item);
+async function onItemsDeleted(ids: ItemID[]);
+
+// # Item Creation
+async function createItem(item: Item): Result<ItemID>;
+async function beginPath(): Result;
+async function continuePath(data: "???"): Result;
+async function closePath(data: "???"): Result<ItemID>;
+
+async function onItemCreated(id: ItemID, item: Item);
+async function onPathCreated(client: ClientID);
+
+// # Data fetching
+async function getAllItemIDs(): Result<ItemID[]>
+async function * getPartialItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
+async function * getFullItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
+async function getAllClientInfo(): Result<"???">;
+async function * getActivePath(client: ClientID): AsyncIterator<"???">;
+```
+## Wire Format
+- JSON-encoded data e.g.
+```json
+[
+	{
+		"protocol": "Method",
+		"id": 12345,
+		"name": "Ping",
+		"param": "arg",
+		"param2":, "arg2",
+		// ...
+	},
+	{
+		"protocol": "Response",
+		"id": 12345,
+		"status": "Pong",
+		// ...
+	},
+	{
+		"protocol": "Notify-C",
+		"name": "Hello",
+		"param": "arg",
+		// ...
+	},
+	{
+		"protocol": "Notify-S",
+		"name": "Hi",
+		"param": "arg",
+		// ...
+	},
+	{
+		"protocol": "Iterate",
+		"name": "Count",
+		"id": 27,
+		"countTo": 4,
+	},
+	{
+		"protocol": "Response-Part",
+		"id": 27,
+		"complete": false,
+		"part": 0,
+		"items": [0, 1],
+	},
+	{
+		"protocol": "Response-Part",
+		"id": 27,
+		"complete": false,
+		"part": 1,
+		"items": [2, 3],
+	},
+	{
+		"protocol": "Response-Part",
+		"id": 27,
+		"complete": true,
+		"part": 2,
+		"items": [4],
+	}
+] // Multiple messages can be bundled together
+```
