@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
 
-let test_type: TestType = {}
-let enum_test: EnumTest = { Message: {}, Type: {} }
+const test_type: TestType = {};
+const enum_test: EnumTest = { Message: {}, Type: {} };
 
-let message: string = "Hello World!";
+const message: string = "Hello World!";
 console.log(message);
