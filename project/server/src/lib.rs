@@ -1,3 +1,8 @@
+#[path ="message/message.rs"]
+pub mod message;
+#[path ="canvas/canvas.rs"]
+pub mod canvas;
+
 use std::path::PathBuf;
 
 use warp::{filters::BoxedFilter, reply::{Reply, self}, Filter};
