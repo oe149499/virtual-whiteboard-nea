@@ -372,7 +372,7 @@ async function * getActivePath(client: ClientID): AsyncIterator<"???">;z
 	{
 		"protocol": "Response",
 		"id": 12345,
-		"status": "Pong",
+		"value": "Pong",
 		// ...
 	},
 	{
