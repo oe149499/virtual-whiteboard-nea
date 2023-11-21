@@ -1,3 +1,4 @@
+pub mod method;
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
 use derive_more::Deref;
