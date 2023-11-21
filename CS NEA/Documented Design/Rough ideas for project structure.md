@@ -355,7 +355,7 @@ async function getAllItemIDs(): Result<ItemID[]>
 async function * getPartialItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
 async function * getFullItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
 async function getAllClientInfo(): Result<"???">;
-async function * getActivePath(client: ClientID): AsyncIterator<"???">;
+async function * getActivePath(client: ClientID): AsyncIterator<"???">;z
 ```
 ## Wire Format
 - JSON-encoded data e.g.
