@@ -105,9 +105,13 @@ The following types of **item** exist:
 			- Apply the formatting options (through Markdown) around the cursor (or the whole field if nothing is selected)
 1. Link: a hyperlink
 	- Displays a clickable link which opens in a new tab 
-	- Properties: Transform
+	- **Properties**: Transform
 		- Text: **string**
 		- URL: **string**
+- Tag: an indexed searchable identifier
+	- **Properties**: Transform
+		- Name: **string**
+		- Data: **string**
 # 3 Tools
 The following **tools** should be available:
 ## 3.1 Selection

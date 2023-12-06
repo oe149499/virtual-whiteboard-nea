@@ -25,6 +25,7 @@
 		- `active` - working with an active board in memory and dealing with client requests
 		- `manager` - maintaining a list of boards and loading/finding them when needed
 	- `upload` - setting up the media upload endpoint
+	- `tags` - working with tags
 	- `canvas` - canvas item types
 # Source files
 ## Components
@@ -64,6 +65,10 @@
 - Other misc. APIs
 	- probably `http:///api/foo/bar`
 	- File upload
+	- Tags - `http:///api/tag/...`
+		- querying tag types
+		- modifying tags
+		- Archiving tags
 	- Export?
 		- probably would be mostly client-side as client will have SVG code, but a bulk download of board data might me useful
 - Static files
@@ -86,7 +91,22 @@
 		- `source/` - original TS files for debugging
 	- `api/` - dynamic content and interacting with the server
 		- `board/<name>/ (websocket)` - Main API route for interacting with the board
-		- `upload/` - Uploading media files
+		- `tag/` - tags
+			- `create/ (POST)`
+				- Parameters (form data)
+					- Short name (e.g. an emoji)
+					- Long name (e.g. full description, can be used in search)
+					- Type
+			- `get/`
+				- `all/`
+				- `active/`
+				- `archived/`
+				- `<id>/`
+			- `alter/`
+				- `modify/ (POST)` - change some information
+				- `archive/ (POST)` - Archive the tag, preventing creation of new instances but not disabling old ones
+			- `query/`
+		- `upload/ (POST)` - Uploading media files
 # Board representation
 - ID-Object table
 	- Board-unique IDs with stored counter
