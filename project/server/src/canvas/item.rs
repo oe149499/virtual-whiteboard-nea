@@ -1,5 +1,5 @@
 use super::{Transform, Stroke, Color, Point, Spline};
-
+use crate::tags::TagID;
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
 
@@ -16,6 +16,7 @@ pub enum Item {
 	Image(ImageItem),
 	Text(TextItem),
 	Link(LinkItem),
+	Tag(TagItem),
 }
 
 #[derive(Serialize, Deserialize, TS)]
@@ -73,4 +74,10 @@ pub struct LinkItem {
 	transform: Transform,
 	url: String,
 	text: String,
+}
+
+#[derive(Serialize, Deserialize, TS)]
+pub struct TagItem {
+	id: TagID,
+	data: String,
 }

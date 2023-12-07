@@ -1,7 +1,14 @@
+// "Method" names are actually turned into structs
+#![allow(non_snake_case)]
+// TT munching
+#![recursion_limit = "256"]
+
 #[path ="message/message.rs"]
 pub mod message;
 #[path ="canvas/canvas.rs"]
 pub mod canvas;
+#[path ="tags/tags.rs"]
+pub mod tags;
 
 use std::path::PathBuf;
 

@@ -35,6 +35,12 @@ pub struct ClientInfo {
 	pub name: String,
 }
 
+#[derive(Serialize, Deserialize, TS)]
+pub struct ConnectionInfo {
+	pub client_id: ClientID,
+	pub session_id: SessionID,
+}
+
 #[derive(Serialize, Deserialize, TS, Deref)]
 pub struct SessionID(u32);
 #[derive(Serialize, Deserialize, TS, Deref)]

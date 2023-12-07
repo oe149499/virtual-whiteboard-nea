@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use camino::Utf8PathBuf;
 use tokio::runtime;
-use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter};
+use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, message, message::method::Method};
 use warp::{Filter, filters::BoxedFilter, reply::Reply};
 
 #[derive(Parser, Debug)]
@@ -22,6 +22,7 @@ struct Args {
 }
 
 fn main() {
+    println!("{}", message::method::Connect::ts_decl());
     let args = Args::parse();
     let filter = create_filter(
         args.static_path.into(),
