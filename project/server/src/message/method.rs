@@ -1,12 +1,16 @@
 use serde::{Serialize, Deserialize};
 use ts_rs::{TS, Dependency};
 
-use super::{ClientInfo, SessionID, ItemID};
+use super::{ClientInfo, SessionID, ItemID, ItemsDeselected};
 
 pub trait Method {
 	type Response : TS + Serialize;
 
-	fn ts_decl() -> String;
+	fn name() -> String;
+
+	fn ts_params() -> String;
+
+	fn ts_return() -> String;
 }
 
 #[derive(TS, Serialize, Deserialize)]
@@ -150,20 +154,20 @@ macro_rules! declare_method {
 
 		impl Method for $method_name {
 			type Response = $($rt)*;
-			fn ts_decl() -> String {
-				format!(
-					"async function {}({}): {}", 
-					stringify!($method_name), 
-					parse_params!($($params)*),
-					parse_type!($($rt)*),
-				)
+
+			fn name() -> String {
+				stringify!($method_name).to_string()
+			}
+
+			fn ts_params() -> String {
+				parse_params!($($params)*)
+			}
+
+			fn ts_return() -> String {
+				parse_type!($($rt)*)
 			}
 		}
 	}
-}
-
-declare_method!{
-	fn Test(a: usize, b: usize) -> String
 }
 
 declare_method! {
@@ -176,4 +180,8 @@ declare_method!{
 
 declare_method!{
 	fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(super::Result)>
+}
+
+declare_method!{
+	fn SelectionRemoveItems(items: ItemsDeselected) -> super::Result
 }

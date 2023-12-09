@@ -1,7 +1,7 @@
 {
 	"compilerOptions": {
 		"target": "ES6",
-		"module": "CommonJS",
+		"module": "ES2015",
 		"outDir": "out/",
 		"rootDir": "src/",
 		"sourceMap": true,
@@ -16,6 +16,7 @@
 		"noImplicitThis": true,
 		"noPropertyAccessFromIndexSignature": true,
 		"noUnusedLocals": true,
+		"noErrorTruncation": true,
 		"sourceRoot": "/script/source",
 		"strict": true,
 	},

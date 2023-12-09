@@ -22,7 +22,6 @@ struct Args {
 }
 
 fn main() {
-    println!("{}", message::method::Connect::ts_decl());
     let args = Args::parse();
     let filter = create_filter(
         args.static_path.into(),

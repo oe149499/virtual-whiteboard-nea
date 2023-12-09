@@ -1,4 +1,6 @@
-import { Item, Point } from "./gen/generated_types";
+/* eslint-disable @typescript-eslint/ban-types */
+import type { Item, Point } from "./gen/Types.js";
+import { createMethodPayload } from "./MethodsWrapper.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
 
@@ -19,3 +21,14 @@ const basic_item: Item = {
 const message: string = "Hello World!";
 const item = JSON.stringify(basic_item);
 console.log(message, item);
+
+//type Id<T> = {} & { [P in keyof T]: T[P] };
+
+console.log(createMethodPayload(
+	"Connect",
+	{
+		info: {
+			name: "Oscar"
+		}
+	}
+));
