@@ -9,25 +9,37 @@ use crate::canvas::{Transform, Point, Color, Stroke};
 
 #[derive(Serialize, Deserialize, TS)]
 #[serde(tag = "protocol")]
+/// A message received from a client
 pub enum MsgRecv {
+	/// A method call expecting a response
 	Method(method::Methods),
 }
 
 #[derive(Serialize, Deserialize, TS)]
+/// A generic error code that indicates a problem with a request
 pub enum ErrorCode {
+	/// The request attempted to access a resource which is currently in use by another client
 	NotAvailable = 0,
 }
 
 #[derive(Serialize, Deserialize, TS)]
 #[serde(rename = "ErrMsg")]
+/// An error code with an explanation
 pub struct Error {
+	/// The error code
 	pub code: ErrorCode,
+	/// The error explanation
 	pub msg: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, TS)]
+/// Copy of [`std::result::Result`] to enable generation of TS types.
+/// 
+/// Convenient default type parameters are also set.
 pub enum Result<T = (), TErr = ErrorCode> {
+	/// Success
 	Ok(T),
+	/// Failure
 	Err(TErr),
 }
 
@@ -41,34 +53,61 @@ impl <T,E> From<core::result::Result<T, E>> for Result<T, E> {
 }
 
 #[derive(Serialize, Deserialize, TS)]
+#[non_exhaustive]
+/// The information describing a client
 pub struct ClientInfo {
+	/// The client's name
 	pub name: String,
 }
 
 #[derive(Serialize, Deserialize, TS)]
+/// Identification provided to clients
 pub struct ConnectionInfo {
+	/// See [`ClientID`]
 	pub client_id: ClientID,
+	/// See [`SessionID`]
 	pub session_id: SessionID,
 }
 
 #[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash)]
+/// A private ID used to verify reconnects
 pub struct SessionID(u32);
 #[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash)]
+/// A public ID shared with other clients
 pub struct ClientID(u32);
+
+impl ClientID {
+	/// Atomically create a new uniquw [`ClientID`]
+	pub fn new() -> Self {
+		Self(crate::utils::counter!(AtomicU32))
+	}
+}
+
 #[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash)]
+/// A board-unique ID for each [`crate::canvas::Item`]
 pub struct ItemID(u32);
 
 #[derive(Serialize, Deserialize, TS)]
+/// A piece of location data which could describe either a [`Transform`] or [`Point`]-based [`crate::canvas::Item`]
 pub enum LocationUpdate {
+	/// The new [`Transform`] of the item
 	Transform(Transform),
+	/// The new set of [`Point`]s of the item
 	Points(Vec<Point>),
 }
 
 #[derive(Serialize, Deserialize, TS, Deref)]
+/// The information required to describe a collection of [`crate::canvas::Item`]s being deselected.
+/// Each item needs to have a new absolute position, but that could be a [`Transform`] or collection of [`Point`]s.
+/// 
+/// See also [`LocationUpdate`]
 pub struct ItemsDeselected(HashMap<ItemID, LocationUpdate>);
 
 #[derive(Serialize, Deserialize, TS)]
+/// The edits that can be made to multiple [`crate::canvas::Item`]s at the same time
 pub struct BatchChanges {
-	fill: Option<Color>,
-	stroke: Option<Stroke>,
+	/// The new fill [`Color`] for the items
+	pub fill: Option<Color>,
+	/// The new [`Stroke`] information for the items
+	pub stroke: Option<Stroke>,
 }

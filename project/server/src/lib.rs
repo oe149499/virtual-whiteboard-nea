@@ -1,5 +1,6 @@
 // TT munching
 #![recursion_limit = "256"]
+#![warn(missing_docs)]
 
 #[path ="message/message.rs"]
 pub mod message;
@@ -10,6 +11,7 @@ pub mod tags;
 #[path ="board/board.rs"]
 pub mod board;
 pub mod client;
+mod utils;
 
 use std::path::PathBuf;
 

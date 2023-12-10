@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 use clap::Parser;
 use camino::Utf8PathBuf;
-use flexi_logger::{Logger, WriteMode};
+use flexi_logger::Logger;
 use log::{info, error};
 use tokio::runtime;
-use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, message, message::method::Method};
+use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter};
 use warp::{Filter, filters::BoxedFilter, reply::Reply};
 
 #[derive(Parser, Debug)]

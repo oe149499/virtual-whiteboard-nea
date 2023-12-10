@@ -1,5 +1,6 @@
 pub mod manager;
 
+use log::warn;
 use tokio::sync::mpsc;
 use crate::message::{MsgRecv, ClientID};
 
@@ -16,6 +17,8 @@ impl BoardHandle {
 	pub fn client_msg(&self, id: ClientID, msg: MsgRecv) {
 		self.message_pipe.send(
 			BoardMessage::ClientMessage(id, msg)
-		).expect("")
+		).unwrap_or_else(|e| {
+			warn!("Failed to send client message to board: {e}");
+		})
 	}
 }
