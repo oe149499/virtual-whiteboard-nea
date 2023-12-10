@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 use clap::Parser;
 use camino::Utf8PathBuf;
+use flexi_logger::{Logger, WriteMode};
+use log::{info, error};
 use tokio::runtime;
 use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, message, message::method::Method};
 use warp::{Filter, filters::BoxedFilter, reply::Reply};
@@ -21,25 +23,45 @@ struct Args {
     serve_ts: bool,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _logger = Logger::try_with_env()?
+        //.write_mode(WriteMode::Async)
+        .start()?;
+
     let args = Args::parse();
+
+
+    info!("Program Startup");
+
     let filter = create_filter(
         args.static_path.into(),
         args.script_root.into(),
         args.serve_ts,
     );
+
+    info!("Building runtime");
+
     let runtime = runtime::Builder::new_multi_thread()
         .enable_io()
         .enable_time()
         .worker_threads(2)
-        .build().expect("Failed to build Tokio runtime");
+        .build().map_err(|e| {
+            error!("Failed to build Tokio runtime: {}", &e);
+            e
+        })?;
+    
+    info!("Successfully constructed Tokio runtime");
 
     runtime.block_on(async move {
+        info!("Starting server");
         warp::serve(filter).bind(([0, 0, 0, 0], 8080)).await
-    })
+    });
+
+    Ok(())
 }
 
 fn create_filter(static_path: PathBuf, script_path: PathBuf, enable_source: bool) -> BoxedFilter<(impl Reply,)> {
+    info!("Building filters");
     let index_filter = warp::path("index.html").and(warp::fs::file(static_path.join("index.html")));
     let api_filter = warp::path("api").and(create_api_filter());
     let static_filter = warp::path("static").and(create_static_filter(static_path));

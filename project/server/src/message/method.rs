@@ -1,7 +1,5 @@
 use serde::{Serialize, Deserialize};
-use ts_rs::{TS, Dependency};
-
-use super::{ClientInfo, SessionID, ItemID, ItemsDeselected};
+use ts_rs::TS;
 
 pub trait Method {
 	type Response : TS + Serialize;
@@ -139,6 +137,7 @@ macro_rules! parse_params {
 
 macro_rules! pubify {
 	($mname:ident => $($name:ident : $type:ty),*) => (
+		#[derive(TS, Serialize, Deserialize)]
 		pub struct $mname {
 			$(
 				pub $name: $type
@@ -149,7 +148,6 @@ macro_rules! pubify {
 
 macro_rules! declare_method {
 	{fn $method_name:ident($($params:tt)*) -> $($rt:tt)*} => {
-		//#[derive(TS, Serialize, Deserialize)]
 		pubify!{$method_name => $($params)*}
 
 		impl Method for $method_name {
@@ -170,18 +168,53 @@ macro_rules! declare_method {
 	}
 }
 
-declare_method! {
-	fn Connect(info: ClientInfo) -> super::Result<(super::ConnectionInfo)>
+macro_rules! method_enum {
+	{
+		$enum_name:ident => $($type:ident,)*
+	} => {
+		#[derive(Serialize, Deserialize, TS)]
+		pub enum $enum_name {
+			$(
+				$type($type),
+			)*
+		}
+	}
 }
 
-declare_method!{
-	fn Reconnect(session: SessionID) -> super::Result
+method_enum! {
+	Methods => Connect, Reconnect, SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
 }
 
-declare_method!{
-	fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(super::Result)>
-}
+pub use _methods::*;
+#[allow(unused_parens, non_snake_case)]
+mod _methods {
+	use super::*;
+	use crate::{message::{self as m, ClientInfo, SessionID, ItemID, ItemsDeselected, BatchChanges}, canvas::Item};
+	declare_method! {
+		fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
+	}
 
-declare_method!{
-	fn SelectionRemoveItems(items: ItemsDeselected) -> super::Result
+	declare_method!{
+		fn Reconnect(session: SessionID) -> m::Result
+	}
+
+	declare_method!{
+		fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(m::Result)>
+	}
+
+	declare_method!{
+		fn SelectionRemoveItems(items: ItemsDeselected) -> m::Result
+	}
+
+	declare_method!{
+		fn EditBatchItems(ids: Vec<(ItemID)>, changes: BatchChanges) -> Vec<(m::Result)>
+	}
+
+	declare_method!{
+		fn EditSingleItem(id: ItemID, item: Item) -> m::Result
+	}
+
+	declare_method!{
+		fn DeleteItems(ids: Vec<(ItemID)>) -> Vec<(m::Result)>
+	}
 }

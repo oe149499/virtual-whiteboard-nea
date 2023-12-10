@@ -5,7 +5,13 @@ use serde::{Serialize, Deserialize};
 use ts_rs::TS;
 use derive_more::Deref;
 
-use crate::canvas::{Transform, Point};
+use crate::canvas::{Transform, Point, Color, Stroke};
+
+#[derive(Serialize, Deserialize, TS)]
+#[serde(tag = "protocol")]
+pub enum MsgRecv {
+	Method(method::Methods),
+}
 
 #[derive(Serialize, Deserialize, TS)]
 pub enum ErrorCode {
@@ -60,3 +66,9 @@ pub enum LocationUpdate {
 
 #[derive(Serialize, Deserialize, TS, Deref)]
 pub struct ItemsDeselected(HashMap<ItemID, LocationUpdate>);
+
+#[derive(Serialize, Deserialize, TS)]
+pub struct BatchChanges {
+	fill: Option<Color>,
+	stroke: Option<Stroke>,
+}
