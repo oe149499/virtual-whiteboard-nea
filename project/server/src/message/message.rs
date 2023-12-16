@@ -1,3 +1,5 @@
+//! Types associated with communication between client and server
+
 pub mod method;
 use std::collections::HashMap;
 

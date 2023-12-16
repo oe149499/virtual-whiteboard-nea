@@ -3,7 +3,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use ts_rs::TS;
 use camino::Utf8PathBuf;
-use clap::{Parser, Arg};
+use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

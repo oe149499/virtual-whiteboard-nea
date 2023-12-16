@@ -4,7 +4,7 @@ pub struct BoardManager {
 }
 
 impl BoardManager {
-	fn new() -> Self {
+	pub fn new() -> Self {
 		todo!()
 	}
 }
