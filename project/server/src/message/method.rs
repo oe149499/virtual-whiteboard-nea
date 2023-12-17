@@ -18,7 +18,7 @@ pub trait Method {
 	fn ts_return() -> String;
 }
 
-#[derive(TS, Serialize, Deserialize)]
+#[derive(TS, Serialize, Deserialize, Debug)]
 /// An object representing a method call packet
 pub struct Call<T : Method> {
 	/// The call ID for the client to associate the response with the call
@@ -39,7 +39,7 @@ impl <T : Method> Call<T> {
 }
 
 /// An object representing a method return packet
-#[derive(TS, Serialize, Deserialize)]
+#[derive(TS, Serialize, Deserialize, Debug)]
 pub struct Response<T : Method> {
 	/// See [`Call::id`]
 	id: u32,
@@ -152,7 +152,7 @@ macro_rules! parse_params {
 macro_rules! pubify {
 	([$($attrs:tt)*] $mname:ident => $($name:ident : $type:ty),*) => (
 		$($attrs)*
-		#[derive(TS, Serialize, Deserialize)]
+		#[derive(TS, Serialize, Deserialize, Debug)]
 		pub struct $mname {
 			$(
 				#[allow(missing_docs)]
@@ -190,21 +190,31 @@ macro_rules! declare_method {
 /// Helper macro to generate the enum of all methods
 macro_rules! method_enum {
 	{
-		$enum_name:ident => $($type:ident,)*
+		$call_name:ident, $resp_name:ident => $($type:ident,)*
 	} => {
 		/// The enumeration of all method call types
-		#[derive(Serialize, Deserialize, TS)]
-		pub enum $enum_name {
+		#[derive(Serialize, Deserialize, TS, Debug)]
+		#[serde(tag = "name")]
+		pub enum $call_name {
 			$(
 				/// See individual types for more information
 				$type(Call<$type>),
+			)*
+		}
+
+		/// The enumeration of all method return types
+		#[derive(Serialize, Deserialize, TS, Debug)]
+		pub enum $resp_name {
+			$(
+				/// See individual types for more information
+				$type(Response<$type>),
 			)*
 		}
 	}
 }
 
 method_enum! {
-	Methods => Connect, Reconnect, SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
+	Methods, Responses => Connect, Reconnect, SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
 }
 
 pub use _methods::*;

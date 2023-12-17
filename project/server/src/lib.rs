@@ -16,12 +16,14 @@ mod utils;
 
 use std::path::PathBuf;
 
-use warp::{filters::BoxedFilter, reply::{Reply, self}, Filter};
+use board::BoardManager;
+use client::create_board_filter;
+use warp::{filters::{BoxedFilter, path::path}, reply::Reply, Filter};
 
 /// Create a warp [`Filter`] handling all dynamic paths
-pub fn create_api_filter() -> BoxedFilter<(impl Reply,)> {
+pub fn create_api_filter(manager: &'static BoardManager) -> BoxedFilter<(impl Reply,)> {
 	warp::any()
-		.map(|| reply::reply())
+		.and(path("board").and(create_board_filter(manager)))
 		.boxed()
 }
 
