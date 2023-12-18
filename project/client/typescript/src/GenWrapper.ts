@@ -2,23 +2,30 @@ import { MethodNames, Methods } from "./gen/Methods.js";
 
 export type MName = keyof Methods;
 
-export type MArgs<M extends MName> = Methods[M][0];
-export type MRet<M extends MName> = Methods[M][1];
-type MCall<M extends MName> = (args: MArgs<M>) => Promise<MRet<M>>;
+export type MArgs<M extends MName = MName> = Methods[M][0];
+export type MRet<M extends MName = MName> = Methods[M][1];
+type MCall<M extends MName = MName> = (args: MArgs<M>) => Promise<MRet<M>>;
 
-export type MPayload<M extends MName> = {
+export type MPayload<M extends MName = MName> = {
 	protocol: "Method",
 	id: number,
 	name: M,
 } & MArgs<M>;
 
+export type MResponse<M extends MName = MName> = {
+	protocol: "Response",
+	id: number,
+	value: MRet<M>,
+}
+
 export function createMethodPayload<M extends MName>(
 	name: M,
+	id: number,
 	args: MArgs<M>,
 ): MPayload<M> {
 	return {
 		protocol: "Method",
-		id: null as unknown as number,
+		id: id,
 		name: name,
 		...args,
 	};
@@ -28,7 +35,7 @@ export type MethodDispatcher = {
 	[M in MName]: MCall<M>;
 }
 
-type MethodHandler = <M extends MName>(args: MArgs<M>) => Promise<MRet<M>>;
+type MethodHandler = <M extends MName>(name: M, args: MArgs<M>) => Promise<MRet<M>>;
 
 export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	// This should work but fails type checking
@@ -36,8 +43,16 @@ export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	const result = {} as any;
 	for (const name of MethodNames) {
 		result[name] = function(args: MArgs<typeof name>) {
-			return handler(args);
+			return handler(name, args);
 		};
 	}
 	return result as MethodDispatcher;
 }
+
+export type MethodCall = MPayload<MName>;
+
+export type MethodResponse = MResponse<MName>;
+
+export type MsgSend = MethodCall;
+
+export type MsgRecv = MethodResponse;

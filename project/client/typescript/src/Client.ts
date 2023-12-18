@@ -1,49 +1,41 @@
 import { Logger } from "./Logger.js";
+import { RawClient } from "./RawClient.js";
+import { getErr, getOk } from "./Utils.js";
+import { ClientInfo } from "./gen/Types.js";
 
-const logger = new Logger("ws-client");
+const logger = new Logger("session-client");
 
-export class Client {
-	private socket: WebSocket | null = null;
-
-	constructor(private url: URL) {
-		this.bindSocket();
+export class SessionClient {
+	private rawClient: RawClient;
+	private sessionCode?: number;
+	private _clientID?: number;
+	public get clientID() {
+		return this._clientID;
 	}
+	readonly url: URL;
 
-	private bindSocket() {
-		if (this.socket != null) {
-			throw new Error("Attempted to bind socket when already present");
+	constructor(
+		readonly boardName: string,
+		readonly info: ClientInfo,
+	) {	
+		const location = window.location;
+		this.url = new URL(`/api/board/${boardName}/`, location.href);
+		if (location.protocol == "https") {
+			this.url.protocol = "wss";
+		} else {
+			this.url.protocol = "ws";
 		}
-		this.socket = new WebSocket(this.url);
-		this.socket.onopen = this.onSocketOpen.bind(this);
-		this.socket.onerror = this.onSocketError.bind(this);
-		this.socket.onmessage = this.onSocketMessage.bind(this);
-		this.socket.onclose = this.onSocketClose.bind(this);
-	}
+		this.rawClient = new RawClient(this.url);
 
-	private handleMessageObject(msg: object) {
-		console.log(msg);
-	}
-
-	private onSocketOpen(_event: Event) {
-		logger.info(`Connection opened at ${this.url}`);
-	}
-
-	private onSocketError(event: Event) {
-		logger.error(`Socket connection error for ${this.url}:`, event);
-	}
-
-	private onSocketMessage(event: MessageEvent) {
-		logger.info("Recieved message:", event);
-		const data = event.data;
-		if (data instanceof Blob) {
-			data.text()
-				.then(s => this.handleMessageObject(JSON.parse(s)));
-		} else if (typeof data == "string") {
-			this.handleMessageObject(JSON.parse(data));
-		}
-	}
-
-	private onSocketClose(event: CloseEvent) {
-		logger.info("Socket Closed:", event);
+		this.rawClient.callMethod("Connect", {info})
+			.then((val) => {
+				let res;
+				if ((res = getOk(val))) {
+					this._clientID = res.clientId;
+					this.sessionCode = res.sessionId;
+				} else if ((res = getErr(val))) {
+					logger.error("Failed to register with board");
+				}
+			});
 	}
 }
