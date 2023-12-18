@@ -4,6 +4,7 @@
 		"module": "ES2015",
 		"outDir": "out/",
 		"rootDir": "src/",
+		"allowJs": true,
 		"sourceMap": true,
 		"allowUnreachableCode": false,
 		"allowUnusedLabels": false,

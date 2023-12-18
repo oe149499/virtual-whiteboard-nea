@@ -1,0 +1,1 @@
+export function strftime(format: string, date?: Date): string;

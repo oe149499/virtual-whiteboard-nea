@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
 import type { Item, Point } from "./gen/Types.js";
-import { createMethodPayload } from "./MethodsWrapper.js";
+import { createMethodPayload } from "./GenWrapper.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
 
