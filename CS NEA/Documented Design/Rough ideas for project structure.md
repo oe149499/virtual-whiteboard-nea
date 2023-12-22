@@ -90,7 +90,8 @@
 		- `gen/` - source-generated script files
 		- `source/` - original TS files for debugging
 	- `api/` - dynamic content and interacting with the server
-		- `board/<name>/ (websocket)` - Main API route for interacting with the board
+		- `board/<name>/ (POST)` - create session ID
+		- `session/<name>/ (websocket)` - Main API route for interacting with the board
 		- `tag/` - tags
 			- `create/ (POST)`
 				- Parameters (form data)
@@ -144,15 +145,15 @@
 	- Should be handled as an exception
 ## Components
 - Connecting to boards
-	- Connect - method
-		- Parameters - identification
-		- Response - Session code | Error
-	- Reconnect - method
-		- Parameters - session code
-	- Disconnect - notify-s
+	- End Session - method
+		- No return but should wait until completion
+	- Client Joined - notify-c
+		- Client ID, info
 	- Client Connected - notify-c
 		- Client ID
 	- Client Disconnected - notify-c
+		- Client ID
+	- Client Exited - notify-c
 		- Client ID
 - Selection
 	- Add to selection - method
@@ -328,11 +329,11 @@ async function onNotifyC(...);
 async function * iterate(...): AsyncIterable<ReturnType>;
 
 // # Connection
-async function connect(info: ClientInfo): Result<[SessionID, ClientID]>;
-async function reconnect(session: SessionID): Result;
-function disconnect();
+async function endSession();
+async function onClientJoined(id: ClientID, info: ClientInfo);
 async function onClientConnected(id: ClientID);
 async function onClientDisconnected(id: ClientID);
+async function onClientExited(id: ClientID);
 
 // # Selection
 // Returns a result for each individual item
