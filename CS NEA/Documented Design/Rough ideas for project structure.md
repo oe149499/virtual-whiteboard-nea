@@ -375,8 +375,8 @@ async function onPathCreated(client: ClientID);
 async function getAllItemIDs(): Result<ItemID[]>
 async function * getPartialItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
 async function * getFullItems(ids: ItemID[]): AsyncIterator<Result<Item>>;
-async function getAllClientInfo(): Result<"???">;
-async function * getActivePath(client: ClientID): AsyncIterator<"???">;z
+async function getAllClientInfo(): Result<Map<ClientID, ClientInfo>>;
+async function * getActivePath(client: ClientID): AsyncIterator<"???">;
 ```
 ## Wire Format
 - JSON-encoded data e.g.
