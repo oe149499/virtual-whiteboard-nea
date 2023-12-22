@@ -4,8 +4,7 @@ use camino::Utf8PathBuf;
 use flexi_logger::Logger;
 use log::{info, error};
 use tokio::runtime;
-use ts_rs::TS;
-use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, board::BoardManager, message::{MsgRecv, method::Methods}};
+use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, board::BoardManager, GlobalResources, GlobalRes};
 use warp::{Filter, filters::BoxedFilter, reply::Reply};
 
 #[derive(Parser, Debug)]
@@ -25,7 +24,6 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    dbg!(<Methods as TS>::decl());
     let _logger = Logger::try_with_env()?
         //.write_mode(WriteMode::Async)
         .start()?;
@@ -51,13 +49,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     runtime.block_on(async move {
         info!("Loading boards");
         // The board manager should stay alive for the lifetime of the program
-        let board_manager = Box::leak(Box::new(BoardManager::new_debug()));
+        let boards = BoardManager::new_debug();
+
+        let res = GlobalResources::new(boards).as_static();
     
         let filter = create_filter(
             args.static_path.into(),
             args.script_root.into(),
             args.serve_ts,
-            board_manager,
+            res,
         );
 
         info!("Starting server");
@@ -67,10 +67,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn create_filter(static_path: PathBuf, script_path: PathBuf, enable_source: bool, board_manager: &'static BoardManager) -> BoxedFilter<(impl Reply,)> {
+fn create_filter(static_path: PathBuf, script_path: PathBuf, enable_source: bool, res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
     info!("Building filters");
     let index_filter = warp::path("index.html").and(warp::fs::file(static_path.join("index.html")));
-    let api_filter = warp::path("api").and(create_api_filter(board_manager));
+    let api_filter = warp::path("api").and(create_api_filter(res));
     let static_filter = warp::path("static").and(create_static_filter(static_path));
     let script_filter = warp::path("script").and(create_script_filter(script_path, enable_source));
     return api_filter.or(static_filter).or(index_filter).or(script_filter).boxed()

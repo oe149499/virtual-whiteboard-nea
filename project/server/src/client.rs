@@ -6,25 +6,14 @@ use log::{warn, error, info};
 use warp::{filters::{BoxedFilter, ws::{WebSocket, Ws, Message}}, reply::Reply, Filter};
 use tokio::sync::mpsc;
 
-use crate::{message::MsgSend, counter, board::{BoardManager, BoardHandle}};
-
-/// A unique ID for each WebSocket connection
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct ConnectionID(usize);
-
-impl ConnectionID {
-	/// Atomically create a new [`ConnectionID`]
-	fn new() -> Self {
-		Self(counter!(AtomicUsize))
-	}
-}
+use crate::{message::{MsgSend, ClientInfo, SessionID, ClientID, MsgRecv}, board::BoardHandle, GlobalRes};
 
 enum ClientMessage {
 	ClientMessage(MsgSend),
 }
 
 /// A handle used to send messages mack to a client
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ClientHandle {
 	message_pipe: mpsc::UnboundedSender<ClientMessage>,
 }
@@ -53,30 +42,81 @@ impl ClientHandle {
 	}
 }
 
+/// Max request body length for session creation (1KiB but subject to change)
+pub static MAX_SESSION_CREATE_LENGTH: u64 = 1024;
+
+#[derive(Clone)]
+pub struct Session {
+	client_id: ClientID,
+	handle: BoardHandle,
+}
+
+impl Session {
+	fn connect(&self, handle: ClientHandle) {
+		self.handle.client_connected(self.client_id, handle)
+	}
+
+	fn message(&self, msg: MsgRecv) {
+		self.handle.client_msg(self.client_id, msg)
+	}
+}
+
+/// Lookup table of session IDs
+pub type SessionRegistry = tokio::sync::RwLock<std::collections::HashMap<SessionID, Session>>;
+
 /// Create the board route as a [`Filter`]
-pub fn create_board_filter(board_manager: &'static BoardManager) -> BoxedFilter<(impl Reply,)> {
-	warp::path!(String)
+pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	let session: _ = warp::path!("session" / SessionID)
 		.and(warp::ws())
-		.and_then(|name: String, ws: Ws| async {
-			if let Some(handle) = board_manager.load_board(name).await {
+		.and_then(move |id: SessionID, ws: Ws| async move {
+			let sessions = res.sessions.read().await;
+			if let Some(session) = sessions.get(&id) {
+				let session = session.clone();
 				Ok(ws.on_upgrade(|ws| async {
-					handle_client(handle, ws).await
+					handle_session(session, ws).await
 				}))
 			} else {
 				Err(warp::reject())
 			}
-		})
-		.boxed()
+		});
+	let session_create: _ = warp::path!("board" / String)
+		.and(warp::body::content_length_limit(MAX_SESSION_CREATE_LENGTH))
+		.and(warp::body::json())
+		.and_then(|name, info: ClientInfo| async {
+			if let Some(handle) = res.boards.load_board(name).await {
+				let session = handle.create_session(info).await;
+				if let Ok(info) = &session {
+					if let Some(s) = res.sessions.write().await.insert(
+						info.session_id,
+						Session {
+							client_id: info.client_id,
+							handle
+						}
+					) {
+						error!("Duplicate session ID: {:?}", info.session_id);
+					}
+				}
+				use crate::message::Result;
+				Ok(
+					serde_json::to_string(&Result::from(session))
+						.unwrap_or_else(|e| {
+							error!("Failed to serialize response: {e}");
+							String::new()
+						})
+				)
+			} else {
+				Err(warp::reject())
+			}
+		});
+	session.or(session_create).boxed()
 }
 
-async fn handle_client(board: BoardHandle, ws: WebSocket) {
-	let id = ConnectionID::new();
-
+async fn handle_session(session: Session, ws: WebSocket) {
 	let (mut tx, mut rx) = ws.split();
 
 	let (handle, mut board_recv) = ClientHandle::new();
 
-	board.client_connected(id, handle);
+	session.connect(handle);
 	
 	tokio::task::spawn(async move {
 		while let Some(msg) = board_recv.recv().await {
@@ -100,7 +140,7 @@ async fn handle_client(board: BoardHandle, ws: WebSocket) {
 		match msg {
 			Ok(msg) => {
 				match serde_json::from_slice(msg.as_bytes()) {
-					Ok(msg) => board.client_msg(id, msg),
+					Ok(msg) => session.message(msg),
 					Err(e) => {
 						info!("Received malformed message from client: {e}")
 					},

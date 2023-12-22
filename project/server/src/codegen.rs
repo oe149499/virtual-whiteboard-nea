@@ -101,14 +101,20 @@ fn main() {
 		};
 		export_str! {
 			[
+			//m::MsgRecv,
+			//m::MsgSend,
 			m::ErrorCode,
 			m::Error,
 			m::Result,
 			m::ClientInfo,
+			m::ConnectionInfo,
 			m::SessionID,
 			m::ClientID,
 			m::ItemID,
-			m::ConnectionInfo,
+			m::LocationUpdate,
+			m::ItemsDeselected,
+			m::BatchChanges,
+
 
 			c::Point,
 			c::Color,
@@ -145,8 +151,6 @@ fn main() {
 	let method_export = {
 		use virtual_whiteboard::message::method::{Method, self as m};
 		export_str!{[
-			m::Connect,
-			m::Reconnect,
 			m::SelectionAddItems,
 		] with T : Method => {
 			unsafe { methods.push(T::name()) };

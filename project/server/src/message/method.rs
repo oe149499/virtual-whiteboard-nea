@@ -1,6 +1,7 @@
 //! Method call signatures and helper types
 
 use serde::{Serialize, Deserialize};
+use super::MsgSend;
 use ts_rs::TS;
 
 /// The information describing a method call
@@ -35,6 +36,18 @@ impl <T : Method> Call<T> {
 			id: self.id,
 			value
 		}
+	}
+}
+
+impl <T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
+	/// Construct a return packet from a [`super::Result::Ok`] value
+	pub fn create_ok(&self, value: TOk) -> Response<T> {
+		self.create_response(super::Result::Ok(value))
+	}
+
+	/// Construct a return packet from a [`super::Result::Err`] value
+	pub fn create_err(&self, value: TErr) -> Response<T> {
+		self.create_response(super::Result::Err(value))
 	}
 }
 
@@ -204,33 +217,45 @@ macro_rules! method_enum {
 
 		/// The enumeration of all method return types
 		#[derive(Serialize, Deserialize, TS, Debug)]
+		#[serde(untagged)]
 		pub enum $resp_name {
 			$(
 				/// See individual types for more information
 				$type(Response<$type>),
 			)*
 		}
+
+		$(
+			impl Response<$type> {
+				/// Generate a [`MsgSend`] from the response
+				pub fn to_msg(self) -> MsgSend {
+					MsgSend::Response(
+						$resp_name::$type(self)
+					)
+				}
+			}
+		)*
 	}
 }
 
 method_enum! {
-	Methods, Responses => Connect, Reconnect, SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
+	Methods, Responses => /*Connect, Reconnect, */SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
 }
 
 pub use _methods::*;
 #[allow(unused_parens, non_snake_case)]
 mod _methods {
 	use super::*;
-	use crate::{message::{self as m, ClientInfo, SessionID, ItemID, ItemsDeselected, BatchChanges}, canvas::Item};
-	declare_method! {
-		/// Establish a connection with the given information
-		fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
-	}
+	use crate::{message::{self as m, ItemID, ItemsDeselected, BatchChanges}, canvas::Item};
+	// declare_method! {
+	// 	/// Establish a connection with the given information
+	// 	fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
+	// }
 
-	declare_method!{
-		/// Re-establish a connection and continue as left off
-		fn Reconnect(session: SessionID) -> m::Result
-	}
+	// declare_method!{
+	// 	/// Re-establish a connection and continue as left off
+	// 	fn Reconnect(session: SessionID) -> m::Result
+	// }
 
 	declare_method!{
 		/// Attempt to add a set of items to the client's selection

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use serde::{Serialize, Deserialize};
 use ts_rs::TS;
-use derive_more::Deref;
+use derive_more::{Deref, FromStr};
 
 use crate::canvas::{Transform, Point, Color, Stroke};
 
@@ -30,6 +30,8 @@ pub enum MsgSend {
 pub enum ErrorCode {
 	/// The request attempted to access a resource which is currently in use by another client
 	NotAvailable = 0,
+	/// An internal server error happened, no further information is available
+	Internal = 1,
 }
 
 #[derive(Serialize, Deserialize, TS, Debug)]
@@ -40,6 +42,16 @@ pub struct Error {
 	pub code: ErrorCode,
 	/// The error explanation
 	pub msg: Option<String>,
+}
+
+impl Error {
+	/// Preset for internal errors
+	pub fn internal() -> Self {
+		Self {
+			code: ErrorCode::Internal,
+			msg: None,
+		}
+	}
 }
 
 #[derive(Serialize, Deserialize, TS, Debug)]
@@ -70,8 +82,9 @@ pub struct ClientInfo {
 	pub name: String,
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
 /// Identification provided to clients
+#[derive(Serialize, Deserialize, TS, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ConnectionInfo {
 	/// See [`ClientID`]
 	pub client_id: ClientID,
@@ -79,9 +92,17 @@ pub struct ConnectionInfo {
 	pub session_id: SessionID,
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy, FromStr)]
 /// A private ID used to verify reconnects
 pub struct SessionID(u32);
+
+impl SessionID {
+	/// Atomically create a new unique [`SessionID`]
+	pub fn new() -> Self {
+		Self(crate::utils::counter!(AtomicU32))
+	}
+}
+
 #[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 /// A public ID shared with other clients
 pub struct ClientID(u32);

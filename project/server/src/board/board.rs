@@ -4,16 +4,17 @@ mod active;
 
 pub use manager::BoardManager;
 
-use log::warn;
-use tokio::sync::mpsc;
-use crate::{message::MsgRecv, client::{ConnectionID, ClientHandle}};
+use log::{warn, error};
+use tokio::sync::{mpsc, oneshot};
+use crate::{message::{self, MsgRecv, ClientInfo, ConnectionInfo, ClientID}, client::ClientHandle};
 
 
 
 enum BoardMessage {
-	ClientMessage(ConnectionID, MsgRecv),
-	NewConnection(ConnectionID, ClientHandle),
-	ConnectionClosed(ConnectionID),
+	ClientMessage(ClientID, MsgRecv),
+	SessionRequest(ClientInfo, oneshot::Sender<Result<ConnectionInfo, message::Error>>),
+	ClientConnected(ClientID, ClientHandle),
+	ClientDisconnected(ClientID),
 }
 
 /// A reference to an active board that can be used to interact with it
@@ -29,18 +30,29 @@ impl BoardHandle {
 				warn!("Failed to send message to board: {e}");
 			})
 	}
+
+	/// Register a new client
+	pub async fn create_session(&self, info: ClientInfo) -> Result<ConnectionInfo, message::Error> {
+		let (send, recv) = oneshot::channel();
+		self.send_msg(BoardMessage::SessionRequest(info, send));
+		recv.await.unwrap_or_else(|e| {
+			error!("Failed to recieve session creation response from board: {e}");
+			Err(message::Error::internal())
+		})
+	}
+
 	/// Send a message to the board
-	pub fn client_msg(&self, id: ConnectionID, msg: MsgRecv) {
+	pub fn client_msg(&self, id: ClientID, msg: MsgRecv) {
 		self.send_msg(BoardMessage::ClientMessage(id, msg));
 	}
 
 	/// Inform the board that a new client has connected
-	pub fn client_connected(&self, id: ConnectionID, handle: ClientHandle) {
-		self.send_msg(BoardMessage::NewConnection(id, handle));
+	pub fn client_connected(&self, id: ClientID, handle: ClientHandle) {
+		self.send_msg(BoardMessage::ClientConnected(id, handle));
 	}
 
 	/// Inform the board that a client has disconnected
-	pub fn client_disconnected(&self, id: ConnectionID) {
-		self.send_msg(BoardMessage::ConnectionClosed(id));
+	pub fn client_disconnected(&self, id: ClientID) {
+		self.send_msg(BoardMessage::ClientDisconnected(id));
 	}
 }
