@@ -1,41 +1,55 @@
 import { Logger } from "./Logger.js";
 import { RawClient } from "./RawClient.js";
-import { getErr, getOk } from "./Utils.js";
-import { ClientInfo } from "./gen/Types.js";
+import { unwrap } from "./Utils.js";
+import { ClientInfo, ConnectionInfo, Result } from "./gen/Types.js";
 
 const logger = new Logger("session-client");
 
 export class SessionClient {
-	private rawClient: RawClient;
-	private sessionCode?: number;
-	private _clientID?: number;
-	public get clientID() {
-		return this._clientID;
-	}
-	readonly url: URL;
+	static async new(
+		boardName: string,
+		info: ClientInfo,
+	): Promise<SessionClient> {
+		const boardURL = new URL(`/api/board/${boardName}/`, window.location.href);
+		const response = await fetch(boardURL.toString(), {
+			method: "POST",
+			body: JSON.stringify(info),
+			headers: {
+				"Content-Type": "application/json"
+			}
+		});
 
-	constructor(
+		const data = await response.json() as Result<ConnectionInfo>;
+
+		logger.info("Recieved connection information:", data);
+
+		const conn = unwrap(data);
+
+		const client = new SessionClient(
+			boardName,
+			conn.sessionId,
+			conn.clientId,
+			info,
+		);
+		return client;
+	}
+
+	private rawClient: RawClient;
+	readonly socketUrl: URL;
+
+	private constructor(
 		readonly boardName: string,
+		private sessionCode: number,
+		readonly clientID: number,
 		readonly info: ClientInfo,
 	) {	
 		const location = window.location;
-		this.url = new URL(`/api/board/${boardName}/`, location.href);
+		this.socketUrl = new URL(`/api/session/${this.sessionCode}/`, location.href);
 		if (location.protocol == "https") {
-			this.url.protocol = "wss";
+			this.socketUrl.protocol = "wss";
 		} else {
-			this.url.protocol = "ws";
+			this.socketUrl.protocol = "ws";
 		}
-		this.rawClient = new RawClient(this.url);
-
-		this.rawClient.callMethod("Connect", {info})
-			.then((val) => {
-				let res;
-				if ((res = getOk(val))) {
-					this._clientID = res.clientId;
-					this.sessionCode = res.sessionId;
-				} else if ((res = getErr(val))) {
-					logger.error("Failed to register with board");
-				}
-			});
+		this.rawClient = new RawClient(this.socketUrl);
 	}
 }

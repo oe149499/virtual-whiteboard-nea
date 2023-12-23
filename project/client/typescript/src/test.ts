@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/ban-types */
+import { SessionClient } from "./Client.js";
 import type { Item, Point } from "./gen/Types.js";
-import { createMethodPayload } from "./GenWrapper.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
 
@@ -22,13 +22,5 @@ const message: string = "Hello World!";
 const item = JSON.stringify(basic_item);
 console.log(message, item);
 
-//type Id<T> = {} & { [P in keyof T]: T[P] };
-
-console.log(createMethodPayload(
-	"Connect",
-	{
-		info: {
-			name: "Oscar"
-		}
-	}
-));
+// @ts-expect-error testing
+window.SessionClient = SessionClient;
