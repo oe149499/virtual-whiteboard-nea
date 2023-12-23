@@ -1,63 +1,60 @@
 //! Method call signatures and helper types
 
-use serde::{Serialize, Deserialize};
 use super::MsgSend;
+use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// The information describing a method call
 pub trait Method {
-	/// The type that should be sent back to the client
-	type Response : TS + Serialize;
+    /// The type that should be sent back to the client
+    type Response: TS + Serialize;
 
-	/// The name of the method in Typescript
-	fn name() -> String;
+    /// The name of the method in Typescript
+    fn name() -> String;
 
-	/// The parameters of the method as a Typescript object
-	fn ts_params() -> String;
+    /// The parameters of the method as a Typescript object
+    fn ts_params() -> String;
 
-	/// The return type in Typescript
-	fn ts_return() -> String;
+    /// The return type in Typescript
+    fn ts_return() -> String;
 }
 
 #[derive(TS, Serialize, Deserialize, Debug)]
 /// An object representing a method call packet
-pub struct Call<T : Method> {
-	/// The call ID for the client to associate the response with the call
-	id: u32,
-	#[serde(flatten)]
-	/// The call parameters
-	pub params: T,
+pub struct Call<T: Method> {
+    /// The call ID for the client to associate the response with the call
+    id: u32,
+    #[serde(flatten)]
+    /// The call parameters
+    pub params: T,
 }
 
-impl <T : Method> Call<T> {
-	/// Construct a return packet from the call
-	pub fn create_response(&self, value: T::Response) -> Response<T> {
-		Response {
-			id: self.id,
-			value
-		}
-	}
+impl<T: Method> Call<T> {
+    /// Construct a return packet from the call
+    pub fn create_response(&self, value: T::Response) -> Response<T> {
+        Response { id: self.id, value }
+    }
 }
 
-impl <T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
-	/// Construct a return packet from a [`super::Result::Ok`] value
-	pub fn create_ok(&self, value: TOk) -> Response<T> {
-		self.create_response(super::Result::Ok(value))
-	}
+impl<T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
+    /// Construct a return packet from a [`super::Result::Ok`] value
+    pub fn create_ok(&self, value: TOk) -> Response<T> {
+        self.create_response(super::Result::Ok(value))
+    }
 
-	/// Construct a return packet from a [`super::Result::Err`] value
-	pub fn create_err(&self, value: TErr) -> Response<T> {
-		self.create_response(super::Result::Err(value))
-	}
+    /// Construct a return packet from a [`super::Result::Err`] value
+    pub fn create_err(&self, value: TErr) -> Response<T> {
+        self.create_response(super::Result::Err(value))
+    }
 }
 
 /// An object representing a method return packet
 #[derive(TS, Serialize, Deserialize, Debug)]
-pub struct Response<T : Method> {
-	/// See [`Call::id`]
-	id: u32,
-	/// The return value
-	pub value: T::Response,
+pub struct Response<T: Method> {
+    /// See [`Call::id`]
+    id: u32,
+    /// The return value
+    pub value: T::Response,
 }
 
 macro_rules! parse_type {
@@ -102,7 +99,7 @@ macro_rules! parse_type {
 	);
 
 	(@ $($t:tt)*) => {
-		macro_error
+		stringify!($($t)*)
 	};
 
 	($($t:tt)*) => (
@@ -153,7 +150,7 @@ macro_rules! parse_params {
 		macro_error
 	};
 
-	() => ("");
+	() => (String::new());
 
 	($($t:tt)*) => {
 		parse_params!(
@@ -239,47 +236,55 @@ macro_rules! method_enum {
 }
 
 method_enum! {
-	Methods, Responses => /*Connect, Reconnect, */SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems,
+    Methods, Responses => SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems, GetAllClientInfo,
 }
 
 pub use _methods::*;
 #[allow(unused_parens, non_snake_case)]
 mod _methods {
-	use super::*;
-	use crate::{message::{self as m, ItemID, ItemsDeselected, BatchChanges}, canvas::Item};
-	// declare_method! {
-	// 	/// Establish a connection with the given information
-	// 	fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
-	// }
+    use super::*;
+    use crate::{
+        canvas::Item,
+        message::{self as m, BatchChanges, ClientTable, ItemID, ItemsDeselected},
+    };
+    // declare_method! {
+    // 	/// Establish a connection with the given information
+    // 	fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
+    // }
 
-	// declare_method!{
-	// 	/// Re-establish a connection and continue as left off
-	// 	fn Reconnect(session: SessionID) -> m::Result
-	// }
+    // declare_method!{
+    // 	/// Re-establish a connection and continue as left off
+    // 	fn Reconnect(session: SessionID) -> m::Result
+    // }
 
-	declare_method!{
-		/// Attempt to add a set of items to the client's selection
-		fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(m::Result)>
-	}
+    declare_method! {
+        /// Attempt to add a set of items to the client's selection
+        fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(m::Result)>
+    }
 
-	declare_method!{
-		/// Remove a set of items from the client's selection.
-		/// This operation should be either fully successful or fully unsuccessful
-		fn SelectionRemoveItems(items: ItemsDeselected) -> m::Result
-	}
+    declare_method! {
+        /// Remove a set of items from the client's selection.
+        /// This operation should be either fully successful or fully unsuccessful
+        fn SelectionRemoveItems(items: ItemsDeselected) -> m::Result
+    }
 
-	declare_method!{
-		/// Apply a [`BatchChanges`] to the set of items
-		fn EditBatchItems(ids: Vec<(ItemID)>, changes: BatchChanges) -> Vec<(m::Result)>
-	}
+    declare_method! {
+        /// Apply a [`BatchChanges`] to the set of items
+        fn EditBatchItems(ids: Vec<(ItemID)>, changes: BatchChanges) -> Vec<(m::Result)>
+    }
 
-	declare_method!{
-		/// Replace/Merge \[TODO: Clarify/decide] an item with a new item
-		fn EditSingleItem(id: ItemID, item: Item) -> m::Result
-	}
+    declare_method! {
+        /// Replace/Merge \[TODO: Clarify/decide] an item with a new item
+        fn EditSingleItem(id: ItemID, item: Item) -> m::Result
+    }
 
-	declare_method!{
-		/// Delete multiple items from the board
-		fn DeleteItems(ids: Vec<(ItemID)>) -> Vec<(m::Result)>
-	}
+    declare_method! {
+        /// Delete multiple items from the board
+        fn DeleteItems(ids: Vec<(ItemID)>) -> Vec<(m::Result)>
+    }
+
+    declare_method! {
+        /// Get a list of all clients and their associated information
+        fn GetAllClientInfo() -> m::Result<(ClientTable)>
+    }
 }

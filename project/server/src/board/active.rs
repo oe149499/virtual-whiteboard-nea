@@ -1,14 +1,14 @@
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
-use log::{error, info};
+use log::error;
 use scc::{hash_map::OccupiedEntry, HashMap};
-use tokio::sync::mpsc;
+use tokio::task::yield_now;
 
 use crate::{
     client::ClientHandle,
     message::{
-        method::{Call, Methods},
-        ClientID, ClientInfo, ConnectionInfo, MsgRecv, Result as MResult, SessionID,
+        method::{Call, GetAllClientInfo, Methods},
+        ClientID, ClientInfo, ClientTable, ConnectionInfo, MsgRecv, SessionID,
     },
 };
 
@@ -31,13 +31,24 @@ impl Board {
             clients: HashMap::new(),
         }
     }
-    fn launch(mut self) -> (BoardHandle, impl Future<Output = Self>) {
-        let (sender, mut reciever) = mpsc::unbounded_channel();
+    fn launch(self, tasks: usize) -> (BoardHandle, impl Future<Output = Self>) {
+        let (sender, receiver) = async_channel::unbounded();
+        let self_rc = Arc::new(self);
+        let mut handles = Vec::new();
+        for _ in 0..tasks {
+            let receiver = receiver.clone();
+            let self_rc = self_rc.clone();
+            let handle = tokio::task::spawn(async move {
+                while let Ok(msg) = receiver.recv().await {
+                    self_rc.handle_message(msg).await;
+                }
+            });
+            handles.push(handle)
+        }
         let result = async move {
-            while let Some(msg) = reciever.recv().await {
-                self.handle_message(msg).await;
-            }
-            self
+            futures::future::join_all(handles).await;
+            Arc::<Board>::into_inner(self_rc)
+                .expect("Board references were not dropped by individual tasks")
         };
         (
             BoardHandle {
@@ -47,7 +58,7 @@ impl Board {
         )
     }
 
-    async fn handle_message(&mut self, msg: BoardMessage) {
+    async fn handle_message(&self, msg: BoardMessage) {
         match msg {
             BoardMessage::ClientMessage(id, msg) => {
                 self.handle_client_message(id, msg).await;
@@ -84,52 +95,36 @@ impl Board {
         }
     }
 
-    async fn handle_client_message(&mut self, id: ClientID, msg: MsgRecv) {
+    async fn handle_client_message(&self, id: ClientID, msg: MsgRecv) {
         match msg {
             MsgRecv::Method(method) => self.handle_method(id, method).await,
         }
     }
 
-    async fn handle_method(&mut self, id: ClientID, method: Methods) {
+    async fn handle_method(&self, id: ClientID, method: Methods) {
         match method {
             Methods::SelectionAddItems(_) => todo!(),
             Methods::SelectionRemoveItems(_) => todo!(),
             Methods::EditBatchItems(_) => todo!(),
             Methods::EditSingleItem(_) => todo!(),
             Methods::DeleteItems(_) => todo!(),
+            Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
         }
     }
 
-    /*async fn handle_connect(&mut self, id: Clien, c: Call<Connect>) {
-        info!("Connection request: {c:?}");
-        let mut connection = self.get_connection(&id).await;
-        let conn = connection.get_mut();
-        match conn {
-            Connection::Pending(handle) => {
-                let session_id = SessionID::new();
-                let client_id = ClientID::new();
-
-                handle.send_message(c.create_ok(
-                    ConnectionInfo {
-                        client_id,
-                        session_id,
-                    }
-                ).to_msg());
-
-                let client = ClientState {
-                    info: c.params.info,
-                    handle: Some(handle.clone()),
-                    connection: Some(id),
-                    session: session_id,
-                };
-                *conn = Connection::Client(client_id);
-                self.clients.insert_async(client_id, client)
-                    .await.expect("Duplicate client ID, something went wrong");
-
-            },
-            Connection::Client(_) => todo!(),
+    async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
+        let mut out = std::collections::HashMap::new();
+        self.clients
+            .scan_async(|&k, v| {
+                out.insert(k, v.info.clone());
+            })
+            .await;
+        yield_now().await;
+        let client = self.get_client(&id).await;
+        if let Some(handle) = &client.get().handle {
+            handle.send_message(call.create_ok(ClientTable(out)).to_msg());
         }
-    }*/
+    }
 
     async fn get_client(&self, id: &ClientID) -> OccupiedEntry<'_, ClientID, ClientState> {
         self.clients
@@ -142,7 +137,7 @@ impl Board {
 /// Creates a handle for a board that can be used for testing
 pub fn debug_board() -> BoardHandle {
     let board = Board::new_debug();
-    let (handle, task) = board.launch();
+    let (handle, task) = board.launch(4);
     tokio::task::spawn(task);
     handle
 }

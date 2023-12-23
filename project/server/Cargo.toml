@@ -15,9 +15,11 @@ path = "src/main.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-channel = "2.1.1"
 camino = "1.1.6"
 derive_more = { version = "0.99.17", features = ["from", "deref"] }
 flexi_logger = { version = "0.27.3", features = ["async"] }
+futures = "0.3.29"
 futures-util = "0.3.29"
 itertools = "0.11.0"
 lazy_static = "1.4.0"
