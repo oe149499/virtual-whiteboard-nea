@@ -18,11 +18,7 @@ use std::path::PathBuf;
 
 use board::BoardManager;
 use client::{create_client_filter, SessionRegistry};
-use warp::{
-    filters::{path::path, BoxedFilter},
-    reply::Reply,
-    Filter,
-};
+use warp::{filters::BoxedFilter, reply::Reply, Filter};
 
 /// A container of all resources shared across parts of the application
 pub struct GlobalResources {

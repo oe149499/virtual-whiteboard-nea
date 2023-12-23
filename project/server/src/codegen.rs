@@ -18,6 +18,9 @@ struct Args {
     #[arg(short, long, default_value_t = false)]
     methods: bool,
 
+    #[arg(short = 'c', long = "notify-c", default_value_t = false)]
+    notify_c: bool,
+
     #[arg(short, long, default_value_t = false)]
     dry_run: bool,
 }
@@ -25,6 +28,7 @@ struct Args {
 enum ExportTarget {
     Types,
     Methods,
+    NotifyC,
 }
 
 impl ExportTarget {
@@ -32,6 +36,7 @@ impl ExportTarget {
         match self {
             Self::Types => "Types",
             Self::Methods => "Methods",
+            Self::NotifyC => "NotifyC",
         }
     }
 
@@ -39,6 +44,7 @@ impl ExportTarget {
         match self {
             Self::Types => ARGS.types,
             Self::Methods => ARGS.methods,
+            Self::NotifyC => ARGS.notify_c,
         }
     }
 }
@@ -130,6 +136,10 @@ fn main() {
 
     export(ExportTarget::Types, type_export);
 
+    let names_import = format!(r#"import type {{ {} }} from "./Types";"#, unsafe {
+        names.join(", ")
+    });
+
     #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
     static mut methods: Vec<String> = Vec::new();
 
@@ -153,7 +163,7 @@ fn main() {
         ExportTarget::Methods,
         format!(
             r#"// @ts-ignore: Generated code
-import {{ {} }} from "./Types";
+{}
 export type Methods = {{
 {}
 }};
@@ -162,12 +172,53 @@ export const MethodNames: (keyof Methods)[] = [
 	{}
 ];
 "#,
-            unsafe { names.join(", ") }, // Safe because single-threaded
+            names_import, // Safe because single-threaded
             method_export,
             unsafe { &methods }
                 .iter()
                 .map(|s| format!("\"{}\"", s))
                 .join(", "),
         ),
-    )
+    );
+
+    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
+    static mut notify_c_names: Vec<String> = Vec::new();
+
+    let notify_c_export = {
+        use virtual_whiteboard::message::notify_c as c;
+        export_str!([
+            c::ClientJoined,
+            c::ClientConnected,
+        ] with T : TS => {
+            let decl = T::decl();
+            let params = decl.splitn(3, ' ').last().unwrap();
+            unsafe { notify_c_names.push(T::name()) };
+            format!(
+                "\t{}: {},",
+                T::name(),
+                params,
+            )
+        })
+    };
+
+    export(
+        ExportTarget::NotifyC,
+        format!(
+            r#"// @ts-ignore: Generated code
+{}
+export type NotifyCs = {{
+{}
+}};
+
+export const NotifyCNames: (keyof NotifyCs)[] = [
+	{}
+]"#,
+            names_import,
+            notify_c_export,
+            unsafe { &notify_c_names }
+                .iter()
+                .map(|s| format!("\"{s}\""))
+                .join(", "),
+        ),
+    );
 }

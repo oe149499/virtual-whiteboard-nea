@@ -1,5 +1,5 @@
 //! Interfacing with clients
-//! The main interface of this module is [`create_board_filter`], which builds a filter to forward WebSocket requests to a board
+//! The main interface of this module is [`create_client_filter`], which builds a filter to forward WebSocket requests to a board
 
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -95,7 +95,7 @@ pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
             if let Some(handle) = res.boards.load_board(name).await {
                 let session = handle.create_session(info).await;
                 if let Ok(info) = &session {
-                    if let Some(s) = res.sessions.write().await.insert(
+                    if let Some(_) = res.sessions.write().await.insert(
                         info.session_id,
                         Session {
                             client_id: info.client_id,

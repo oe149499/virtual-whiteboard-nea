@@ -2,7 +2,7 @@
 
 pub mod method;
 pub mod notify_c;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use derive_more::{Deref, FromStr};
 use serde::{Deserialize, Serialize};
@@ -26,6 +26,7 @@ pub enum MsgSend {
     Response(method::Responses),
 
     /// A notification for clients
+    #[serde(rename = "Notify-C")]
     NotifyC(notify_c::NotifyC),
 }
 
@@ -58,10 +59,11 @@ impl Error {
     }
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
 /// Copy of [`std::result::Result`] to enable generation of TS types.
 ///
 /// Convenient default type parameters are also set.
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[serde(tag = "status")]
 pub enum Result<T = (), TErr = ErrorCode> {
     /// Success
     Ok(T),
@@ -107,7 +109,9 @@ impl SessionID {
     }
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, TS, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
 /// A public ID shared with other clients
 pub struct ClientID(u32);
 
@@ -149,4 +153,4 @@ pub struct BatchChanges {
 
 /// A wrapper around a mapping from [`ClientID`]s to [`ClientInfo`]s
 #[derive(Serialize, TS, Deref, Debug)]
-pub struct ClientTable(pub HashMap<ClientID, ClientInfo>);
+pub struct ClientTable(pub BTreeMap<ClientID, ClientInfo>);

@@ -2,13 +2,14 @@ use std::{future::Future, sync::Arc};
 
 use log::error;
 use scc::{hash_map::OccupiedEntry, HashMap};
-use tokio::task::yield_now;
+use tokio::sync::RwLock;
 
 use crate::{
     client::ClientHandle,
     message::{
         method::{Call, GetAllClientInfo, Methods},
-        ClientID, ClientInfo, ClientTable, ConnectionInfo, MsgRecv, SessionID,
+        notify_c::{ClientJoined, NotifyCType},
+        ClientID, ClientInfo, ClientTable, ConnectionInfo, MsgRecv, MsgSend, SessionID,
     },
 };
 
@@ -21,13 +22,24 @@ struct ClientState {
     session: SessionID,
 }
 
+impl ClientState {
+    /// Send a message to the client if it has a handle attached
+    fn try_send(&self, msg: MsgSend) {
+        if let Some(handle) = &self.handle {
+            handle.send_message(msg);
+        }
+    }
+}
+
 struct Board {
+    client_ids: RwLock<std::collections::BTreeSet<ClientID>>,
     clients: HashMap<ClientID, ClientState>,
 }
 
 impl Board {
     fn new_debug() -> Self {
         Self {
+            client_ids: Default::default(),
             clients: HashMap::new(),
         }
     }
@@ -76,7 +88,7 @@ impl Board {
                 let client_id = ClientID::new();
                 let session_id = SessionID::new();
                 let client = ClientState {
-                    info,
+                    info: info.clone(),
                     handle: None,
                     session: session_id,
                 };
@@ -84,13 +96,21 @@ impl Board {
                     .insert_async(client_id, client)
                     .await
                     .expect("Duplicate Client IDs, something is very wrong");
+                self.client_ids.write().await.insert(client_id);
+
                 let connection = ConnectionInfo {
                     client_id,
                     session_id,
                 };
                 reply.send(Ok(connection)).unwrap_or_else(|e| {
                     error!("Failed to send session creation reply: {e:?}");
+                });
+
+                self.send_notify_c(ClientJoined {
+                    id: client_id,
+                    info,
                 })
+                .await
             }
         }
     }
@@ -113,17 +133,17 @@ impl Board {
     }
 
     async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
-        let mut out = std::collections::HashMap::new();
-        self.clients
-            .scan_async(|&k, v| {
-                out.insert(k, v.info.clone());
-            })
-            .await;
-        yield_now().await;
-        let client = self.get_client(&id).await;
-        if let Some(handle) = &client.get().handle {
-            handle.send_message(call.create_ok(ClientTable(out)).to_msg());
+        let mut out = std::collections::BTreeMap::new();
+        let client_ids = self.client_ids.read().await;
+        for id in client_ids.iter() {
+            let info = self.get_client(id).await.get().info.clone();
+            out.insert(*id, info);
         }
+        drop(client_ids);
+        let client = self.get_client(&id).await;
+        client
+            .get()
+            .try_send(call.create_ok(ClientTable(out)).to_msg());
     }
 
     async fn get_client(&self, id: &ClientID) -> OccupiedEntry<'_, ClientID, ClientState> {
@@ -131,6 +151,16 @@ impl Board {
             .get_async(id)
             .await
             .expect("Missing client ID, something is very wrong")
+    }
+
+    async fn send_notify_c(&self, msg: impl NotifyCType) {
+        let msg = msg.as_notify();
+        for id in self.client_ids.read().await.iter() {
+            self.get_client(id)
+                .await
+                .get()
+                .try_send(msg.clone().as_msg())
+        }
     }
 }
 
