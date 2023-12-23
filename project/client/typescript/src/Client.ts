@@ -1,3 +1,4 @@
+import { MethodDispatcher, createMethodReciever } from "./GenWrapper.js";
 import { Logger } from "./Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "./Utils.js";
@@ -35,7 +36,15 @@ export class SessionClient {
 	}
 
 	private rawClient: RawClient;
+	private methodDispatcher: MethodDispatcher | null = null;
 	readonly socketUrl: URL;
+
+	public get method(): MethodDispatcher {
+		if (this.methodDispatcher == null) {
+			this.methodDispatcher = createMethodReciever(this.rawClient.getMethodHandler());
+		}
+		return this.methodDispatcher;
+	}
 
 	private constructor(
 		readonly boardName: string,

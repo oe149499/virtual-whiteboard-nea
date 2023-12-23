@@ -1,4 +1,4 @@
-import { MArgs, MName, MRet, MsgRecv, createMethodPayload } from "./GenWrapper.js";
+import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler } from "./GenWrapper.js";
 import { Logger } from "./Logger.js";
 
 const logger = new Logger("ws-client");
@@ -12,6 +12,10 @@ export class RawClient {
 	private callId: number = 0;
 	private socket: WebSocket | null = null;
 	private calls: Record<number, CallRecord> = {};
+	private notifyCHandlers: {
+		[K in NCName]?: (_:NCArgs<K>) => void;
+	} = {};
+
 
 	constructor(private url: URL) {
 		this.bindSocket();
@@ -49,10 +53,22 @@ export class RawClient {
 		return promise;
 	}
 
+	public getMethodHandler(): MethodHandler {
+		return this.callMethod.bind(this);
+	}
+
+	public setNotifyHandler<N extends NCName>(
+		name: N,
+		handler: (_:NCArgs<N>) => void,
+	) {
+		// @ts-expect-error trust me bro
+		this.notifyCHandlers[name] = handler;
+	}
+
 	private handleMessageObject(msg: MsgRecv) {
-		const {protocol, id, value} = msg;
-		switch(protocol) {
+		switch(msg.protocol) {
 		case "Response": {
+			const {id, value} = msg;
 			if (id in this.calls) {
 				this.calls[id].resolve(value);
 				delete this.calls[id];
@@ -60,8 +76,13 @@ export class RawClient {
 				logger.error("Got response with no registered call");
 			}
 		} break;
+		case "Notify-C": {
+			const {protocol:_, name, ...args} = msg;
+			this.handleNotifyC(name, args);
+		} break;
 		default: {
-			logger.error(`Unknown message type: ${msg.protocol}`);
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			logger.error(`Unknown message type: ${(msg as any).protocol}`);
 		}
 		}
 	}
@@ -87,5 +108,14 @@ export class RawClient {
 
 	private onSocketClose(event: CloseEvent) {
 		logger.info("Socket Closed:", event);
+	}
+
+	private handleNotifyC<N extends NCName>(name: N, args: NCArgs<N>) {
+		const handler = this.notifyCHandlers[name];
+		if (handler !== undefined) {
+			handler(args);
+		} else {
+			logger.error(`No handler set for Notify-C type ${name}`);
+		}
 	}
 }

@@ -1,4 +1,5 @@
 import { MethodNames, Methods } from "./gen/Methods.js";
+import { NotifyCs } from "./gen/NotifyC.js";
 
 export type MName = keyof Methods;
 
@@ -35,7 +36,7 @@ export type MethodDispatcher = {
 	[M in MName]: MCall<M>;
 }
 
-type MethodHandler = <M extends MName>(name: M, args: MArgs<M>) => Promise<MRet<M>>;
+export type MethodHandler = <M extends MName>(name: M, args: MArgs<M>) => Promise<MRet<M>>;
 
 export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	// This should work but fails type checking
@@ -49,10 +50,22 @@ export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	return result as MethodDispatcher;
 }
 
+export type NCName = keyof NotifyCs;
+
+export type NCArgs<N extends NCName = NCName> = NotifyCs[N];
+
+export type NCPayload<N extends NCName> = {
+	protocol: "Notify-C",
+	name: N,
+} & NCArgs<N>;
+
+
 export type MethodCall = MPayload<MName>;
 
 export type MethodResponse = MResponse<MName>;
 
+export type NotifyC = NCPayload<NCName>;
+
 export type MsgSend = MethodCall;
 
-export type MsgRecv = MethodResponse;
+export type MsgRecv = MethodResponse | NotifyC;
