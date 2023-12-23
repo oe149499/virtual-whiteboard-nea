@@ -10,7 +10,7 @@ use ts_rs::TS;
 
 use crate::canvas::{Color, Point, Stroke, Transform};
 
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Deserialize, TS, Debug)]
 #[serde(tag = "protocol")]
 /// A message received from a client
 pub enum MsgRecv {
@@ -19,14 +19,17 @@ pub enum MsgRecv {
 }
 
 /// A message sent to a client
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, TS, Debug)]
 #[serde(tag = "protocol")]
 pub enum MsgSend {
     /// A response to a method call
     Response(method::Responses),
+
+    /// A notification for clients
+    NotifyC(notify_c::NotifyC),
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, TS, Debug)]
 /// A generic error code that indicates a problem with a request
 pub enum ErrorCode {
     /// The request attempted to access a resource which is currently in use by another client
@@ -35,7 +38,7 @@ pub enum ErrorCode {
     Internal = 1,
 }
 
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, TS, Debug)]
 #[serde(rename = "ErrMsg")]
 /// An error code with an explanation
 pub struct Error {
@@ -145,5 +148,5 @@ pub struct BatchChanges {
 }
 
 /// A wrapper around a mapping from [`ClientID`]s to [`ClientInfo`]s
-#[derive(Serialize, Deserialize, TS, Deref, Debug)]
+#[derive(Serialize, TS, Deref, Debug)]
 pub struct ClientTable(pub HashMap<ClientID, ClientInfo>);

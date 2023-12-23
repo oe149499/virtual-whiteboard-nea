@@ -19,7 +19,7 @@ pub trait Method {
     fn ts_return() -> String;
 }
 
-#[derive(TS, Serialize, Deserialize, Debug)]
+#[derive(TS, Deserialize, Debug)]
 /// An object representing a method call packet
 pub struct Call<T: Method> {
     /// The call ID for the client to associate the response with the call
@@ -49,7 +49,7 @@ impl<T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
 }
 
 /// An object representing a method return packet
-#[derive(TS, Serialize, Deserialize, Debug)]
+#[derive(TS, Serialize, Debug)]
 pub struct Response<T: Method> {
     /// See [`Call::id`]
     id: u32,
@@ -162,7 +162,7 @@ macro_rules! parse_params {
 macro_rules! pubify {
 	([$($attrs:tt)*] $mname:ident => $($name:ident : $type:ty),*) => (
 		$($attrs)*
-		#[derive(TS, Serialize, Deserialize, Debug)]
+		#[derive(TS, Deserialize, Debug)]
 		pub struct $mname {
 			$(
 				#[allow(missing_docs)]
@@ -203,7 +203,7 @@ macro_rules! method_enum {
 		$call_name:ident, $resp_name:ident => $($type:ident,)*
 	} => {
 		/// The enumeration of all method call types
-		#[derive(Serialize, Deserialize, TS, Debug)]
+		#[derive(Deserialize, TS, Debug)]
 		#[serde(tag = "name")]
 		pub enum $call_name {
 			$(
@@ -213,7 +213,7 @@ macro_rules! method_enum {
 		}
 
 		/// The enumeration of all method return types
-		#[derive(Serialize, Deserialize, TS, Debug)]
+		#[derive(Serialize, TS, Debug)]
 		#[serde(untagged)]
 		pub enum $resp_name {
 			$(
@@ -247,15 +247,6 @@ mod _methods {
         canvas::Item,
         message::{self as m, BatchChanges, ClientTable, ItemID, ItemsDeselected},
     };
-    // declare_method! {
-    // 	/// Establish a connection with the given information
-    // 	fn Connect(info: ClientInfo) -> m::Result<(m::ConnectionInfo)>
-    // }
-
-    // declare_method!{
-    // 	/// Re-establish a connection and continue as left off
-    // 	fn Reconnect(session: SessionID) -> m::Result
-    // }
 
     declare_method! {
         /// Attempt to add a set of items to the client's selection
