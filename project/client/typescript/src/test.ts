@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/ban-types */
-import { SessionClient } from "./Client.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-nocheck
+import { SessionClient } from "./client/Client.js";
 import type { Item, Point } from "./gen/Types.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
@@ -22,5 +24,4 @@ const message: string = "Hello World!";
 const item = JSON.stringify(basic_item);
 console.log(message, item);
 
-// @ts-expect-error testing
 window.SessionClient = SessionClient;

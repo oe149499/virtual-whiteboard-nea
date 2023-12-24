@@ -7,7 +7,6 @@ export function ok<T, TErr>(res: Result<T, TErr>): res is {status: "Ok"} & T {
 		return false;
 	} else {
 		todo();
-		return "unreachable" as unknown as boolean;
 	}
 }
 
@@ -30,6 +29,6 @@ export function unwrap<T, TErr>(res: Result<T, TErr>, f?: (_: TErr) => T | never
 	}
 }
 
-export function todo() {
+export function todo(): never {
 	throw new Error("Not yet implemented");
 }

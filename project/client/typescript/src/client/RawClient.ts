@@ -1,5 +1,5 @@
-import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler } from "./GenWrapper.js";
-import { Logger } from "./Logger.js";
+import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler } from "../GenWrapper.js";
+import { Logger } from "../Logger.js";
 
 const logger = new Logger("ws-client");
 
@@ -66,6 +66,7 @@ export class RawClient {
 	}
 
 	private handleMessageObject(msg: MsgRecv) {
+		logger.info("Parsed Message Object: ", msg);
 		switch(msg.protocol) {
 		case "Response": {
 			const {id, value} = msg;
@@ -113,6 +114,9 @@ export class RawClient {
 	private handleNotifyC<N extends NCName>(name: N, args: NCArgs<N>) {
 		const handler = this.notifyCHandlers[name];
 		if (handler !== undefined) {
+			// meta-lint hell
+			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+			// @ts-ignore it can't work it out
 			handler(args);
 		} else {
 			logger.error(`No handler set for Notify-C type ${name}`);
