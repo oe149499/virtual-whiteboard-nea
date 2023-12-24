@@ -236,7 +236,7 @@ macro_rules! method_enum {
 }
 
 method_enum! {
-    Methods, Responses => SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems, GetAllClientInfo,
+    Methods, Responses => SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems, CreateItem, GetAllClientInfo,
 }
 
 pub use _methods::*;
@@ -272,6 +272,11 @@ mod _methods {
     declare_method! {
         /// Delete multiple items from the board
         fn DeleteItems(ids: Vec<(ItemID)>) -> Vec<(m::Result)>
+    }
+
+    declare_method! {
+        /// Create a new item
+        fn CreateItem(item: Item) -> ItemID
     }
 
     declare_method! {

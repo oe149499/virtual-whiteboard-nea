@@ -1,15 +1,18 @@
+#[path = "./method_impls.rs"]
+mod method_impls;
+
 use std::{future::Future, sync::Arc};
 
 use log::error;
-use scc::{hash_map::OccupiedEntry, HashMap};
+use scc::{hash_map::OccupiedEntry, HashMap as AsyncHashMap};
 use tokio::sync::RwLock;
 
 use crate::{
-    client::ClientHandle,
+    canvas::ActiveCanvas,
+    client::{ClientHandle, MessagePayload},
     message::{
-        method::{Call, GetAllClientInfo, Methods},
         notify_c::{ClientJoined, NotifyCType},
-        ClientID, ClientInfo, ClientTable, ConnectionInfo, MsgRecv, MsgSend, SessionID,
+        ClientID, ClientInfo, ConnectionInfo, ItemID, MsgRecv, MsgSend, SessionID,
     },
 };
 
@@ -20,6 +23,7 @@ struct ClientState {
     info: ClientInfo,
     handle: Option<ClientHandle>,
     session: SessionID,
+    selection: std::collections::BTreeSet<ItemID>,
 }
 
 impl ClientState {
@@ -29,18 +33,28 @@ impl ClientState {
             handle.send_message(msg);
         }
     }
+
+    fn try_send_payload(&self, payload: &MessagePayload) {
+        if let Some(handle) = &self.handle {
+            handle.send_payload(payload);
+        }
+    }
 }
 
 struct Board {
     client_ids: RwLock<std::collections::BTreeSet<ClientID>>,
-    clients: HashMap<ClientID, ClientState>,
+    clients: AsyncHashMap<ClientID, ClientState>,
+    canvas: ActiveCanvas,
+    selected_items: AsyncHashMap<ItemID, ClientID>,
 }
 
 impl Board {
     fn new_debug() -> Self {
         Self {
             client_ids: Default::default(),
-            clients: HashMap::new(),
+            clients: AsyncHashMap::new(),
+            canvas: ActiveCanvas::new_empty(),
+            selected_items: AsyncHashMap::new(),
         }
     }
     fn launch(self, tasks: usize) -> (BoardHandle, impl Future<Output = Self>) {
@@ -91,6 +105,7 @@ impl Board {
                     info: info.clone(),
                     handle: None,
                     session: session_id,
+                    selection: Default::default(),
                 };
                 self.clients
                     .insert_async(client_id, client)
@@ -121,31 +136,6 @@ impl Board {
         }
     }
 
-    async fn handle_method(&self, id: ClientID, method: Methods) {
-        match method {
-            Methods::SelectionAddItems(_) => todo!(),
-            Methods::SelectionRemoveItems(_) => todo!(),
-            Methods::EditBatchItems(_) => todo!(),
-            Methods::EditSingleItem(_) => todo!(),
-            Methods::DeleteItems(_) => todo!(),
-            Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
-        }
-    }
-
-    async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
-        let mut out = std::collections::BTreeMap::new();
-        let client_ids = self.client_ids.read().await;
-        for id in client_ids.iter() {
-            let info = self.get_client(id).await.get().info.clone();
-            out.insert(*id, info);
-        }
-        drop(client_ids);
-        let client = self.get_client(&id).await;
-        client
-            .get()
-            .try_send(call.create_ok(ClientTable(out)).to_msg());
-    }
-
     async fn get_client(&self, id: &ClientID) -> OccupiedEntry<'_, ClientID, ClientState> {
         self.clients
             .get_async(id)
@@ -154,12 +144,10 @@ impl Board {
     }
 
     async fn send_notify_c(&self, msg: impl NotifyCType) {
-        let msg = msg.as_notify();
+        let msg = msg.as_notify().as_msg();
+        let payload = MessagePayload::new(&msg);
         for id in self.client_ids.read().await.iter() {
-            self.get_client(id)
-                .await
-                .get()
-                .try_send(msg.clone().as_msg())
+            self.get_client(id).await.get().try_send_payload(&payload)
         }
     }
 }

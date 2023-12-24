@@ -122,9 +122,11 @@ impl ClientID {
     }
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(
+    Serialize, Deserialize, TS, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
 /// A board-unique ID for each [`crate::canvas::Item`]
-pub struct ItemID(u32);
+pub struct ItemID(pub u32);
 
 #[derive(Serialize, Deserialize, TS, Debug)]
 /// A piece of location data which could describe either a [`Transform`] or [`Point`]-based [`crate::canvas::Item`]

@@ -19,8 +19,17 @@ use crate::{
     GlobalRes,
 };
 
+/// An opaque payload that can be duplicated and sent to multiple clients
+pub struct MessagePayload(Vec<u8>);
+
+impl MessagePayload {
+    pub fn new(msg: &MsgSend) -> Self {
+        Self(serde_json::to_vec(msg).expect("Failed to serialize payload"))
+    }
+}
+
 enum ClientMessage {
-    ClientMessage(MsgSend),
+    Payload(Vec<u8>),
 }
 
 /// A handle used to send messages mack to a client
@@ -46,9 +55,19 @@ impl ClientHandle {
         })
     }
 
+    fn send_data(&self, data: Vec<u8>) {
+        self.send(ClientMessage::Payload(data))
+    }
+
     /// Dispatch a message to a client
     pub fn send_message(&self, message: MsgSend) {
-        self.send(ClientMessage::ClientMessage(message));
+        let payload = MessagePayload::new(&message);
+        self.send_data(payload.0);
+    }
+
+    /// Send a copy of an existing [`MessagePayload`]
+    pub fn send_payload(&self, payload: &MessagePayload) {
+        self.send_data(payload.0.clone())
     }
 }
 
@@ -65,6 +84,10 @@ pub struct Session {
 impl Session {
     fn connect(&self, handle: ClientHandle) {
         self.handle.client_connected(self.client_id, handle)
+    }
+
+    fn disconnect(&self) {
+        self.handle.client_disconnected(self.client_id)
     }
 
     fn message(&self, msg: MsgRecv) {
@@ -129,12 +152,8 @@ async fn handle_session(session: Session, ws: WebSocket) {
     tokio::task::spawn(async move {
         while let Some(msg) = board_recv.recv().await {
             match msg {
-                ClientMessage::ClientMessage(msg) => {
-                    let payload = serde_json::to_vec(&msg).unwrap_or_else(|e| {
-                        error!("Failed to serialize message: {e}");
-                        panic!();
-                    });
-                    tx.send(Message::binary(payload))
+                ClientMessage::Payload(msg) => {
+                    tx.send(Message::binary(msg))
                         .await
                         .unwrap_or_else(|e| warn!("Failed to send WebSocket message: {e}"));
                 }
@@ -144,12 +163,19 @@ async fn handle_session(session: Session, ws: WebSocket) {
 
     while let Some(msg) = rx.next().await {
         match msg {
-            Ok(msg) => match serde_json::from_slice(msg.as_bytes()) {
-                Ok(msg) => session.message(msg),
-                Err(e) => {
-                    info!("Received malformed message from client: {e}")
+            Ok(msg) => {
+                if msg.is_close() {
+                    session.disconnect();
+                    info!("Socket closed");
+                } else {
+                    match serde_json::from_slice(msg.as_bytes()) {
+                        Ok(msg) => session.message(msg),
+                        Err(e) => {
+                            info!("Received malformed message from client: {e}")
+                        }
+                    }
                 }
-            },
+            }
             Err(e) => {
                 warn!("Error receiving WebSocket message: {e}");
             }

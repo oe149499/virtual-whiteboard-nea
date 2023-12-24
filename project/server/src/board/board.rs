@@ -9,7 +9,7 @@ use crate::{
     message::{self, ClientID, ClientInfo, ConnectionInfo, MsgRecv},
 };
 use log::{error, warn};
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::oneshot;
 
 enum BoardMessage {
     ClientMessage(ClientID, MsgRecv),

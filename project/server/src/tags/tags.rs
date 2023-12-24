@@ -4,5 +4,5 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 /// A unique ID for a tag type
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, Deserialize, TS, Debug, Clone)]
 pub struct TagID(usize);

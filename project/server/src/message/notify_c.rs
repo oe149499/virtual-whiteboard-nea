@@ -1,6 +1,8 @@
 //! Types associated with server-to-client notification messages
 
-use super::{ClientID, ClientInfo, MsgSend};
+use crate::canvas::{Item, Transform};
+
+use super::{ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
 use paste::paste;
 use serde::Serialize;
 use ts_rs::TS;
@@ -25,14 +27,14 @@ macro_rules! notify_c_declarations {
 			$name:ident (
 				$(
 					$(#[$($pattr:tt)*])*
-					$pname:ident : $ptype:ty
-				),*
-			);
+					$pname:ident : $ptype:ty,
+				)*
+			)
 		)*
 	} => {
 		paste!{
 			$(#[$($eattr)*])*
-			#[derive(Serialize, TS, Debug, Clone)]
+			#[derive(Serialize, TS, Debug)]
 			#[serde(tag = "name")]
 			pub enum $enum_name {
 				$(
@@ -43,7 +45,7 @@ macro_rules! notify_c_declarations {
 		}
 		$(
 			$(#[$($attr)*])*
-			#[derive(Serialize, TS, Debug, Clone)]
+			#[derive(Serialize, TS, Debug)]
 			pub struct $name {
 				$(
 					$(#[$($pattr)*])*
@@ -69,14 +71,42 @@ notify_c_declarations! {
         /// The client's ID
         id: ClientID,
         /// The client's information
-        info: ClientInfo
-    );
+        info: ClientInfo,
+    )
 
     /// A client has established a connection with the board
     ClientConnected (
         /// The client's ID
-        id: ClientID
-    );
+        id: ClientID,
+    )
+
+    ClientDisconnected (
+        id: ClientID,
+    )
+
+    ClientExited (
+        id: ClientID,
+    )
+
+    SelectionItemsAdded (
+        id: ClientID,
+        items: Vec<ItemID>,
+    )
+
+    SelectionItemsRemoved (
+        id: ClientID,
+        items: ItemsDeselected,
+    )
+
+    SelectionMoved (
+        id: ClientID,
+        transform: Transform,
+    )
+
+    ItemCreated (
+        id: ItemID,
+        item: Item,
+    )
 }
 
 impl NotifyC {

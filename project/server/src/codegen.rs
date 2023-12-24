@@ -148,6 +148,7 @@ fn main() {
         export_str! {[
             m::SelectionAddItems,
             m::GetAllClientInfo,
+            m::CreateItem,
         ] with T : Method => {
             unsafe { methods.push(T::name()) };
             format!(
@@ -189,6 +190,7 @@ export const MethodNames: (keyof Methods)[] = [
         export_str!([
             c::ClientJoined,
             c::ClientConnected,
+            c::ItemCreated,
         ] with T : TS => {
             let decl = T::decl();
             let params = decl.splitn(3, ' ').last().unwrap();
