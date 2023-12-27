@@ -102,6 +102,10 @@ macro_rules! parse_type {
 		stringify!($($t)*)
 	};
 
+	(()) => {
+		"null".to_string()
+	};
+
 	($($t:tt)*) => (
 		parse_type!(
 			@[]
@@ -236,7 +240,18 @@ macro_rules! method_enum {
 }
 
 method_enum! {
-    Methods, Responses => SelectionAddItems, SelectionRemoveItems, EditBatchItems, EditSingleItem, DeleteItems, CreateItem, GetAllClientInfo,
+    Methods, Responses =>
+        SelectionAddItems,
+        SelectionRemoveItems,
+        EditBatchItems,
+        EditSingleItem,
+        DeleteItems,
+        CreateItem,
+        BeginPath,
+        ContinuePath,
+        EndPath,
+        GetAllItemIDs,
+        GetAllClientInfo,
 }
 
 pub use _methods::*;
@@ -244,7 +259,7 @@ pub use _methods::*;
 mod _methods {
     use super::*;
     use crate::{
-        canvas::Item,
+        canvas::{Item, Point, Stroke},
         message::{self as m, BatchChanges, ClientTable, ItemID, ItemsDeselected},
     };
 
@@ -280,7 +295,27 @@ mod _methods {
     }
 
     declare_method! {
+        /// Start a new path
+        fn BeginPath(stroke: Stroke) -> ()
+    }
+
+    declare_method! {
+        /// Continue the path
+        fn ContinuePath(points: Vec<Point>) -> ()
+    }
+
+    declare_method! {
+        /// Close the path
+        fn EndPath() -> ItemID
+    }
+
+    declare_method! {
+        /// Get a list of every ID on the board
+        fn GetAllItemIDs() -> Vec<(ItemID)>
+    }
+
+    declare_method! {
         /// Get a list of all clients and their associated information
-        fn GetAllClientInfo() -> m::Result<(ClientTable)>
+        fn GetAllClientInfo() -> ClientTable
     }
 }

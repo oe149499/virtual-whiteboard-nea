@@ -2,9 +2,12 @@
 
 pub mod method;
 pub mod notify_c;
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    str::FromStr,
+};
 
-use derive_more::{Deref, FromStr};
+use derive_more::Deref;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -39,6 +42,12 @@ pub enum ErrorCode {
     Internal = 1,
 }
 
+impl Into<Error> for ErrorCode {
+    fn into(self) -> Error {
+        Error::code(self)
+    }
+}
+
 #[derive(Serialize, TS, Debug)]
 #[serde(rename = "ErrMsg")]
 /// An error code with an explanation
@@ -57,6 +66,10 @@ impl Error {
             msg: None,
         }
     }
+
+    pub fn code(code: ErrorCode) -> Self {
+        Self { code, msg: None }
+    }
 }
 
 /// Copy of [`std::result::Result`] to enable generation of TS types.
@@ -70,12 +83,13 @@ pub enum Result<T = (), TErr = ErrorCode> {
     /// Failure
     Err(TErr),
 }
+pub use self::Result::{Err, Ok};
 
 impl<T, E> From<core::result::Result<T, E>> for Result<T, E> {
     fn from(value: core::result::Result<T, E>) -> Self {
         match value {
-            Ok(v) => Result::Ok(v),
-            Err(v) => Result::Err(v),
+            core::result::Result::Ok(v) => Result::Ok(v),
+            core::result::Result::Err(v) => Result::Err(v),
         }
     }
 }
@@ -98,7 +112,7 @@ pub struct ConnectionInfo {
     pub session_id: SessionID,
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy, FromStr)]
+#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
 /// A private ID used to verify reconnects
 pub struct SessionID(u32);
 
@@ -106,6 +120,13 @@ impl SessionID {
     /// Atomically create a new unique [`SessionID`]
     pub fn new() -> Self {
         Self(crate::utils::counter!(AtomicU32))
+    }
+}
+
+impl FromStr for SessionID {
+    type Err = <u32 as FromStr>::Err;
+    fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+        core::result::Result::Ok(Self(s.parse()?))
     }
 }
 

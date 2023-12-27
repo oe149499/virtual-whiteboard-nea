@@ -91,8 +91,6 @@ fn main() {
         use virtual_whiteboard::{canvas as c, canvas::item as i, message as m};
         export_str! {
             [
-            //m::MsgRecv,
-            //m::MsgSend,
             m::ErrorCode,
             m::Error,
             m::Result,
@@ -144,11 +142,19 @@ fn main() {
     static mut methods: Vec<String> = Vec::new();
 
     let method_export = {
-        use virtual_whiteboard::message::method::{self as m, Method};
+        use virtual_whiteboard::message::method::*;
         export_str! {[
-            m::SelectionAddItems,
-            m::GetAllClientInfo,
-            m::CreateItem,
+            SelectionAddItems,
+            SelectionRemoveItems,
+            EditBatchItems,
+            EditSingleItem,
+            DeleteItems,
+            CreateItem,
+            BeginPath,
+            ContinuePath,
+            EndPath,
+            GetAllItemIDs,
+            GetAllClientInfo,
         ] with T : Method => {
             unsafe { methods.push(T::name()) };
             format!(
@@ -186,11 +192,20 @@ export const MethodNames: (keyof Methods)[] = [
     static mut notify_c_names: Vec<String> = Vec::new();
 
     let notify_c_export = {
-        use virtual_whiteboard::message::notify_c as c;
+        use virtual_whiteboard::message::notify_c::*;
         export_str!([
-            c::ClientJoined,
-            c::ClientConnected,
-            c::ItemCreated,
+            ClientJoined,
+            ClientConnected,
+            ClientDisconnected,
+            ClientExited,
+            SelectionItemsAdded,
+            SelectionItemsRemoved,
+            SelectionMoved,
+            BatchItemsEdited,
+            SingleItemEdited,
+            ItemsDeleted,
+            ItemCreated,
+            PathStarted,
         ] with T : TS => {
             let decl = T::decl();
             let params = decl.splitn(3, ' ').last().unwrap();

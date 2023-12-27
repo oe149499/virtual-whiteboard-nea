@@ -1,8 +1,9 @@
+#![allow(missing_docs)] // API is documented in design section
 //! Types associated with server-to-client notification messages
 
 use crate::canvas::{Item, Transform};
 
-use super::{ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
+use super::{BatchChanges, ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
 use paste::paste;
 use serde::Serialize;
 use ts_rs::TS;
@@ -103,9 +104,27 @@ notify_c_declarations! {
         transform: Transform,
     )
 
+    BatchItemsEdited (
+        ids: Vec<ItemID>,
+        changes: BatchChanges,
+    )
+
+    SingleItemEdited (
+        id: ItemID,
+        item: Item,
+    )
+
+    ItemsDeleted (
+        ids: Vec<ItemID>,
+    )
+
     ItemCreated (
         id: ItemID,
         item: Item,
+    )
+
+    PathStarted (
+        id: ClientID,
     )
 }
 
