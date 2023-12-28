@@ -99,7 +99,7 @@ macro_rules! parse_type {
 	);
 
 	(@ $($t:tt)*) => {
-		stringify!($($t)*)
+		compile_error!($($t)*)
 	};
 
 	(()) => {
@@ -301,7 +301,7 @@ mod _methods {
 
     declare_method! {
         /// Continue the path
-        fn ContinuePath(points: Vec<Point>) -> ()
+        fn ContinuePath(points: Vec<(Point)>) -> ()
     }
 
     declare_method! {
