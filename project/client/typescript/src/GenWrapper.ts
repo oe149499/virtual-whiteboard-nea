@@ -1,5 +1,15 @@
 import { MethodNames, Methods } from "./gen/Methods.js";
 import { NotifyCs } from "./gen/NotifyC.js";
+import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
+
+type Id<T> = { [K in keyof T]: T[K] };
+
+export type ItemType = Item["type"];
+export type SpecificItem<T extends ItemType> = Id<Extract<Item, { type: T }>>
+
+export interface HasTransform { transform: Transform }
+export interface HasStroke { stroke: Stroke }
+export interface HasFill { fill: Color }
 
 export type MName = keyof Methods;
 
@@ -43,7 +53,7 @@ export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const result = {} as any;
 	for (const name of MethodNames) {
-		result[name] = function(args: MArgs<typeof name>) {
+		result[name] = function (args: MArgs<typeof name>) {
 			return handler(name, args);
 		};
 	}

@@ -6,10 +6,10 @@ export enum LogLevel {
 	Error,
 }
 
-const LevelNames: {[level in LogLevel]: string} = {
-	[LogLevel. Info]: " INFO",
+const LevelNames: { [level in LogLevel]: string } = {
+	[LogLevel.Info]: " INFO",
 	[LogLevel.Debug]: "DEBUG",
-	[LogLevel. Warn]: " WARN",
+	[LogLevel.Warn]: " WARN",
 	[LogLevel.Error]: "ERROR",
 };
 
@@ -23,24 +23,24 @@ export const LogOptions = {
 };
 
 export class Logger {
-	constructor(private module: string) {}
+	constructor(private module: string) { }
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public log(level: LogLevel, message: string, ...objs: any[]) {
 		if (level >= LogOptions.minLevel) {
 			const displayString = LogOptions.logFormat(new Date(), level, this.module, message);
 			switch (level) {
-			case LogLevel.Info:
-				console.info(displayString);
-				break;
-			case LogLevel.Debug:
-				console.debug(displayString);
-				break;
-			case LogLevel.Warn:
-				console.warn(displayString);
-				break;
-			case LogLevel.Error:
-				console.error(displayString);
-				break;
+				case LogLevel.Info:
+					console.info(displayString);
+					break;
+				case LogLevel.Debug:
+					console.debug(displayString);
+					break;
+				case LogLevel.Warn:
+					console.warn(displayString);
+					break;
+				case LogLevel.Error:
+					console.error(displayString);
+					break;
 			}
 			for (const obj of objs) {
 				console.log(obj);
@@ -66,5 +66,11 @@ export class Logger {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public error(message: string, ...objs: any[]) {
 		this.log(LogLevel.Error, message, ...objs);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public throw(message: string, ...objs: any[]): never {
+		this.log(LogLevel.Error, message, ...objs);
+		throw new Error("critical error");
 	}
 }

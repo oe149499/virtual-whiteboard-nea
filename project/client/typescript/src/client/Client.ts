@@ -1,4 +1,4 @@
-import { MethodDispatcher, createMethodReciever } from "../GenWrapper.js";
+import { MethodDispatcher, NCArgs, NCName, createMethodReciever } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "../Utils.js";
@@ -46,12 +46,16 @@ export class SessionClient {
 		return this.methodDispatcher;
 	}
 
+	public bindNotify<N extends NCName>(name: N, handler: (_: NCArgs<N>) => void) {
+		this.rawClient.setNotifyHandler(name, handler);
+	}
+
 	private constructor(
 		readonly boardName: string,
 		private sessionCode: number,
 		readonly clientID: number,
 		readonly info: ClientInfo,
-	) {	
+	) {
 		const location = window.location;
 		this.socketUrl = new URL(`/api/session/${this.sessionCode}/`, location.href);
 		if (location.protocol == "https") {
