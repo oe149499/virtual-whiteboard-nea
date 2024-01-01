@@ -1,0 +1,24 @@
+* {
+	box-sizing: border-box;
+}
+
+body {
+	height: 100%;
+	margin: 0;
+}
+
+html {
+	height: 100%;
+}
+
+.debug-background {
+	background-image: url("/static/img/dbg.png");
+	background-size: 1cm 1cm;
+	image-rendering: pixelated;
+}
+
+.debug-block {
+	width: 2cm;
+	height: 1cm;
+	background-color: purple;
+}

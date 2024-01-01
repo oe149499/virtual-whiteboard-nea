@@ -1,0 +1,20 @@
+:root {
+	--icon-size: 1cm;
+	--icon-background: white;
+	--icon-border: 3px solid black;
+	--icon-container-padding: 0.25cm;
+}
+
+.ui-icon {
+	width: var(--icon-size);
+	height: var(--icon-size);
+	background-color: var(--icon-background);
+	border: var(--icon-border);
+	border-radius: 0.25cm;
+}
+
+
+
+.icon-container {
+	padding: var(--icon-container-padding);
+}

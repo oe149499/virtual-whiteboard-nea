@@ -1,0 +1,39 @@
+<svg width="100" height="100" viewBox="0 0 100 100" class="open" xmlns="http://www.w3.org/2000/svg">
+	<style>
+		.open #r1 {
+			transform: translate(50px, 22px);
+		}
+
+		.closed #r1 {
+			transform: translate(50px, 50px) rotate(45deg);
+		}
+
+		.open #r2 {
+			transform: translate(50px, 50px);
+		}
+
+		.closed #r2 {
+			transform: translate(150px, 50px);
+		}
+
+		.open #r3 {
+			transform: translate(50px, 78px);
+		}
+
+		.closed #r3 {
+			transform: translate(50px, 50px) rotate(-45deg);
+		}
+
+		#r1,
+		#r2,
+		#r3 {
+			transition: transform linear 0.5s;
+		}
+	</style>
+	<g visibility="hidden">
+		<rect x="-35" y="-7" width="70" height="14" id="base" />
+	</g>
+	<use href="#base" id="r1" />
+	<use href="#base" id="r2" />
+	<use href="#base" id="r3" />
+</svg>

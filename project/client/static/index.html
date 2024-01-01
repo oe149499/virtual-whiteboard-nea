@@ -3,7 +3,6 @@
 
 	<head>
 		<title>Virtual Whiteboard</title>
-		<script type="module" src="/script/test.js"></script>
 		<script type="module">
 			import dumpList from "/script/ExportDump.js";
 
@@ -14,17 +13,31 @@
 				"client/": [
 					"Client", "RawClient",
 				],
+				"ui/": [
+					"Panel", "UIManager",
+				],
 				"": [
 					"GenWrapper", "Logger", "strftime", "test",
 				]
-			})
-
+			});
 		</script>
+		<link rel="stylesheet" href="/static/css/testing.css">
+		<link rel="stylesheet" href="/static/css/ui.css">
+		<link rel="stylesheet" href="/static/css/theme.css">
 	</head>
 
 	<body>
-		This page is just a placeholder for now.
+		<div class="ui" style="height: 100%;">
+			<div class="svg-container debug-background"></div>
+			<div class="bottom-container">
+				<div class="ui-icon">
+					<object data="/static/icon/panel-icon.svg"></object>
+				</div>
+				<div class="icon-container">
+
+				</div>
+			</div>
+		</div>
 	</body>
-	<div id="test-container"></div>
 
 </html>
