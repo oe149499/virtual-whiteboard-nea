@@ -30,20 +30,17 @@ export class Logger {
 			const displayString = LogOptions.logFormat(new Date(), level, this.module, message);
 			switch (level) {
 				case LogLevel.Info:
-					console.info(displayString);
+					console.info(displayString, ...objs);
 					break;
 				case LogLevel.Debug:
-					console.debug(displayString);
+					console.debug(displayString, ...objs);
 					break;
 				case LogLevel.Warn:
-					console.warn(displayString);
+					console.warn(displayString, ...objs);
 					break;
 				case LogLevel.Error:
-					console.error(displayString);
+					console.error(displayString, ...objs);
 					break;
-			}
-			for (const obj of objs) {
-				console.log(obj);
 			}
 		}
 	}
@@ -71,6 +68,17 @@ export class Logger {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	public throw(message: string, ...objs: any[]): never {
 		this.log(LogLevel.Error, message, ...objs);
-		throw new Error("critical error");
+		// eslint-disable-next-line no-debugger
+		debugger;
+		throw undefined;
+	}
+
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public reject(rejector: (_?: any) => void, message: string, ...objs: any[]) {
+		const error = new Error(message, { cause: objs });
+		rejector(error);
+		this.log(LogLevel.Error, message, ...objs);
+
 	}
 }

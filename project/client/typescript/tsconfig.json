@@ -1,6 +1,12 @@
 {
 	"compilerOptions": {
 		"target": "ES6",
+		"lib": [
+			"es2019",
+			"es2022.Error",
+			"ES2021.Promise",
+			"dom"
+		],
 		"module": "ES2015",
 		"outDir": "out/",
 		"rootDir": "src/",

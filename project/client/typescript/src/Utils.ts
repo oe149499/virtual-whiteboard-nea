@@ -1,6 +1,6 @@
 import { Result } from "./gen/Types";
 
-export function ok<T, TErr>(res: Result<T, TErr>): res is {status: "Ok"} & T {
+export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok" } & T {
 	if (res.status == "Ok") {
 		return true;
 	} else if (res.status == "Err") {
@@ -10,8 +10,8 @@ export function ok<T, TErr>(res: Result<T, TErr>): res is {status: "Ok"} & T {
 	}
 }
 
-function removeStatus<T>(res: T & {status: string}): T {
-	const {status:_, ...rest} = res;
+function removeStatus<T>(res: T & { status: string }): T {
+	const { status: _, ...rest } = res;
 	// @ts-expect-error Removing {status: ...} from T & {status: ...} is probably the same as T
 	return rest;
 }
@@ -32,3 +32,11 @@ export function unwrap<T, TErr>(res: Result<T, TErr>, f?: (_: TErr) => T | never
 export function todo(): never {
 	throw new Error("Not yet implemented");
 }
+
+DOMTokenList.prototype.swap = function (from: string, to: string): boolean {
+	const had = this.contains(from);
+	this.remove(from);
+	this.add(to);
+	return had;
+};
+

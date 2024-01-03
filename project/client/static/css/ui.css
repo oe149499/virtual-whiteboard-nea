@@ -31,3 +31,16 @@
 .ui .icon-container {
 	display: inline-flex;
 }
+
+.ui .panel-contents {
+	overflow: hidden;
+	transition: width 1s linear;
+}
+
+.ui .panel-contents.open {
+	max-width: 1e12px;
+}
+
+.ui .panel-contents.closed {
+	width: 0;
+}
