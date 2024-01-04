@@ -252,6 +252,7 @@ export const NotifyCNames: (keyof NotifyCSpec)[] = [
             GetPartialItems,
             GetFullItems,
             GetActivePath,
+            Count,
         ] with T : TS => {
             unsafe { iterate_names.push(T::name()) };
             T::decl()

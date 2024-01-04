@@ -4,7 +4,7 @@ use std::mem;
 
 use paste::paste;
 use serde::{Deserialize, Serialize};
-#[cfg(codegen)]
+#[cfg(feature = "codegen")]
 use ts_rs::TS;
 
 use crate::canvas::{Item, SplineNode};
@@ -12,7 +12,11 @@ use crate::canvas::{Item, SplineNode};
 use super::{ClientID, ItemID};
 
 pub trait IterateType {
+    #[cfg(not(feature = "codegen"))]
     type Item: Serialize;
+
+    #[cfg(feature = "codegen")]
+    type Item: Serialize + TS;
 }
 
 #[derive(Deserialize)]
@@ -38,6 +42,7 @@ impl<M: IterateType> IterateCall<M> {
 }
 
 #[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
 pub struct IterateResponse<M: IterateType> {
     id: u32,
     complete: bool,
@@ -97,7 +102,7 @@ macro_rules! iterate_declarations {
 		paste!{
 			$(#[$($eattr)*])*
 			#[derive(Deserialize, Debug)]
-			#[cfg_attr(codegen, derive(TS))]
+			#[cfg_attr(feature = "codegen", derive(TS))]
 			#[serde(tag = "name")]
 			pub enum $enum_name {
 				$(
@@ -107,7 +112,7 @@ macro_rules! iterate_declarations {
 			}
 
 			#[derive(Serialize, Debug)]
-			#[cfg_attr(codegen, derive(TS))]
+			#[cfg_attr(feature = "codegen", derive(TS))]
 			#[serde(untagged)]
 			pub enum $response_enum_name {
 				$(
@@ -117,7 +122,7 @@ macro_rules! iterate_declarations {
 			}
 
 			#[allow(non_snake_case, unused)]
-			#[cfg_attr(codegen, derive(TS))]
+			#[cfg_attr(feature = "codegen", derive(TS))]
 			pub struct $spec_name {
 				$(
 					$name: ($name, $itype),
@@ -131,7 +136,7 @@ macro_rules! iterate_declarations {
 		$(
 			$(#[$($attr)*])*
 			#[derive(Deserialize, Debug)]
-			#[cfg_attr(codegen, derive(TS))]
+			#[cfg_attr(feature = "codegen", derive(TS))]
 			pub struct $name {
 				$(
 					$(#[$($pattr)*])*
@@ -150,6 +155,11 @@ macro_rules! iterate_declarations {
 iterate_declarations! {
     enum Iterates => IterateResponses;
     spec IterateSpec;
+
+    Count(
+        from: u32,
+        to: u32,
+    ) => u32
 
     GetPartialItems(
         ids: Vec<ItemID>,

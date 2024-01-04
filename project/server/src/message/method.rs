@@ -2,29 +2,34 @@
 
 use super::MsgSend;
 use serde::{Deserialize, Serialize};
-#[cfg(codegen)]
+#[cfg(feature = "codegen")]
 use ts_rs::TS;
 
 /// The information describing a method call
 pub trait Method {
     /// The type that should be sent back to the client
+    #[cfg(not(feature = "codegen"))]
     type Response: Serialize;
 
+    /// The type that should be sent back to the client
+    #[cfg(feature = "codegen")]
+    type Response: TS + Serialize;
+
     /// The name of the method in Typescript
-    #[cfg(codegen)]
+    #[cfg(feature = "codegen")]
     fn name() -> String;
 
     /// The parameters of the method as a Typescript object
-    #[cfg(codegen)]
+    #[cfg(feature = "codegen")]
     fn ts_params() -> String;
 
     /// The return type in Typescript
-    #[cfg(codegen)]
+    #[cfg(feature = "codegen")]
     fn ts_return() -> String;
 }
 
 #[derive(Deserialize, Debug)]
-#[cfg_attr(codegen, derive(TS))]
+#[cfg_attr(feature = "codegen", derive(TS))]
 /// An object representing a method call packet
 pub struct Call<T: Method> {
     /// The call ID for the client to associate the response with the call
@@ -55,7 +60,7 @@ impl<T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
 
 /// An object representing a method return packet
 #[derive(Serialize, Debug)]
-#[cfg_attr(codegen, derive(TS))]
+#[cfg_attr(feature = "codegen", derive(TS))]
 pub struct Response<T: Method> {
     /// See [`Call::id`]
     id: u32,
@@ -63,7 +68,7 @@ pub struct Response<T: Method> {
     pub value: T::Response,
 }
 
-#[cfg(codegen)]
+#[cfg(feature = "codegen")]
 macro_rules! parse_type {
 	//($($t:tt)*) => ($($t)*);
 
@@ -121,7 +126,7 @@ macro_rules! parse_type {
 	);
 }
 
-#[cfg(codegen)]
+#[cfg(feature = "codegen")]
 macro_rules! parse_params {
 	(@{$name:ident : $($ty:tt)*}) => (
 		format!(
@@ -175,7 +180,7 @@ macro_rules! pubify {
 	([$($attrs:tt)*] $mname:ident => $($name:ident : $type:ty),*) => (
 		$($attrs)*
 		#[derive(Deserialize, Debug)]
-#[cfg_attr(codegen, derive(TS))]
+#[cfg_attr(feature = "codegen", derive(TS))]
 		pub struct $mname {
 			$(
 				#[allow(missing_docs)]
@@ -185,7 +190,7 @@ macro_rules! pubify {
 	)
 }
 
-#[cfg(codegen)]
+#[cfg(feature = "codegen")]
 macro_rules! declare_method {
 	{
 		$(#[$($attr:tt)*])*
@@ -211,7 +216,7 @@ macro_rules! declare_method {
 	}
 }
 
-#[cfg(not(codegen))]
+#[cfg(not(feature = "codegen"))]
 macro_rules! declare_method {
 	{
 		$(#[$($attr:tt)*])*
@@ -232,7 +237,7 @@ macro_rules! method_enum {
 	} => {
 		/// The enumeration of all method call types
 		#[derive(Deserialize, Debug)]
-#[cfg_attr(codegen, derive(TS))]
+#[cfg_attr(feature = "codegen", derive(TS))]
 		#[serde(tag = "name")]
 		pub enum $call_name {
 			$(
@@ -243,7 +248,7 @@ macro_rules! method_enum {
 
 		/// The enumeration of all method return types
 		#[derive(Serialize, Debug)]
-#[cfg_attr(codegen, derive(TS))]
+#[cfg_attr(feature = "codegen", derive(TS))]
 		#[serde(untagged)]
 		pub enum $resp_name {
 			$(

@@ -1,3 +1,5 @@
+#[path = "./iterate_impls.rs"]
+mod iterate_impls;
 #[path = "./method_impls.rs"]
 mod method_impls;
 
