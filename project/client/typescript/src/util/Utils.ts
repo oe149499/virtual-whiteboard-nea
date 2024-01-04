@@ -1,4 +1,10 @@
-import { Result } from "./gen/Types";
+import { Result } from "../gen/Types";
+
+export type PromiseHandle<T> = {
+	resolve: (_: T) => void;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	reject: (_: any) => void;
+}
 
 export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok" } & T {
 	if (res.status == "Ok") {
@@ -40,3 +46,15 @@ DOMTokenList.prototype.swap = function (from: string, to: string): boolean {
 	return had;
 };
 
+HTMLElement.prototype.addClasses = function (...classes) {
+	for (const c of classes) {
+		this.classList.add(c);
+	}
+	return this;
+};
+
+HTMLElement.prototype.createChild = function (tagname) {
+	const elem = document.createElement(tagname);
+	this.appendChild(elem);
+	return elem;
+};

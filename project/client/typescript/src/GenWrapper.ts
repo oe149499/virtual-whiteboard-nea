@@ -1,5 +1,5 @@
 import { MethodNames, Methods } from "./gen/Methods.js";
-import { NotifyCs } from "./gen/NotifyC.js";
+import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
 
 type Id<T> = { [K in keyof T]: T[K] };
@@ -60,9 +60,9 @@ export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	return result as MethodDispatcher;
 }
 
-export type NCName = keyof NotifyCs;
+export type NCName = keyof NotifyCSpec;
 
-export type NCArgs<N extends NCName = NCName> = NotifyCs[N];
+export type NCArgs<N extends NCName = NCName> = NotifyCSpec[N];
 
 export type NCPayload<N extends NCName> = {
 	protocol: "Notify-C",

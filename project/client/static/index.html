@@ -5,8 +5,10 @@
 		<title>Virtual Whiteboard</title>
 		<script type="module">
 			import dumpList from "/script/ExportDump.js";
+			import { UIManager } from "/script/ui/UIManager.js";
+			import { CanvasController } from "/script/canvas/Canvas.js";
 
-			dumpList({
+			await dumpList({
 				"canvas/": [
 					"Canvas", "CanvasBase", "CanvasItems",
 				],
@@ -16,10 +18,24 @@
 				"ui/": [
 					"Panel", "UIManager",
 				],
+				"tool/": [
+					"Tool", "ViewTool",
+				],
 				"": [
 					"GenWrapper", "Logger", "strftime", "test",
 				]
 			});
+
+			let canvas = new CanvasController();
+
+			canvas.addItem(1, triangle);
+
+			window.ui = new UIManager(canvas.svgElem);
+
+			window.tool = new ViewTool(ui.canvas);
+			tool.bind();
+
+			document.body.appendChild(ui.containerElement);
 		</script>
 		<link rel="stylesheet" href="/static/css/testing.css">
 		<link rel="stylesheet" href="/static/css/ui.css">
@@ -27,14 +43,6 @@
 	</head>
 
 	<body>
-		<div class="ui" style="height: 100%;">
-			<div class="svg-container debug-background"></div>
-			<div class="bottom-container">
-				<div class="icon-container panel-contents">
-					<div class="debug-block"></div>
-				</div>
-			</div>
-		</div>
 	</body>
 
 </html>

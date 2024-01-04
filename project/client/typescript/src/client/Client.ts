@@ -1,7 +1,7 @@
 import { MethodDispatcher, NCArgs, NCName, createMethodReciever } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
-import { unwrap } from "../Utils.js";
+import { unwrap } from "../util/Utils.js";
 import { ClientInfo, ConnectionInfo, Result } from "../gen/Types.js";
 
 const logger = new Logger("session-client");
