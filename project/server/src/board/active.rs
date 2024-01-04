@@ -133,6 +133,7 @@ impl Board {
     async fn handle_client_message(&self, id: ClientID, msg: MsgRecv) {
         match msg {
             MsgRecv::Method(method) => self.handle_method(id, method).await,
+            MsgRecv::Iterate(iterate) => todo!(),
         }
     }
 

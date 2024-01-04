@@ -1,5 +1,6 @@
 //! Types associated with communication between client and server
 
+pub mod iterate;
 pub mod method;
 pub mod notify_c;
 use std::{
@@ -9,20 +10,23 @@ use std::{
 
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
+#[cfg(codegen)]
 use ts_rs::TS;
 
 use crate::canvas::{Color, Point, Stroke, Transform};
 
-#[derive(Deserialize, TS, Debug)]
+#[derive(Deserialize, Debug)]
 #[serde(tag = "protocol")]
 /// A message received from a client
 pub enum MsgRecv {
     /// A method call expecting a response
     Method(method::Methods),
+    /// A method call expecting a streamed response
+    Iterate(iterate::Iterates),
 }
 
 /// A message sent to a client
-#[derive(Serialize, TS, Debug)]
+#[derive(Serialize, Debug)]
 #[serde(tag = "protocol")]
 pub enum MsgSend {
     /// A response to a method call
@@ -31,9 +35,13 @@ pub enum MsgSend {
     /// A notification for clients
     #[serde(rename = "Notify-C")]
     NotifyC(notify_c::NotifyC),
+
+    #[serde(rename = "Response-Part")]
+    IterateResponse(iterate::IterateResponses),
 }
 
-#[derive(Serialize, TS, Debug)]
+#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 /// A generic error code that indicates a problem with a request
 pub enum ErrorCode {
     /// The request attempted to access a resource which is currently in use by another client
@@ -48,7 +56,8 @@ impl Into<Error> for ErrorCode {
     }
 }
 
-#[derive(Serialize, TS, Debug)]
+#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 #[serde(rename = "ErrMsg")]
 /// An error code with an explanation
 pub struct Error {
@@ -67,6 +76,7 @@ impl Error {
         }
     }
 
+    /// Create an error from just a code
     pub fn code(code: ErrorCode) -> Self {
         Self { code, msg: None }
     }
@@ -75,7 +85,8 @@ impl Error {
 /// Copy of [`std::result::Result`] to enable generation of TS types.
 ///
 /// Convenient default type parameters are also set.
-#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(codegen, derive(TS))]
 #[serde(tag = "status")]
 pub enum Result<T = (), TErr = ErrorCode> {
     /// Success
@@ -94,7 +105,8 @@ impl<T, E> From<core::result::Result<T, E>> for Result<T, E> {
     }
 }
 
-#[derive(Serialize, Deserialize, TS, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(codegen, derive(TS))]
 #[non_exhaustive]
 /// The information describing a client
 pub struct ClientInfo {
@@ -103,7 +115,8 @@ pub struct ClientInfo {
 }
 
 /// Identification provided to clients
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionInfo {
     /// See [`ClientID`]
@@ -112,7 +125,8 @@ pub struct ConnectionInfo {
     pub session_id: SessionID,
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[cfg_attr(codegen, derive(TS))]
 /// A private ID used to verify reconnects
 pub struct SessionID(u32);
 
@@ -131,8 +145,9 @@ impl FromStr for SessionID {
 }
 
 #[derive(
-    Serialize, Deserialize, TS, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+    Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
 )]
+#[cfg_attr(codegen, derive(TS))]
 /// A public ID shared with other clients
 pub struct ClientID(u32);
 
@@ -144,12 +159,14 @@ impl ClientID {
 }
 
 #[derive(
-    Serialize, Deserialize, TS, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+    Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
 )]
+#[cfg_attr(codegen, derive(TS))]
 /// A board-unique ID for each [`crate::canvas::Item`]
 pub struct ItemID(pub u32);
 
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 /// A piece of location data which could describe either a [`Transform`] or [`Point`]-based [`crate::canvas::Item`]
 pub enum LocationUpdate {
     /// The new [`Transform`] of the item
@@ -158,14 +175,16 @@ pub enum LocationUpdate {
     Points(Vec<Point>),
 }
 
-#[derive(Serialize, Deserialize, TS, Deref, Debug)]
+#[derive(Serialize, Deserialize, Deref, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 /// The information required to describe a collection of [`crate::canvas::Item`]s being deselected.
 /// Each item needs to have a new absolute position, but that could be a [`Transform`] or collection of [`Point`]s.
 ///
 /// See also [`LocationUpdate`]
 pub struct ItemsDeselected(HashMap<ItemID, LocationUpdate>);
 
-#[derive(Serialize, Deserialize, TS, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 /// The edits that can be made to multiple [`crate::canvas::Item`]s at the same time
 pub struct BatchChanges {
     /// The new fill [`Color`] for the items
@@ -175,5 +194,6 @@ pub struct BatchChanges {
 }
 
 /// A wrapper around a mapping from [`ClientID`]s to [`ClientInfo`]s
-#[derive(Serialize, TS, Deref, Debug)]
+#[derive(Serialize, Deref, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 pub struct ClientTable(pub BTreeMap<ClientID, ClientInfo>);

@@ -4,6 +4,7 @@ use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::fs;
 use ts_rs::TS;
+use virtual_whiteboard::message::{iterate::IterateSpec, notify_c::NotifyCSpec};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -12,16 +13,19 @@ struct Args {
     #[arg(short = 'o', long = "out-dir")]
     output_root: Utf8PathBuf,
 
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short = 't', long, default_value_t = false)]
     types: bool,
 
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short = 'm', long, default_value_t = false)]
     methods: bool,
 
     #[arg(short = 'c', long = "notify-c", default_value_t = false)]
     notify_c: bool,
 
-    #[arg(short, long, default_value_t = false)]
+    #[arg(short = 'i', long = "iterate", default_value_t = false)]
+    iterate: bool,
+
+    #[arg(short = 'd', long, default_value_t = false)]
     dry_run: bool,
 }
 
@@ -29,6 +33,7 @@ enum ExportTarget {
     Types,
     Methods,
     NotifyC,
+    Iterate,
 }
 
 impl ExportTarget {
@@ -37,6 +42,7 @@ impl ExportTarget {
             Self::Types => "Types",
             Self::Methods => "Methods",
             Self::NotifyC => "NotifyC",
+            Self::Iterate => "Iterate",
         }
     }
 
@@ -45,6 +51,7 @@ impl ExportTarget {
             Self::Types => ARGS.types,
             Self::Methods => ARGS.methods,
             Self::NotifyC => ARGS.notify_c,
+            Self::Iterate => ARGS.iterate,
         }
     }
 }
@@ -110,6 +117,7 @@ fn main() {
             c::Stroke,
             c::Angle,
             c::Transform,
+            c::SplineNode,
             c::Spline,
 
             i::RectangleItem,
@@ -207,14 +215,8 @@ export const MethodNames: (keyof Methods)[] = [
             ItemCreated,
             PathStarted,
         ] with T : TS => {
-            let decl = T::decl();
-            let params = decl.splitn(3, ' ').last().unwrap();
             unsafe { notify_c_names.push(T::name()) };
-            format!(
-                "\t{}: {},",
-                T::name(),
-                params,
-            )
+            T::decl()
         })
     };
 
@@ -223,19 +225,59 @@ export const MethodNames: (keyof Methods)[] = [
         format!(
             r#"// @ts-ignore: Generated code
 {}
-export type NotifyCs = {{
-{}
-}};
 
-export const NotifyCNames: (keyof NotifyCs)[] = [
+{}
+
+export {}
+
+export const NotifyCNames: (keyof NotifyCSpec)[] = [
 	{}
 ]"#,
             names_import,
             notify_c_export,
-            unsafe { &notify_c_names }
+            NotifyCSpec::decl(),
+            NotifyCSpec::NAMES
                 .iter()
                 .map(|s| format!("\"{s}\""))
-                .join(", "),
+                .join(", ")
         ),
     );
+
+    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
+    static mut iterate_names: Vec<String> = Vec::new();
+
+    let iterate_export = {
+        use virtual_whiteboard::message::iterate::*;
+        export_str!([
+            GetPartialItems,
+            GetFullItems,
+            GetActivePath,
+        ] with T : TS => {
+            unsafe { iterate_names.push(T::name()) };
+            T::decl()
+        })
+    };
+
+    export(
+        ExportTarget::Iterate,
+        format!(
+            r#"// @ts-ignore: Generated code
+{}
+
+{}
+
+export {}
+
+export const IterateNames: (keyof IterateSpec)[] = [
+    {}
+]"#,
+            names_import,
+            iterate_export,
+            IterateSpec::decl(),
+            IterateSpec::NAMES
+                .iter()
+                .map(|n| format!("\"{n}\""))
+                .join(", "),
+        ),
+    )
 }

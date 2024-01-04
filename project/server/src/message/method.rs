@@ -2,24 +2,29 @@
 
 use super::MsgSend;
 use serde::{Deserialize, Serialize};
+#[cfg(codegen)]
 use ts_rs::TS;
 
 /// The information describing a method call
 pub trait Method {
     /// The type that should be sent back to the client
-    type Response: TS + Serialize;
+    type Response: Serialize;
 
     /// The name of the method in Typescript
+    #[cfg(codegen)]
     fn name() -> String;
 
     /// The parameters of the method as a Typescript object
+    #[cfg(codegen)]
     fn ts_params() -> String;
 
     /// The return type in Typescript
+    #[cfg(codegen)]
     fn ts_return() -> String;
 }
 
-#[derive(TS, Deserialize, Debug)]
+#[derive(Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 /// An object representing a method call packet
 pub struct Call<T: Method> {
     /// The call ID for the client to associate the response with the call
@@ -49,7 +54,8 @@ impl<T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
 }
 
 /// An object representing a method return packet
-#[derive(TS, Serialize, Debug)]
+#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 pub struct Response<T: Method> {
     /// See [`Call::id`]
     id: u32,
@@ -57,6 +63,7 @@ pub struct Response<T: Method> {
     pub value: T::Response,
 }
 
+#[cfg(codegen)]
 macro_rules! parse_type {
 	//($($t:tt)*) => ($($t)*);
 
@@ -114,6 +121,7 @@ macro_rules! parse_type {
 	);
 }
 
+#[cfg(codegen)]
 macro_rules! parse_params {
 	(@{$name:ident : $($ty:tt)*}) => (
 		format!(
@@ -166,7 +174,8 @@ macro_rules! parse_params {
 macro_rules! pubify {
 	([$($attrs:tt)*] $mname:ident => $($name:ident : $type:ty),*) => (
 		$($attrs)*
-		#[derive(TS, Deserialize, Debug)]
+		#[derive(Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 		pub struct $mname {
 			$(
 				#[allow(missing_docs)]
@@ -176,6 +185,7 @@ macro_rules! pubify {
 	)
 }
 
+#[cfg(codegen)]
 macro_rules! declare_method {
 	{
 		$(#[$($attr:tt)*])*
@@ -201,13 +211,28 @@ macro_rules! declare_method {
 	}
 }
 
+#[cfg(not(codegen))]
+macro_rules! declare_method {
+	{
+		$(#[$($attr:tt)*])*
+		fn $method_name:ident($($params:tt)*) -> $($rt:tt)*
+	} => {
+		pubify!{[$(#[$($attr)*])*]$method_name => $($params)*}
+
+		impl Method for $method_name {
+			type Response = $($rt)*;
+		}
+	}
+}
+
 /// Helper macro to generate the enum of all methods
 macro_rules! method_enum {
 	{
 		$call_name:ident, $resp_name:ident => $($type:ident,)*
 	} => {
 		/// The enumeration of all method call types
-		#[derive(Deserialize, TS, Debug)]
+		#[derive(Deserialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 		#[serde(tag = "name")]
 		pub enum $call_name {
 			$(
@@ -217,7 +242,8 @@ macro_rules! method_enum {
 		}
 
 		/// The enumeration of all method return types
-		#[derive(Serialize, TS, Debug)]
+		#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 		#[serde(untagged)]
 		pub enum $resp_name {
 			$(

@@ -6,6 +6,7 @@ use crate::canvas::{Item, Transform};
 use super::{BatchChanges, ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
 use paste::paste;
 use serde::Serialize;
+#[cfg(codegen)]
 use ts_rs::TS;
 
 /// An individual Notify-C message type that can be converted into a message
@@ -23,6 +24,7 @@ macro_rules! notify_c_declarations {
 	{
 		$(#[$($eattr:tt)*])*
 		enum $enum_name:ident;
+        spec $spec_name:ident;
 		$(
 			$(#[$($attr:tt)*])*
 			$name:ident (
@@ -35,7 +37,8 @@ macro_rules! notify_c_declarations {
 	} => {
 		paste!{
 			$(#[$($eattr)*])*
-			#[derive(Serialize, TS, Debug)]
+			#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 			#[serde(tag = "name")]
 			pub enum $enum_name {
 				$(
@@ -43,10 +46,25 @@ macro_rules! notify_c_declarations {
 					$name ($name),
 				)*
 			}
+
+            #[cfg_attr(codegen, derive(TS))]
+            #[allow(non_snake_case, unused)] // Special reflection structure
+            pub struct $spec_name {
+                $(
+                    $name: $name,
+                )*
+            }
+
+            impl $spec_name {
+                pub const NAMES: &'static [&'static str] = &[
+                    $(stringify!($name)),*
+                ];
+            }
 		}
 		$(
 			$(#[$($attr)*])*
-			#[derive(Serialize, TS, Debug)]
+			#[derive(Serialize, Debug)]
+#[cfg_attr(codegen, derive(TS))]
 			pub struct $name {
 				$(
 					$(#[$($pattr)*])*
@@ -66,6 +84,7 @@ macro_rules! notify_c_declarations {
 notify_c_declarations! {
     /// The enumeration of all Notify-C types
     enum NotifyC;
+    spec NotifyCSpec;
 
     /// A new client has joined the board (not necessarily connected)
     ClientJoined (
