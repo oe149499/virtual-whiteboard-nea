@@ -11,7 +11,7 @@ pub use active::ActiveCanvas;
 pub use item::Item;
 
 /// A global location on the board plane
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "codegen", derive(TS))]
 pub struct Point {
     x: f64,
@@ -51,6 +51,17 @@ pub struct Transform {
     pub stretch_x: f64,
     /// The vertical scale of the object, applied before rotation
     pub stretch_y: f64,
+}
+
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            origin: Point::default(),
+            rotation: Angle(0.0),
+            stretch_x: 1.0,
+            stretch_y: 1.0,
+        }
+    }
 }
 
 /// A point along a [`Spline`]

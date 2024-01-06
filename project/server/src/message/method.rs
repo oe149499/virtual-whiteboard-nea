@@ -290,7 +290,7 @@ pub use _methods::*;
 mod _methods {
     use super::*;
     use crate::{
-        canvas::{Item, Point, Stroke},
+        canvas::{Item, Point, SplineNode, Stroke},
         message::{self as m, BatchChanges, ClientTable, ItemID, ItemsDeselected},
     };
 
@@ -332,7 +332,7 @@ mod _methods {
 
     declare_method! {
         /// Continue the path
-        fn ContinuePath(points: Vec<(Point)>) -> ()
+        fn ContinuePath(points: Vec<(SplineNode)>) -> ()
     }
 
     declare_method! {

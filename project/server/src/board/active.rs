@@ -3,16 +3,17 @@ mod iterate_impls;
 #[path = "./method_impls.rs"]
 mod method_impls;
 
-use std::{future::Future, sync::Arc};
+use std::{future::Future, sync::Arc, time::Duration};
 
 use log::error;
 use scc::{hash_map::OccupiedEntry, HashMap as AsyncHashMap};
-use tokio::sync::RwLock;
+use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
-    canvas::ActiveCanvas,
+    canvas::{ActiveCanvas, SplineNode, Stroke},
     client::{ClientHandle, MessagePayload},
     message::{
+        iterate::{GetActivePath, IterateHandle},
         notify_c::{ClientJoined, NotifyCType},
         ClientID, ClientInfo, ConnectionInfo, ItemID, MsgRecv, MsgSend, SessionID,
     },
@@ -20,12 +21,22 @@ use crate::{
 
 use super::{BoardHandle, BoardMessage};
 
+static PATH_FLUSH_TIME: Duration = Duration::from_millis(750);
+
+#[derive(Debug)]
+struct ActivePath {
+    nodes: Vec<SplineNode>,
+    listeners: Vec<IterateHandle<GetActivePath>>,
+    stroke: Stroke,
+    last_flush: Instant,
+}
+
 #[derive(Debug)]
 struct ClientState {
     info: ClientInfo,
     handle: Option<ClientHandle>,
-    session: SessionID,
     selection: std::collections::BTreeSet<ItemID>,
+    path_state: Option<ActivePath>,
 }
 
 impl ClientState {
@@ -106,8 +117,8 @@ impl Board {
                 let client = ClientState {
                     info: info.clone(),
                     handle: None,
-                    session: session_id,
                     selection: Default::default(),
+                    path_state: None,
                 };
                 self.clients
                     .insert_async(client_id, client)
@@ -135,7 +146,7 @@ impl Board {
     async fn handle_client_message(&self, id: ClientID, msg: MsgRecv) {
         match msg {
             MsgRecv::Method(method) => self.handle_method(id, method).await,
-            MsgRecv::Iterate(iterate) => todo!(),
+            MsgRecv::Iterate(iterate) => self.handle_iterate(id, iterate).await,
         }
     }
 

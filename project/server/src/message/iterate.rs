@@ -7,19 +7,24 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "codegen")]
 use ts_rs::TS;
 
-use crate::canvas::{Item, SplineNode};
+use crate::{
+    canvas::{Item, SplineNode},
+    client::ClientHandle,
+};
 
-use super::{ClientID, ItemID};
+use super::{ClientID, ItemID, MsgSend};
 
-pub trait IterateType {
+pub trait IterateType: Sized {
     #[cfg(not(feature = "codegen"))]
     type Item: Serialize;
 
     #[cfg(feature = "codegen")]
     type Item: Serialize + TS;
+
+    fn make_response(r: IterateResponse<Self>) -> IterateResponses;
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct IterateCall<M: IterateType> {
     id: u32,
     #[serde(flatten)]
@@ -28,14 +33,14 @@ pub struct IterateCall<M: IterateType> {
 
 impl<M: IterateType> IterateCall<M> {
     /// Extract parameters and convert into a response handle
-    pub fn get_handle(self) -> (M, IterateResponse<M>) {
+    pub fn get_handle(self, client: Option<ClientHandle>) -> (M, IterateHandle<M>) {
         (
             self.params,
-            IterateResponse {
+            IterateHandle {
                 id: self.id,
-                complete: false,
-                part: 0,
-                items: Vec::new(),
+                current_part: 0,
+                current_items: Vec::new(),
+                client,
             },
         )
     }
@@ -50,10 +55,19 @@ pub struct IterateResponse<M: IterateType> {
     items: Vec<M::Item>,
 }
 
+impl<M: IterateType> IterateResponse<M> {
+    /// Wrap [`Self`] in a [`MsgSend`]
+    pub fn to_msg(self) -> MsgSend {
+        MsgSend::IterateResponse(M::make_response(self))
+    }
+}
+
+#[derive(Debug)]
 pub struct IterateHandle<M: IterateType> {
     id: u32,
     current_part: u32,
     current_items: Vec<M::Item>,
+    client: Option<ClientHandle>,
 }
 
 impl<M: IterateType> IterateHandle<M> {
@@ -62,24 +76,39 @@ impl<M: IterateType> IterateHandle<M> {
         self
     }
 
-    pub fn flush_response(&mut self) -> IterateResponse<M> {
+    pub fn add_items(&mut self, items: &[M::Item]) -> &mut Self
+    where
+        M::Item: Clone,
+    {
+        self.current_items.extend_from_slice(items);
+        self
+    }
+
+    pub fn flush_response(&mut self) {
         let items = mem::replace(&mut self.current_items, Vec::new());
-        let response = IterateResponse {
+        let response = IterateResponse::<M> {
             id: self.id,
             complete: false,
             part: self.current_part,
             items,
         };
         self.current_part += 1;
-        response
+        if let Some(client) = &self.client {
+            client.send_message(response.to_msg());
+        }
     }
 
-    pub fn finalize(self) -> IterateResponse<M> {
-        IterateResponse {
-            id: self.id,
-            complete: true,
-            part: self.current_part,
-            items: self.current_items,
+    pub fn finalize(self) {
+        if let Some(client) = self.client {
+            client.send_message(
+                IterateResponse::<M> {
+                    id: self.id,
+                    complete: true,
+                    part: self.current_part,
+                    items: self.current_items,
+                }
+                .to_msg(),
+            );
         }
     }
 }
@@ -107,7 +136,7 @@ macro_rules! iterate_declarations {
 			pub enum $enum_name {
 				$(
 					#[doc = "See [`" $name "`] for more information"]
-					$name ($name),
+					$name (IterateCall<$name>),
 				)*
 			}
 
@@ -147,6 +176,10 @@ macro_rules! iterate_declarations {
 
 			impl IterateType for $name {
 				type Item = $itype;
+
+				fn make_response(r: IterateResponse<Self>) -> IterateResponses {
+					IterateResponses::$name(r)
+				}
 			}
 		)*
 	}

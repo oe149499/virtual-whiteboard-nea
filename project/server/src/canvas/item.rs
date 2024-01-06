@@ -2,26 +2,51 @@
 
 use super::{Color, Point, Spline, Stroke, Transform};
 use crate::tags::TagID;
+use paste::paste;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "codegen")]
 use ts_rs::TS;
 
-/// A union of all Item types, see the individual types for more information
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-#[serde(tag = "type")]
-#[non_exhaustive]
-#[allow(missing_docs)]
-pub enum Item {
-    Rectangle(RectangleItem),
-    Ellipse(EllipseItem),
-    Line(LineItem),
-    Polygon(PolygonItem),
-    Path(PathItem),
-    Image(ImageItem),
-    Text(TextItem),
-    Link(LinkItem),
-    Tag(TagItem),
+macro_rules! item_enum {
+    {
+        $(#[$($attr:tt)*])*
+        enum $enum_name:ident { $($name:ident),* }
+    } => {
+        $(#[$($attr)*])*
+        pub enum $enum_name {
+            $(
+                $name(paste!([<$name Item>])),
+            )*
+        }
+
+        $(
+            impl paste!([<$name Item>]) {
+                pub fn to_item(self) -> $enum_name {
+                    $enum_name::$name(self)
+                }
+            }
+        )*
+    }
+}
+
+item_enum! {
+    /// A union of all Item types, see the individual types for more information
+    #[derive(Serialize, Deserialize, Debug, Clone)]
+    #[cfg_attr(feature = "codegen", derive(TS))]
+    #[serde(tag = "type")]
+    #[non_exhaustive]
+    #[allow(missing_docs)]
+    enum Item {
+        Rectangle,
+        Ellipse,
+        Line,
+        Polygon,
+        Path,
+        Image,
+        Text,
+        Link,
+        Tag
+    }
 }
 
 /// A rectangle.

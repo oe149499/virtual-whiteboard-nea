@@ -1,27 +1,32 @@
 use std::collections;
 
-use crate::message::{
-    self,
-    method::*,
-    notify_c::{ItemCreated, SelectionItemsAdded},
-    ClientID, ClientTable, ErrorCode,
+use tokio::time::Instant;
+
+use crate::{
+    canvas::{item::PathItem, Spline, Transform},
+    message::{
+        self,
+        method::*,
+        notify_c::{ItemCreated, PathStarted, SelectionItemsAdded},
+        ClientID, ClientTable, ErrorCode,
+    },
 };
 
-use super::Board;
+use super::{ActivePath, Board};
 
 impl Board {
     pub async fn handle_method(&self, id: ClientID, method: Methods) {
         match method {
             Methods::SelectionAddItems(call) => self.handle_selection_add_items(id, call).await,
-            Methods::SelectionRemoveItems(_) => todo!(),
-            Methods::EditBatchItems(_) => todo!(),
-            Methods::EditSingleItem(_) => todo!(),
-            Methods::DeleteItems(_) => todo!(),
+            Methods::SelectionRemoveItems(call) => todo!(),
+            Methods::EditBatchItems(call) => todo!(),
+            Methods::EditSingleItem(call) => todo!(),
+            Methods::DeleteItems(call) => todo!(),
             Methods::CreateItem(call) => self.handle_create_item(id, call).await,
-            Methods::BeginPath(_) => todo!(),
-            Methods::ContinuePath(_) => todo!(),
-            Methods::EndPath(_) => todo!(),
-            Methods::GetAllItemIDs(_) => todo!(),
+            Methods::BeginPath(call) => self.handle_begin_path(id, call).await,
+            Methods::ContinuePath(call) => self.handle_continue_path(id, call).await,
+            Methods::EndPath(call) => self.handle_end_path(id, call).await,
+            Methods::GetAllItemIDs(call) => todo!(),
             Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
         }
     }
@@ -64,6 +69,79 @@ impl Board {
             item: call.params.item,
         })
         .await;
+    }
+
+    async fn handle_begin_path(&self, id: ClientID, call: Call<BeginPath>) {
+        let mut client = self.get_client(&id).await;
+        let path = ActivePath {
+            nodes: Vec::new(),
+            listeners: Default::default(),
+            stroke: call.params.stroke,
+            last_flush: Instant::now(),
+        };
+
+        client.get_mut().path_state = Some(path);
+        drop(client);
+
+        self.send_notify_c(PathStarted { id }).await;
+    }
+
+    async fn handle_continue_path(&self, id: ClientID, call: Call<ContinuePath>) {
+        let mut client = self.get_client(&id).await;
+        let Some(path) = &mut client.get_mut().path_state else {
+            todo!()
+        };
+
+        for handle in &mut path.listeners {
+            handle.add_items(&call.params.points);
+        }
+
+        tokio::task::yield_now().await;
+
+        if Instant::now() - path.last_flush > super::PATH_FLUSH_TIME {
+            for handle in &mut path.listeners {
+                handle.flush_response();
+            }
+        }
+
+        path.last_flush = Instant::now();
+
+        client.get().try_send(call.create_response(()).to_msg());
+    }
+
+    async fn handle_end_path(&self, id: ClientID, call: Call<EndPath>) {
+        let path = {
+            let mut client = self.get_client(&id).await;
+            client.get_mut().path_state.take()
+        };
+
+        let Some(path) = path else { todo!() };
+
+        for handle in path.listeners {
+            handle.finalize();
+        }
+
+        let item = PathItem {
+            transform: Transform::default(),
+            path: Spline { points: path.nodes },
+            stroke: path.stroke,
+        };
+
+        let item_id = self
+            .canvas
+            .add_item(crate::canvas::Item::Path(item.clone()))
+            .await;
+
+        self.send_notify_c(ItemCreated {
+            id: item_id,
+            item: item.to_item(),
+        })
+        .await;
+
+        self.get_client(&id)
+            .await
+            .get()
+            .try_send(call.create_response(item_id).to_msg());
     }
 
     async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
