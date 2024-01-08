@@ -39,12 +39,27 @@ export function todo(): never {
 	throw new Error("Not yet implemented");
 }
 
-DOMTokenList.prototype.swap = function (from: string, to: string): boolean {
-	const had = this.contains(from);
-	this.remove(from);
-	this.add(to);
-	return had;
-};
+export async function* asyncMap<TIn, TOut>(src: AsyncIterator<TIn>, f: (_: TIn) => TOut): AsyncIterator<TOut> {
+	while (true) {
+		const { done, value } = await src.next();
+		if (done) return;
+		else yield f(value);
+	}
+}
+
+const objectID: unique symbol = Symbol("global object ID");
+let nextObjID = 0;
+
+export function getObjectID(_o: object): number {
+	const o = _o as { [objectID]: number };
+	if (objectID in o) return o[objectID];
+	else {
+		const id = ++nextObjID;
+		// @ts-expect-error yes i'm aware that this doesn't exist yet
+		o[objectID] = id;
+		return id;
+	}
+}
 
 HTMLElement.prototype.addClasses = function (...classes) {
 	for (const c of classes) {
@@ -57,4 +72,9 @@ HTMLElement.prototype.createChild = function (tagname) {
 	const elem = document.createElement(tagname);
 	this.appendChild(elem);
 	return elem;
+};
+
+DOMTokenList.prototype.set = function (name, value) {
+	if (value) this.add(name);
+	else this.remove(name);
 };

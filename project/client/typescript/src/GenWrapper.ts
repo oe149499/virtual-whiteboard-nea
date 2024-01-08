@@ -1,3 +1,4 @@
+import { IterateSpec } from "./gen/Iterate.js";
 import { MethodNames, Methods } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
@@ -69,6 +70,36 @@ export type NCPayload<N extends NCName> = {
 	name: N,
 } & NCArgs<N>;
 
+export type IName = keyof IterateSpec;
+
+export type IArgs<I extends IName> = IterateSpec[I][0];
+
+export type IItem<I extends IName> = IterateSpec[I][1];
+
+export type IPayload<I extends IName> = {
+	protocol: "Iterate",
+	name: I,
+	id: number,
+} & IArgs<I>;
+
+export type IResponse<I extends IName> = {
+	protocol: "Response-Part",
+	id: number,
+	part: number,
+	complete: boolean,
+	items: IItem<I>[],
+};
+
+export function createIteratePayload<I extends IName>(name: I, id: number, args: IArgs<I>): IPayload<I> {
+	return {
+		protocol: "Iterate",
+		name,
+		id,
+		...args
+	};
+}
+
+//type Test = Id<IItem<"GetActivePath">>;
 
 export type MethodCall = MPayload<MName>;
 
@@ -76,6 +107,10 @@ export type MethodResponse = MResponse<MName>;
 
 export type NotifyC = NCPayload<NCName>;
 
-export type MsgSend = MethodCall;
+export type IterateCall = IPayload<IName>;
 
-export type MsgRecv = MethodResponse | NotifyC;
+export type IterateResponse = IResponse<IName>;
+
+export type MsgSend = MethodCall | IterateCall;
+
+export type MsgRecv = MethodResponse | NotifyC | IterateResponse;

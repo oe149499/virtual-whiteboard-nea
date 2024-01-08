@@ -1,0 +1,12 @@
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+	<g id="right" transform="translate(50, 50)">
+		<g id="base" stroke="black" stroke-width="3" stroke-linecap="round">
+			<line x1="0" x2="45" y1="0" y2="0" />
+			<line x1="45" x2="30" y1="0" y2="15" />
+			<line x1="45" x2="30" y1="0" y2="-15" />
+		</g>
+	</g>
+	<use href="#base" id="down" transform=" translate(50, 50) rotate(90)" />
+	<use href="#base" id="left" transform="translate(50, 50) rotate(180)" />
+	<use href="#base" id="up" transform="translate(50, 50) rotate(-90)" />
+</svg>

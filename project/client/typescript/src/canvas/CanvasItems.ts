@@ -1,7 +1,8 @@
 import { HasFill, HasStroke, HasTransform, ItemType, SpecificItem } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
-import { Item, LineItem, PolygonItem } from "../gen/Types.js";
+import { Item, LineItem, PathItem, PolygonItem } from "../gen/Types.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "./CanvasBase.js";
+import { PathHelper } from "./Path.js";
 
 const logger = new Logger("canvas-items");
 
@@ -63,7 +64,7 @@ abstract class ShapeItem extends CanvasItem {
 
 export class Rectangle extends ShapeItem {
 	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
-		const elem = ctx.createElement("rect") as SVGRectElement;
+		const elem = ctx.createElement("rect");
 
 		elem.setAttribute("x", "-0.5cm");
 		elem.setAttribute("y", "-0.5cm");
@@ -76,7 +77,7 @@ export class Rectangle extends ShapeItem {
 
 export class Ellipse extends ShapeItem {
 	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
-		const elem = ctx.createElement("circle") as SVGCircleElement;
+		const elem = ctx.createElement("circle");
 
 		elem.setAttribute("r", "0.5cm");
 
@@ -96,7 +97,7 @@ export class Line extends CanvasItem {
 		private item: LineItem
 	) {
 		super();
-		this.elem = ctx.createElement("line") as SVGLineElement;
+		this.elem = ctx.createElement("line");
 
 		this.updateStart();
 		this.updateEnd();
@@ -131,21 +132,21 @@ export class Polygon extends CanvasItem {
 
 	public override get element() { return this.elem; }
 
-	private _stroke: StrokeHelper;
-	private _fill: FillHelper;
+	private stroke: StrokeHelper;
+	private fill: FillHelper;
 
 	public constructor(
 		ctx: CanvasContext,
 		private item: PolygonItem,
 	) {
 		super();
-		const elem = ctx.createElement("polygon") as SVGPolygonElement;
+		const elem = ctx.createElement("polygon");
 		this.elem = elem;
 
 		this.updatePoints();
 
-		this._stroke = new StrokeHelper(elem.style, item.stroke);
-		this._fill = new FillHelper(elem.style, item.fill);
+		this.stroke = new StrokeHelper(elem.style, item.stroke);
+		this.fill = new FillHelper(elem.style, item.fill);
 	}
 
 	private updatePoints() {
@@ -161,18 +162,50 @@ export class Polygon extends CanvasItem {
 			logger.error(`Tried to update \`Polygon\` item with type \`${value.type}\`:`, value);
 			return;
 		}
-		this.item = value;
 
 		this.item = value;
-		this._stroke.update(value.stroke);
-		this._fill.update(value.fill);
+		this.stroke.update(value.stroke);
+		this.fill.update(value.fill);
 		this.updatePoints();
 	}
 }
 
+export class Path extends CanvasItem {
+	private elem: SVGPathElement;
+	private pathHelper: PathHelper;
+	private stroke: StrokeHelper;
+	private transform: TransformHelper;
+	public override get element() { return this.elem; }
+
+	public constructor(
+		ctx: CanvasContext,
+		private item: PathItem,
+	) {
+		const [{ position: startPoint }, ...points] = item.path.points;
+		super();
+		const elem = ctx.createElement("path");
+		this.elem = elem;
+
+		this.stroke = new StrokeHelper(elem.style, item.stroke);
+		this.transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
+
+		this.pathHelper = new PathHelper(elem, startPoint);
+		this.pathHelper.addNodes(...points);
+	}
+
+	public override update(value: Item): void {
+		if (value.type != "Path") return logger.error(`Tried to update \`Line\` item with type \`${value.type}\`: `, value);
+
+		this.item = value;
+		this.stroke.update(value.stroke);
+		this.transform.update(value.transform);
+	}
+}
+
 const itemBuilders = {
-	Rectangle: Rectangle,
-	Ellipse: Ellipse,
-	Line: Line,
-	Polygon: Polygon,
+	Rectangle,
+	Ellipse,
+	Line,
+	Polygon,
+	Path,
 } as { [K in ItemType]?: new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem };

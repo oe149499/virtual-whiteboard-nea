@@ -1,4 +1,5 @@
 import { Logger } from "../Logger.js";
+import { Tool } from "../tool/Tool.js";
 
 const logger = new Logger("ui/icon");
 
@@ -29,5 +30,45 @@ export class SvgIcon {
 				resolve(svg[0]);
 			};
 		});
+	}
+}
+
+export class ToolIcon {
+	private icon: SvgIcon;
+	public readonly element: HTMLElement;
+
+	#active = false;
+
+	public get active() {
+		return this.#active;
+	}
+
+	protected set active(value) {
+		this.#active = value;
+		this.element.classList.set("selected", value);
+	}
+
+
+	public onselect: ((_: {
+		tool: Tool,
+		icon: ToolIcon,
+	}) => boolean) | null = null;
+
+	constructor(iconName: string, public readonly tool: Tool) {
+		this.icon = new SvgIcon(iconName);
+
+		this.element = document.createElement("div").addClasses("tool-icon", "ui-icon");
+
+		this.element.appendChild(this.icon.objectElement);
+
+		this.element.onclick = () => {
+			if (this.active) return;
+			if (this.onselect?.({
+				tool: this.tool,
+				icon: this,
+			})) {
+				this.active = true;
+			}
+		};
 	}
 }

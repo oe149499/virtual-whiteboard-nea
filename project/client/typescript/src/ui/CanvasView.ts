@@ -95,6 +95,7 @@ export class CanvasView {
 	}
 
 	private mouseUp(e: PointerEvent): void {
+		this.activeGestures[e.pointerId].points.close();
 		delete this.activeGestures[e.pointerId];
 		this.svgElement.onpointermove = null;
 	}

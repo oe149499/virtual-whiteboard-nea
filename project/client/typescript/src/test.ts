@@ -1,9 +1,7 @@
-/* eslint-disable @typescript-eslint/ban-types */
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-nocheck
-import { CanvasController } from "./canvas/Canvas.js";
-import { SessionClient } from "./client/Client.js";
-import type { Item, Point, PolygonItem, RectangleItem } from "./gen/Types.js";
+import { Board } from "./Board.js";
+import { SpecificItem } from "./GenWrapper.js";
+import { Property, buildProperties } from "./Properties.js";
+import type { Item, Point, RectangleItem } from "./gen/Types.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
 
@@ -21,19 +19,7 @@ export const basic_item: Item = {
 	}
 };
 
-export async function createBoundTestBoard(): { canvas: CanvasController, client: SessionClient } {
-	const client = await SessionClient.new("test", { name: "test" });
-	const canvas = new CanvasController();
-	canvas.svgElem.setAttribute("width", "10cm");
-	canvas.svgElem.setAttribute("height", "10cm");
-	document.querySelector("#test-container")?.appendChild(canvas.svgElem);
-	client.bindNotify("ItemCreated", ({ id, item }) => {
-		canvas.addItem(id, item);
-	});
-	return { client, canvas };
-}
-
-export const rect: RectangleItem = {
+export const rect: SpecificItem<"Rectangle"> = {
 	type: "Rectangle",
 	transform: {
 		origin: { x: 10, y: 10 },
@@ -48,7 +34,7 @@ export const rect: RectangleItem = {
 	fill: "blue"
 };
 
-export const triangle: PolygonItem = {
+export const triangle: SpecificItem<"Polygon"> = {
 	type: "Polygon",
 	points: [
 		point(1, 1),
@@ -66,4 +52,35 @@ const message: string = "Hello World!";
 const item = JSON.stringify(basic_item);
 console.log(message, item);
 
-window.SessionClient = SessionClient;
+export async function createTestUI() {
+	const board = await Board.new("test", { name: "Oscar" });
+
+	document.body.appendChild(board.ui.containerElement);
+
+	return board;
+}
+
+const acc = {
+	get<T>() { return null as T; },
+	set<T>(val: T) { return val; }
+};
+
+type Test = { [K in keyof RectangleItem]: 1 };
+
+/*const prop = buildProperties(rect as RectangleItem, ($) => {
+	$.struct("stroke", ($) => {
+		$.number("width");
+		$.color("color", $.get(rect.stroke, "color"));
+	});
+	$.struct("transform", ($) => {
+		$.struct("origin", ($) => {
+			$.number("x");
+			$.number("y");
+		});
+		$.number("rotation");
+		$.number("stretchX");
+		$.number("stretchY");
+	});
+	$.color("fill");
+});
+console.log(prop);*/

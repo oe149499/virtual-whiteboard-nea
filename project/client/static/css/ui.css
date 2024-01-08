@@ -2,45 +2,72 @@
 	--icon-size: 1cm;
 }
 
-.ui {
-	position: relative;
+body {
+	height: 100%;
 }
 
-.ui .svg-container {
+.ui {
+	position: relative;
+	height: 100%;
+}
+
+.ui svg {
 	width: 100%;
 	height: 100%;
 }
 
-.ui .bottom-container {
+.bottom-container {
 	position: absolute;
 	bottom: 0.5cm;
 	left: 0.5cm;
+	display: flex;
+	align-items: center;
 }
 
-.ui .ui-icon {
+.right-container {
+	position: absolute;
+	top: 0.5cm;
+	right: 0.5cm;
+	display: flex;
+	flex-direction: column;
+}
+
+.left-container {
+	position: absolute;
+	top: 0.5cm;
+	left: 0.5cm;
+	display: flex;
+	flex-direction: column;
+}
+
+.right-container .panel-contents {
+	flex-direction: column;
+}
+
+.ui-icon {
 	display: inline-block;
 	pointer-events: all;
 }
 
-.ui .ui-icon>* {
+.ui-icon>* {
 	width: 100%;
 	height: 100%;
 	pointer-events: none;
 }
 
-.ui .icon-container {
+.icon-container {
 	display: inline-flex;
 }
 
-.ui .panel-contents {
+.panel-contents {
 	overflow: hidden;
 	transition: width 1s linear;
 }
 
-.ui .panel-contents.open {
+.panel-contents.open {
 	max-width: 1e12px;
 }
 
-.ui .panel-contents.closed {
+.panel-contents.closed {
 	width: 0;
 }

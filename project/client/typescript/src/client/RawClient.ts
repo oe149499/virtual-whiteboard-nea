@@ -1,5 +1,6 @@
-import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler } from "../GenWrapper.js";
+import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler, IName, IArgs, IItem, createIteratePayload } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
+import { IterateReceiver } from "./IterateReceiver.js";
 
 const logger = new Logger("ws-client");
 
@@ -13,7 +14,11 @@ export class RawClient {
 	private socket: WebSocket | null = null;
 	private calls: Record<number, CallRecord> = {};
 	private notifyCHandlers: {
-		[K in NCName]?: (_:NCArgs<K>) => void;
+		[K in NCName]?: (_: NCArgs<K>) => void;
+	} = {};
+
+	private iterateReceivers: {
+		[n: number]: IterateReceiver<IName>,
 	} = {};
 
 
@@ -53,13 +58,28 @@ export class RawClient {
 		return promise;
 	}
 
+	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIterable<IItem<I>> {
+		const id = this.callId++;
+
+		const payload = createIteratePayload(name, id, args);
+
+		this.sendPayload(JSON.stringify(payload));
+
+		const receiver = new IterateReceiver<I>();
+
+		// @ts-expect-error This all relies on the ID being handled correctly
+		this.iterateReceivers[id] = receiver;
+
+		return receiver.iter;
+	}
+
 	public getMethodHandler(): MethodHandler {
 		return this.callMethod.bind(this);
 	}
 
 	public setNotifyHandler<N extends NCName>(
 		name: N,
-		handler: (_:NCArgs<N>) => void,
+		handler: (_: NCArgs<N>) => void,
 	) {
 		// @ts-expect-error trust me bro
 		this.notifyCHandlers[name] = handler;
@@ -67,24 +87,34 @@ export class RawClient {
 
 	private handleMessageObject(msg: MsgRecv) {
 		logger.info("Parsed Message Object: ", msg);
-		switch(msg.protocol) {
-		case "Response": {
-			const {id, value} = msg;
-			if (id in this.calls) {
-				this.calls[id].resolve(value);
-				delete this.calls[id];
-			} else {
-				logger.error("Got response with no registered call");
+		switch (msg.protocol) {
+			case "Response": {
+				const { id, value } = msg;
+				if (id in this.calls) {
+					this.calls[id].resolve(value);
+					delete this.calls[id];
+				} else {
+					logger.error("Got response with no registered call");
+				}
+			} break;
+			case "Notify-C": {
+				const { protocol: _, name, ...args } = msg;
+				this.handleNotifyC(name, args);
+			} break;
+			case "Response-Part": {
+				const id = msg.id;
+				const rec = this.iterateReceivers[id];
+				if (rec) {
+					rec.handlePayload(msg);
+					if (rec.finished) delete this.iterateReceivers[id];
+				} else {
+					logger.error("Got Iterate response with no registered receiver");
+				}
+			} break;
+			default: {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				logger.error(`Unknown message type: ${(msg as any).protocol}`);
 			}
-		} break;
-		case "Notify-C": {
-			const {protocol:_, name, ...args} = msg;
-			this.handleNotifyC(name, args);
-		} break;
-		default: {
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			logger.error(`Unknown message type: ${(msg as any).protocol}`);
-		}
 		}
 	}
 

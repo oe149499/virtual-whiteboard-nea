@@ -5,7 +5,14 @@
 body {
 	height: 100%;
 	margin: 0;
+	display: grid;
+	grid-template-rows: 100%;
+	grid-auto-columns: 1fr;
+	grid-auto-flow: column;
+	table-layout: fixed;
 }
+
+body>* {}
 
 html {
 	height: 100%;

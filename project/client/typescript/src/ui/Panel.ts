@@ -37,11 +37,11 @@ export class PanelController {
 		);
 
 		this.visibility.onopen = () => {
-			this.contents.classList.swap("closed", "open");
+			this.contents.classList.replace("closed", "open");
 		};
 
 		this.visibility.onclose = () => {
-			this.contents.classList.swap("open", "closed");
+			this.contents.classList.replace("open", "closed");
 		};
 
 		this.contents = this.getContents();

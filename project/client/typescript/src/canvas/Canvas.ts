@@ -3,9 +3,9 @@ import { CanvasContext, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
 
 export class CanvasController {
-	readonly svgElem = document.createElementNS(SVGNS, "svg");
-	private ctx: CanvasContext;
-	private items = {} as {[x: ItemID]: CanvasItem};
+	public readonly svgElem = document.createElementNS(SVGNS, "svg");
+	public readonly ctx: CanvasContext;
+	private items = {} as { [x: ItemID]: CanvasItem };
 
 	constructor() {
 		this.ctx = new CanvasContext(this.svgElem);
@@ -15,5 +15,9 @@ export class CanvasController {
 		const canvas_item = CanvasItem.create(this.ctx, item);
 		this.items[id] = canvas_item;
 		this.svgElem.appendChild(canvas_item.element);
+	}
+
+	public addRawElement(elem: SVGElement) {
+		this.svgElem.appendChild(elem);
 	}
 }
