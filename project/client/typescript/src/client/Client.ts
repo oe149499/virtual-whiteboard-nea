@@ -1,4 +1,4 @@
-import { MethodDispatcher, NCArgs, NCName, createMethodReciever } from "../GenWrapper.js";
+import { IterateDispatcher, MethodDispatcher, NCArgs, NCName, createIterateReciever, createMethodReciever } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "../util/Utils.js";
@@ -37,6 +37,7 @@ export class SessionClient {
 
 	private rawClient: RawClient;
 	private methodDispatcher: MethodDispatcher | null = null;
+	private iterateDispatcher: IterateDispatcher | null = null;
 	readonly socketUrl: URL;
 
 	public get method(): MethodDispatcher {
@@ -44,6 +45,14 @@ export class SessionClient {
 			this.methodDispatcher = createMethodReciever(this.rawClient.getMethodHandler());
 		}
 		return this.methodDispatcher;
+	}
+
+	public get iterate(): IterateDispatcher {
+		this.iterateDispatcher ??= createIterateReciever(
+			(name, args) => this.rawClient.callIterate(name, args)
+		);
+
+		return this.iterateDispatcher;
 	}
 
 	public bindNotify<N extends NCName>(name: N, handler: (_: NCArgs<N>) => void) {

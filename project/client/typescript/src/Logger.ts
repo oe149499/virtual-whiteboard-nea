@@ -1,5 +1,5 @@
-import { strftime } from "./strftime.js";
 export enum LogLevel {
+	Trace,
 	Info,
 	Debug,
 	Warn,
@@ -7,19 +7,33 @@ export enum LogLevel {
 }
 
 const LevelNames: { [level in LogLevel]: string } = {
+	[LogLevel.Trace]: "TRACE",
 	[LogLevel.Info]: " INFO",
 	[LogLevel.Debug]: "DEBUG",
 	[LogLevel.Warn]: " WARN",
 	[LogLevel.Error]: "ERROR",
 };
 
+const dateFormat = new Intl.DateTimeFormat(undefined, {
+	year: "numeric",
+	month: "2-digit",
+	day: "2-digit",
+	hour: "2-digit",
+	minute: "2-digit",
+	second: "2-digit",
+});
+
+function logFormat(time: Date, level: LogLevel, module: string, message: string) {
+	const partsMap = {} as Record<Intl.DateTimeFormatPartTypes, string>;
+	dateFormat.formatToParts(time).forEach(({ type, value }) => partsMap[type] = value);
+	const { year, month, day, hour, minute, second } = partsMap;
+	return `[${year}-${month}-${day}@${hour}-${minute}-${second} | ${module}] ${LevelNames[level]}: ${message}`;
+}
+
 export const LogOptions = {
 	minLevel: LogLevel.Info,
 	timeFormat: "%Y-%m-%d@%H-%M-%S",
-	logFormat: (time: Date, level: LogLevel, module: string, message: string) => {
-		const timeString = strftime(LogOptions.timeFormat, time);
-		return `[${timeString} | ${module}] ${LevelNames[level]}: ${message}`;
-	}
+	logFormat,
 };
 
 export class Logger {
@@ -29,6 +43,9 @@ export class Logger {
 		if (level >= LogOptions.minLevel) {
 			const displayString = LogOptions.logFormat(new Date(), level, this.module, message);
 			switch (level) {
+				case LogLevel.Trace:
+					console.trace(displayString, ...objs);
+					break;
 				case LogLevel.Info:
 					console.info(displayString, ...objs);
 					break;
@@ -43,6 +60,11 @@ export class Logger {
 					break;
 			}
 		}
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public trace(message: string, ...objs: any[]) {
+		this.log(LogLevel.Trace, message, ...objs);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

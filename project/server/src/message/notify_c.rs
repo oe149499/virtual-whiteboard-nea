@@ -1,7 +1,7 @@
 #![allow(missing_docs)] // API is documented in design section
 //! Types associated with server-to-client notification messages
 
-use crate::canvas::{Item, Transform};
+use crate::canvas::{Item, Stroke, Transform};
 
 use super::{BatchChanges, ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
 use paste::paste;
@@ -146,6 +146,7 @@ notify_c_declarations! {
 
     PathStarted (
         id: ClientID,
+        stroke: Stroke,
     )
 }
 

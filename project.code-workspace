@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "project/client"
+		},
+		{
+			"path": "project/server"
+		}
+	],
+	"settings": {
+		"svg.preview.background": "transparent"
+	}
+}

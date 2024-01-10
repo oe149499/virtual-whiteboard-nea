@@ -179,24 +179,25 @@ export class Path extends CanvasItem {
 
 	public constructor(
 		ctx: CanvasContext,
-		private item: PathItem,
+		item: PathItem,
 	) {
 		const [{ position: startPoint }, ...points] = item.path.points;
 		super();
 		const elem = ctx.createElement("path");
 		this.elem = elem;
 
+		elem.setAttribute("fill", "none");
+
 		this.stroke = new StrokeHelper(elem.style, item.stroke);
 		this.transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
 
 		this.pathHelper = new PathHelper(elem, startPoint);
-		this.pathHelper.addNodes(...points);
+		this.pathHelper.addNodes(points);
 	}
 
 	public override update(value: Item): void {
 		if (value.type != "Path") return logger.error(`Tried to update \`Line\` item with type \`${value.type}\`: `, value);
 
-		this.item = value;
 		this.stroke.update(value.stroke);
 		this.transform.update(value.transform);
 	}

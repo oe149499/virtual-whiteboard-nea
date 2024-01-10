@@ -1,5 +1,6 @@
 use std::collections;
 
+use log::{debug, trace};
 use tokio::time::Instant;
 
 use crate::{
@@ -76,17 +77,23 @@ impl Board {
         let path = ActivePath {
             nodes: Vec::new(),
             listeners: Default::default(),
-            stroke: call.params.stroke,
+            stroke: call.params.stroke.clone(),
             last_flush: Instant::now(),
         };
 
+        let notify = PathStarted {
+            id,
+            stroke: call.params.stroke.clone(),
+        };
+
         client.get_mut().path_state = Some(path);
+        client.get().try_send(call.create_response(()).to_msg());
         drop(client);
 
-        self.send_notify_c(PathStarted { id }).await;
+        self.send_notify_c(notify).await;
     }
 
-    async fn handle_continue_path(&self, id: ClientID, call: Call<ContinuePath>) {
+    async fn handle_continue_path(&self, id: ClientID, mut call: Call<ContinuePath>) {
         let mut client = self.get_client(&id).await;
         let Some(path) = &mut client.get_mut().path_state else {
             todo!()
@@ -96,15 +103,26 @@ impl Board {
             handle.add_items(&call.params.points);
         }
 
+        path.nodes.append(&mut call.params.points);
+
         tokio::task::yield_now().await;
 
-        if Instant::now() - path.last_flush > super::PATH_FLUSH_TIME {
+        let now = Instant::now();
+
+        debug!(
+            "now {:?}, last flush {:?}, diff {:?}",
+            now,
+            path.last_flush,
+            now - path.last_flush
+        );
+
+        if now - path.last_flush > super::PATH_FLUSH_TIME {
             for handle in &mut path.listeners {
                 handle.flush_response();
             }
-        }
 
-        path.last_flush = Instant::now();
+            path.last_flush = now;
+        }
 
         client.get().try_send(call.create_response(()).to_msg());
     }

@@ -44,7 +44,7 @@ export class PathTool extends ActionToolBase {
 				velocity: { x: 0, y: 0 },
 			};
 			await this.board.client.method.ContinuePath({ points: [node] });
-			helper.addNodes({
+			helper.addNode({
 				position: point,
 				velocity: { x: 0, y: 0 },
 			});

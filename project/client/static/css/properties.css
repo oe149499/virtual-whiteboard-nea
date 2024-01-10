@@ -1,0 +1,15 @@
+.property-container {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	width: max-content;
+}
+
+.property-struct {
+	display: grid;
+	grid-column: 1 / 3;
+	grid-template-columns: 1fr 1fr;
+}
+
+.struct-header {
+	grid-column: 1 / 3;
+}

@@ -1,7 +1,8 @@
-import { IterateSpec } from "./gen/Iterate.js";
+import { IterateNames, IterateSpec } from "./gen/Iterate.js";
 import { MethodNames, Methods } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
+import { Channel } from "./util/Channel.js";
 
 type Id<T> = { [K in keyof T]: T[K] };
 
@@ -97,6 +98,24 @@ export function createIteratePayload<I extends IName>(name: I, id: number, args:
 		id,
 		...args
 	};
+}
+
+export type IterateDispatcher = {
+	[I in IName]: (args: IArgs<I>) => AsyncIterable<IItem<I>[]>
+}
+
+export type IterateHandler = <I extends IName>(name: I, args: IArgs<I>) => AsyncIterable<IItem<I>[]>;
+
+export function createIterateReciever(handler: IterateHandler): IterateDispatcher {
+	// This should work but fails type checking
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	const result = {} as any;
+	for (const name of IterateNames) {
+		result[name] = function (args: IArgs<typeof name>) {
+			return handler(name, args);
+		};
+	}
+	return result;
 }
 
 //type Test = Id<IItem<"GetActivePath">>;

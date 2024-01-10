@@ -25,6 +25,7 @@ pub trait IterateType: Sized {
 }
 
 #[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
 pub struct IterateCall<M: IterateType> {
     id: u32,
     #[serde(flatten)]

@@ -1,6 +1,7 @@
-import { ColorProperty, NumberProperty, Property } from "../Properties";
-import { getObjectID } from "../util/Utils";
-
+import { Logger } from "../Logger.js";
+import { ColorProperty, NumberProperty, Property, StructProperty } from "../Properties.js";
+import { getObjectID } from "../util/Utils.js";
+const logger = new Logger("ui/PropertiesEditor");
 
 class ObjectCacheMap<K extends object, V> {
 	private idMap = new Map<number, V>();
@@ -27,12 +28,14 @@ export class PropertyEditor {
 	) { }
 
 	public loadProperties(props: Property[]) {
+		logger.debug("loading properties");
 		this.currentProps = props;
 		this.currentElement?.remove();
 		this.currentElement = this.propertyCache.get(props, (props) => {
+			logger.debug("building properties: %o", props);
 			const root = document.createElement("div").addClasses("property-container");
 			for (const prop of props) {
-				root.createChild("div").addClasses("transparent-container");
+				this.buildPropertyUI(root, prop);
 			}
 			return root;
 		});
@@ -40,33 +43,59 @@ export class PropertyEditor {
 	}
 
 	private buildPropertyUI(target: HTMLElement, prop: Property) {
+		logger.debug("%o", prop);
 		if (prop instanceof NumberProperty) return this.buildNumberUI(target, prop);
+		if (prop instanceof ColorProperty) return this.buildColorUI(target, prop);
+		if (prop instanceof StructProperty) return this.buildStructUI(target, prop);
 	}
 
 	private buildNumberUI(target: HTMLElement, prop: NumberProperty) {
 		const propID = getObjectID(prop);
 		target.createChild("label")
-			.setAttrs({ for: propID })
+			.setAttrs({ htmlFor: propID })
 			.setContent(prop.displayName);
-		target.createChild("input")
+		const input = target.createChild("input")
 			.addClasses("property-number")
 			.setAttrs({
-				type: "number",
+				type: "text",
+				pattern: "[0-9](\\.[0-9]+)",
+				inputMode: "numeric",
 				id: propID,
+				value: prop.get(),
+				step: "any",
 			});
-
+		input.oninput = () => {
+			if (input.checkValidity()) {
+				prop.set(Number(input.value)).toString();
+			}
+		};
 	}
 
 	private buildColorUI(target: HTMLElement, prop: ColorProperty) {
 		const propID = getObjectID(prop);
 		target.createChild("label")
-			.setAttrs({ for: propID })
+			.setAttrs({ htmlFor: propID })
 			.setContent(prop.displayName);
-		target.createChild("input")
+		const input = target.createChild("input")
 			.addClasses("property-color")
 			.setAttrs({
 				type: "color",
 				id: propID,
+				value: prop.get(),
 			});
+		input.oninput = () => {
+			input.value = prop.set(input.value);
+		};
+	}
+
+	private buildStructUI(target: HTMLElement, prop: StructProperty) {
+		const container = target.createChild("div")
+			.addClasses("property-struct");
+		container.createChild("span")
+			.addClasses("struct-header")
+			.setContent(prop.displayName);
+		for (const innerProp of prop.fields) {
+			this.buildPropertyUI(container, innerProp);
+		}
 	}
 }

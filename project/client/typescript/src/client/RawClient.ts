@@ -58,7 +58,7 @@ export class RawClient {
 		return promise;
 	}
 
-	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIterable<IItem<I>> {
+	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIterable<IItem<I>[]> {
 		const id = this.callId++;
 
 		const payload = createIteratePayload(name, id, args);
@@ -70,7 +70,7 @@ export class RawClient {
 		// @ts-expect-error This all relies on the ID being handled correctly
 		this.iterateReceivers[id] = receiver;
 
-		return receiver.iter;
+		return receiver.chunks;
 	}
 
 	public getMethodHandler(): MethodHandler {
@@ -86,7 +86,7 @@ export class RawClient {
 	}
 
 	private handleMessageObject(msg: MsgRecv) {
-		logger.info("Parsed Message Object: ", msg);
+		logger.trace("Parsed Message Object: ", msg);
 		switch (msg.protocol) {
 			case "Response": {
 				const { id, value } = msg;
@@ -127,7 +127,7 @@ export class RawClient {
 	}
 
 	private onSocketMessage(event: MessageEvent) {
-		logger.info("Recieved message:", event);
+		logger.trace("Recieved message:", event);
 		const data = event.data;
 		if (data instanceof Blob) {
 			data.text()

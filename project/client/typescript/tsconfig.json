@@ -22,7 +22,6 @@
 		"noImplicitReturns": true,
 		"noImplicitThis": true,
 		"noPropertyAccessFromIndexSignature": true,
-		"noUnusedLocals": true,
 		"noErrorTruncation": true,
 		"sourceRoot": "/script/source",
 		"strict": true,

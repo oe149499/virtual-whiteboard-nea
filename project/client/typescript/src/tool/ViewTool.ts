@@ -8,9 +8,8 @@ export class ViewTool extends ModeToolBase {
 		const firstPoint = await gesture.points.pop();
 		const offsetX = gesture.initialOrigin.x + firstPoint.x;
 		const offsetY = gesture.initialOrigin.y + firstPoint.y;
-		logger.debug("", { offsetX, offsetY });
 		for await (const point of gesture.points) {
-			logger.debug("Point: ", point);
+			logger.trace("Point: ", point);
 			this.board.ui.canvas.setOrigin({
 				x: offsetX - point.x,
 				y: offsetY - point.y,

@@ -1,15 +1,19 @@
-import { ToolType } from "../tool/Tool.js";
+import { Tool, ToolType } from "../tool/Tool.js";
 import { CanvasView } from "./CanvasView.js";
 import { ToolIcon } from "./Icon.js";
 import { PanelController } from "./Panel.js";
+import { PropertyEditor } from "./PropertiesEditor.js";
 
 export class UIManager {
 	public readonly containerElement: HTMLDivElement;
 	public readonly viewPanel: PanelController;
 	public readonly toolPanel: PanelController;
 	public readonly propertiesPanel: PanelController;
+	public readonly properties: PropertyEditor;
 
 	public readonly canvas: CanvasView;
+
+	public lastTool?: Tool;
 
 	public constructor(
 		svg: SVGSVGElement,
@@ -50,22 +54,26 @@ export class UIManager {
 			.createChild("div")
 			.addClasses("left-container");
 
-		panelContainer
+		const propEditorContainer = panelContainer
 			.createChild("div")
 			.addClasses("panel-contents");
 
 		this.propertiesPanel = new PanelController(panelContainer);
+		this.properties = new PropertyEditor(propEditorContainer);
 	}
 
 	public addToolIcon(icon: ToolIcon) {
 		this.toolPanel.contents.appendChild(icon.element);
 		icon.onselect = ({ tool }) => {
+			this.lastTool = tool;
 			switch (tool.type) {
 				case ToolType.Action: {
 					tool.bind(console.log.bind(null, "tool action"));
+					this.properties.loadProperties(tool.properties);
 				} break;
 				case ToolType.Mode: {
 					tool.bind();
+					this.properties.loadProperties(tool.properties);
 				} break;
 				case ToolType.Instantaneous:
 			}

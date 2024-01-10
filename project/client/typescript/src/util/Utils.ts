@@ -61,6 +61,13 @@ export function getObjectID(_o: object): number {
 	}
 }
 
+export async function splitFirstAsync<T>(iter: AsyncIterable<T>): Promise<[T, AsyncIterable<T>]> {
+	const iterator = iter[Symbol.asyncIterator]();
+	const first = await iterator.next();
+	const rest = { [Symbol.asyncIterator]: () => iterator };
+	return [first.value, rest];
+}
+
 HTMLElement.prototype.addClasses = function (...classes) {
 	for (const c of classes) {
 		this.classList.add(c);
@@ -72,6 +79,19 @@ HTMLElement.prototype.createChild = function (tagname) {
 	const elem = document.createElement(tagname);
 	this.appendChild(elem);
 	return elem;
+};
+
+HTMLElement.prototype.setAttrs = function (attrs) {
+	for (const name in attrs) {
+		// @ts-expect-error I'M LITERALLY ITERATING OVER THE KEYS OF THE OBJECT
+		this.setAttribute(name, attrs[name]);
+	}
+	return this;
+};
+
+HTMLElement.prototype.setContent = function (content) {
+	this.textContent = content;
+	return this;
 };
 
 DOMTokenList.prototype.set = function (name, value) {

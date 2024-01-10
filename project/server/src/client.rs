@@ -171,7 +171,10 @@ async fn handle_session(session: Session, ws: WebSocket) {
                     match serde_json::from_slice(msg.as_bytes()) {
                         Ok(msg) => session.message(msg),
                         Err(e) => {
-                            info!("Received malformed message from client: {e}")
+                            info!(
+                                "Received malformed message from client: {e}\n{}",
+                                msg.to_str().unwrap_or(""),
+                            )
                         }
                     }
                 }

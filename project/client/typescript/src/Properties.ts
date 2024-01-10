@@ -83,7 +83,6 @@ class Builder<TStore extends object> implements PropertyBuilder<TStore> {
 	}
 
 	public evaluate<T>(fields: ($: PropertyBuilder<T>) => void) {
-		this.output = [];
 		fields(this);
 		return this.output;
 	}
@@ -96,7 +95,7 @@ class Builder<TStore extends object> implements PropertyBuilder<TStore> {
 		const output = [] as Property[];
 		setTimeout(() => {
 			new this(store(), output).evaluate(fields);
-		});
+		}, 0);
 		return output;
 	}
 }

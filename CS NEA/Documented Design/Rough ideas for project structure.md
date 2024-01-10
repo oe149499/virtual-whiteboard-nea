@@ -320,7 +320,7 @@ type LinkItem = HasTransform & {
 async function method(...): ReturnType;
 
 // Notify-S syntax:
-function notifyS(...);
+async function notifyS(...);
 
 // Notify-C syntax
 async function onNotifyC(...);
@@ -364,12 +364,12 @@ async function onItemsDeleted(ids: ItemID[]);
 
 // # Item Creation
 async function createItem(item: Item): Result<ItemID>;
-async function beginPath(): Result;
-async function continuePath(data: "???"): Result;
+async function beginPath(stroke: Stroke);
+async function continuePath(data: "???");
 async function closePath(data: "???"): Result<ItemID>;
 
 async function onItemCreated(id: ItemID, item: Item);
-async function onPathCreated(client: ClientID);
+async function onPathStarted(client: ClientID, stroke: Stroke);
 
 // # Data fetching
 async function getAllItemIDs(): Result<ItemID[]>

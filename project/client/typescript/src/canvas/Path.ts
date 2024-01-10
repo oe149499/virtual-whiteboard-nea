@@ -12,7 +12,10 @@ export class PathHelper {
 		elem.setAttribute("d", this.currentValue);
 	}
 
-	public addNodes(...ns: SplineNode[]) {
+	public addNode(s: SplineNode) {
+		this.addNodes([s]);
+	}
+	public addNodes(ns: SplineNode[]) {
 		const strs = ns.map((n) =>
 			`${n.position.x - n.velocity.x} ${n.position.y - n.velocity.y} ${n.position.x} ${n.position.y}`
 		);

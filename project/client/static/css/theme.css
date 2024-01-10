@@ -3,6 +3,8 @@
 	--icon-background: white;
 	--icon-border: 3px solid black;
 	--icon-container-padding: 0.25cm;
+	--panel-background: #c4c4c4;
+	--panel-border: 3px solid #444444;
 }
 
 .ui-icon {
@@ -17,4 +19,9 @@
 
 .icon-container {
 	padding: var(--icon-container-padding);
+}
+
+.property-container {
+	background-color: var(--panel-background);
+	border: var(--panel-border);
 }
