@@ -1,4 +1,4 @@
-import { Color, Stroke, Transform } from "../gen/Types.js";
+import { Color, Point, Stroke, Transform } from "../gen/Types.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -11,6 +11,10 @@ export class CanvasContext {
 
 	public createTransform() {
 		return this.svgroot.createSVGTransform();
+	}
+
+	public createRootElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
+		return this.svgroot.appendChild(this.createElement(name));
 	}
 }
 
@@ -44,6 +48,10 @@ export class TransformHelper {
 			value.stretchX,
 			value.stretchY,
 		);
+	}
+
+	public updateOrigin({ x, y }: Point) {
+		this.translate.setTranslate(x, y);
 	}
 }
 

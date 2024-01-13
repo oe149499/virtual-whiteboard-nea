@@ -1,4 +1,4 @@
-import { Result } from "../gen/Types";
+import { Point, Result } from "../gen/Types.js";
 
 export type PromiseHandle<T> = {
 	resolve: (_: T) => void;
@@ -6,7 +6,7 @@ export type PromiseHandle<T> = {
 	reject: (_: any) => void;
 }
 
-export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok" } & T {
+export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok", value: T } {
 	if (res.status == "Ok") {
 		return true;
 	} else if (res.status == "Err") {
@@ -16,10 +16,8 @@ export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok" } & T {
 	}
 }
 
-function removeStatus<T>(res: T & { status: string }): T {
-	const { status: _, ...rest } = res;
-	// @ts-expect-error Removing {status: ...} from T & {status: ...} is probably the same as T
-	return rest;
+function removeStatus<T>(res: { status: string, value: T }): T {
+	return res.value;
 }
 
 export function unwrap<T, TErr>(res: Result<T, TErr>, f?: (_: TErr) => T | never): T {
@@ -39,6 +37,12 @@ export function todo(): never {
 	throw new Error("Not yet implemented");
 }
 
+export function point(x?: number, y?: number): Point {
+	x ??= 0;
+	y ??= x;
+	return { x, y };
+}
+
 export async function* asyncMap<TIn, TOut>(src: AsyncIterator<TIn>, f: (_: TIn) => TOut): AsyncIterator<TOut> {
 	while (true) {
 		const { done, value } = await src.next();
@@ -47,18 +51,49 @@ export async function* asyncMap<TIn, TOut>(src: AsyncIterator<TIn>, f: (_: TIn) 
 	}
 }
 
-const objectID: unique symbol = Symbol("global object ID");
+export async function* dechunk<T>(i: AsyncIterable<T[]>): AsyncIterable<T> {
+	for await (const chunk of i) {
+		for (const item of chunk) {
+			yield item;
+		}
+	}
+}
+
+export function getIter<T>(i: AsyncIterable<T> | Iterable<T>): AsyncIterator<T> {
+	if (Symbol.asyncIterator in i) {
+		return i[Symbol.asyncIterator]();
+	} else {
+		const iter = i[Symbol.iterator]();
+		return {
+			next: () => Promise.resolve(iter.next()),
+		};
+	}
+}
+
+export async function* zip<L, R>(l: AsyncIterable<L> | Iterable<L>, r: AsyncIterable<R> | Iterable<R>): AsyncIterable<[L, R]> {
+	const iterL = getIter(l);
+	const iterR = getIter(r);
+	while (true) {
+		const [il, ir] = await Promise.all([iterL.next(), iterR.next()]);
+		if (il.done || ir.done) {
+			return;
+		} else {
+			yield [il.value, ir.value];
+		}
+	}
+}
+
+const objectIDs = new WeakMap<object, number>();
 let nextObjID = 0;
 
-export function getObjectID(_o: object): number {
-	const o = _o as { [objectID]: number };
-	if (objectID in o) return o[objectID];
-	else {
-		const id = ++nextObjID;
-		// @ts-expect-error yes i'm aware that this doesn't exist yet
-		o[objectID] = id;
-		return id;
-	}
+export function getObjectID(o: object): number {
+	return objectIDs.get(o) ?? createObjectID(o);
+}
+
+function createObjectID(o: object) {
+	const id = ++nextObjID;
+	objectIDs.set(o, id);
+	return id;
 }
 
 export async function splitFirstAsync<T>(iter: AsyncIterable<T>): Promise<[T, AsyncIterable<T>]> {
@@ -68,7 +103,7 @@ export async function splitFirstAsync<T>(iter: AsyncIterable<T>): Promise<[T, As
 	return [first.value, rest];
 }
 
-HTMLElement.prototype.addClasses = function (...classes) {
+Element.prototype.addClasses = function (...classes) {
 	for (const c of classes) {
 		this.classList.add(c);
 	}
@@ -77,11 +112,15 @@ HTMLElement.prototype.addClasses = function (...classes) {
 
 HTMLElement.prototype.createChild = function (tagname) {
 	const elem = document.createElement(tagname);
-	this.appendChild(elem);
-	return elem;
+	return this.appendChild(elem);
 };
 
-HTMLElement.prototype.setAttrs = function (attrs) {
+SVGElement.prototype.createChild = function (tagname) {
+	const elem = document.createElementNS("http://www.w3.org/2000/svg", tagname);
+	return this.appendChild(elem);
+};
+
+Element.prototype.setAttrs = function (attrs) {
 	for (const name in attrs) {
 		// @ts-expect-error I'M LITERALLY ITERATING OVER THE KEYS OF THE OBJECT
 		this.setAttribute(name, attrs[name]);
@@ -89,7 +128,7 @@ HTMLElement.prototype.setAttrs = function (attrs) {
 	return this;
 };
 
-HTMLElement.prototype.setContent = function (content) {
+Element.prototype.setContent = function (content) {
 	this.textContent = content;
 	return this;
 };

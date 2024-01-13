@@ -1,5 +1,6 @@
 import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler, IName, IArgs, IItem, createIteratePayload } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
+import { Channel } from "../util/Channel.js";
 import { IterateReceiver } from "./IterateReceiver.js";
 
 const logger = new Logger("ws-client");
@@ -11,7 +12,7 @@ type CallRecord = {
 
 export class RawClient {
 	private callId: number = 0;
-	private socket: WebSocket | null = null;
+	private socket: WebSocket;
 	private calls: Record<number, CallRecord> = {};
 	private notifyCHandlers: {
 		[K in NCName]?: (_: NCArgs<K>) => void;
@@ -21,16 +22,14 @@ export class RawClient {
 		[n: number]: IterateReceiver<IName>,
 	} = {};
 
+	private messageQueue = new Channel<string>();
 
 	constructor(private url: URL) {
+		this.socket = new WebSocket(this.url);
 		this.bindSocket();
 	}
 
 	private bindSocket() {
-		if (this.socket != null) {
-			throw new Error("Attempted to bind socket when already present");
-		}
-		this.socket = new WebSocket(this.url);
 		this.socket.onopen = this.onSocketOpen.bind(this);
 		this.socket.onerror = this.onSocketError.bind(this);
 		this.socket.onmessage = this.onSocketMessage.bind(this);
@@ -38,7 +37,7 @@ export class RawClient {
 	}
 
 	private sendPayload(payload: string) {
-		this.socket?.send(payload);
+		this.messageQueue.push(payload);
 	}
 
 	public callMethod<M extends MName>(name: M, args: MArgs<M>): Promise<MRet<M>> {
@@ -118,8 +117,12 @@ export class RawClient {
 		}
 	}
 
-	private onSocketOpen(_event: Event) {
+	private async onSocketOpen(_event: Event) {
 		logger.info(`Connection opened at ${this.url}`);
+
+		for await (const payload of this.messageQueue) {
+			this.socket.send(payload);
+		}
 	}
 
 	private onSocketError(event: Event) {

@@ -2,8 +2,9 @@ import { Logger } from "../Logger.js";
 import { Property, buildProperties, buildPropertiesDeferred } from "../Properties.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
-import { DragGestureState } from "../ui/CanvasView.js";
+import { DragGestureState } from "../canvas/Gesture.js";
 import { ActionToolBase } from "./Tool.js";
+import { splitFirstAsync } from "../util/Utils.js";
 const logger = new Logger("tool/Path");
 
 export class PathTool extends ActionToolBase {
@@ -27,18 +28,19 @@ export class PathTool extends ActionToolBase {
 		const { points } = gesture;
 		const stroke = { ...this.propStore.stroke };
 
+		this.start();
+
 		await this.board.client.method.BeginPath({ stroke });
 
 		const pathElem = this.board.canvas.ctx.createElement("path");
 		pathElem.setAttribute("fill", "none");
 		this.board.canvas.addRawElement(pathElem);
+		const [first, rest] = await splitFirstAsync(points);
 
-		const helper = new PathHelper(pathElem, await points.pop());
+		const helper = new PathHelper(pathElem, first);
 		new StrokeHelper(pathElem.style, stroke);
 
-		logger.debug("iterating over points");
-
-		for await (const point of points) {
+		for await (const point of rest) {
 			const node = {
 				position: point,
 				velocity: { x: 0, y: 0 },
@@ -50,7 +52,7 @@ export class PathTool extends ActionToolBase {
 			});
 		}
 
-		logger.debug("points done");
+		this.end();
 
 		pathElem.remove();
 

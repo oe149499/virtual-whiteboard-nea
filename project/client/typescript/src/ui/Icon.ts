@@ -48,8 +48,17 @@ export class ToolIcon {
 		this.element.classList.set("selected", value);
 	}
 
+	public deactivate() {
+		this.active = false;
+	}
+
 
 	public onselect: ((_: {
+		tool: Tool,
+		icon: ToolIcon,
+	}) => boolean) | null = null;
+
+	public ondeselect: ((_: {
 		tool: Tool,
 		icon: ToolIcon,
 	}) => boolean) | null = null;
@@ -62,12 +71,21 @@ export class ToolIcon {
 		this.element.appendChild(this.icon.objectElement);
 
 		this.element.onclick = () => {
-			if (this.active) return;
-			if (this.onselect?.({
-				tool: this.tool,
-				icon: this,
-			})) {
-				this.active = true;
+			if (this.active) {
+				if (this.ondeselect?.({
+					tool: this.tool,
+					icon: this,
+				})) {
+					this.active = false;
+				}
+			}
+			else {
+				if (this.onselect?.({
+					tool: this.tool,
+					icon: this,
+				})) {
+					this.active = true;
+				}
 			}
 		};
 	}

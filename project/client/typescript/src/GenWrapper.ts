@@ -1,5 +1,5 @@
 import { IterateNames, IterateSpec } from "./gen/Iterate.js";
-import { MethodNames, Methods } from "./gen/Methods.js";
+import { MethodNames, MethodSpec } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
 import { Channel } from "./util/Channel.js";
@@ -13,10 +13,10 @@ export interface HasTransform { transform: Transform }
 export interface HasStroke { stroke: Stroke }
 export interface HasFill { fill: Color }
 
-export type MName = keyof Methods;
+export type MName = keyof MethodSpec;
 
-export type MArgs<M extends MName = MName> = Methods[M][0];
-export type MRet<M extends MName = MName> = Methods[M][1];
+export type MArgs<M extends MName = MName> = MethodSpec[M][0];
+export type MRet<M extends MName = MName> = MethodSpec[M][1];
 type MCall<M extends MName = MName> = (args: MArgs<M>) => Promise<MRet<M>>;
 
 export type MPayload<M extends MName = MName> = {

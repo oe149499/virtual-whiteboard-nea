@@ -1,5 +1,6 @@
 import { IItem, IName, IResponse } from "../GenWrapper.js";
 import { Channel } from "../util/Channel.js";
+import { dechunk } from "../util/Utils.js";
 
 
 
@@ -29,14 +30,6 @@ export class IterateReceiver<I extends IName> {
 
 		if (this.finished) {
 			this.channel.close();
-		}
-	}
-}
-
-async function* dechunk<T>(i: AsyncIterable<T[]>): AsyncIterable<T> {
-	for await (const chunk of i) {
-		for (const item of chunk) {
-			yield item;
 		}
 	}
 }

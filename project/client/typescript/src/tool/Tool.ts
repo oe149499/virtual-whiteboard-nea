@@ -1,6 +1,6 @@
 import type { Board } from "../Board.js";
-import { Property, PropertyBuilder } from "../Properties.js";
-import { CanvasView, DragGestureState } from "../ui/CanvasView.js";
+import { Property } from "../Properties.js";
+import { DragGestureState } from "../canvas/Gesture.js";
 
 export enum ToolType {
 	Action,
@@ -32,7 +32,7 @@ export interface ActionTool extends _Tool {
 	bind(onBegin: OnBegin): void;
 }
 
-export interface InstantaneousTool extends _Tool {
+export interface InstantaneousTool {
 	type: ToolType.Instantaneous;
 
 	execute(): void;
@@ -42,8 +42,8 @@ export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
 abstract class ToolBase {
 	public abstract get type(): ToolType;
-	protected get canvasView() {
-		return this.board.ui.canvas;
+	protected get canvas() {
+		return this.board.canvas;
 	}
 
 	public properties: Property[];
@@ -62,10 +62,34 @@ abstract class ToolBase {
 	}
 }
 
+type GestureHandlers = {
+	drag: (_: DragGestureState) => void,
+	click: (x: number, y: number) => void,
+};
+
 abstract class InteractiveToolBase extends ToolBase {
+	#gestureHandlers: GestureHandlers | null = null;
+
+	private get gestureHandlers() {
+		if (!this.#gestureHandlers) {
+			const handlers: Partial<GestureHandlers> = {};
+			handlers.drag = this.onDragGesture?.bind(this) ?? (() => { });
+			handlers.click = this.onClickGesture?.bind(this) ?? (() => { });
+			this.#gestureHandlers = handlers as GestureHandlers;
+		}
+		return this.#gestureHandlers;
+	}
+
 	protected onDragGesture?(gesture: DragGestureState): void;
+	protected get dragHandler() { return this.gestureHandlers.drag; }
 
 	protected onClickGesture?(x: number, y: number): void;
+	protected get clickHandler() { return this.gestureHandlers.click; }
+
+	protected unbindGestures() {
+		if (this.canvas.ondraggesture === this.dragHandler)
+			this.canvas.ondraggesture = null;
+	}
 }
 
 export abstract class ActionToolBase extends InteractiveToolBase implements ActionTool {
@@ -74,16 +98,9 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 	private onBegin: OnBegin | null = null;
 	private completionResolve: (() => void) | null = null;
 
-	private unbindGestures() {
-		this.canvasView.ondraggesture = null;
-	}
-
 	public bind(onBegin: OnBegin) {
 		this.onBegin = onBegin;
-		this.canvasView.ondraggesture = (g) => {
-			this.onDragGesture?.(g);
-			if (this.singleGesture) this.unbindGestures();
-		};
+		this.canvas.ondraggesture = this.dragHandler;
 	}
 
 	protected start() {
@@ -106,15 +123,11 @@ export abstract class ModeToolBase extends InteractiveToolBase implements ModeTo
 	public override get type(): ToolType.Mode { return ToolType.Mode; }
 
 	public bind(): void {
-		if (this.onDragGesture) {
-			this.canvasView.ondraggesture = this.onDragGesture.bind(this);
-		}
+		this.canvas.ondraggesture = this.dragHandler;
 	}
 
 	public unbind(): void {
-		if (this.canvasView.ondraggesture === this.onDragGesture) {
-			this.canvasView.ondraggesture = null;
-		}
+		this.unbindGestures();
 	}
 }
 

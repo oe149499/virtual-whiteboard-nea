@@ -1,3 +1,4 @@
+import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
 import { PathHelper } from "./canvas/Path.js";
@@ -6,17 +7,21 @@ import { ClientID, ClientInfo, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
 import { createEditToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
-import { splitFirstAsync } from "./util/Utils.js";
+import { dechunk, splitFirstAsync, zip } from "./util/Utils.js";
+
+const logger = new Logger("board");
 
 export class Board {
 	public static async new(name: string, info: ClientInfo): Promise<Board> {
 		const canvas = new CanvasController();
-		const ui = new UIManager(canvas.svgElem);
+		const ui = new UIManager(canvas);
 		const client = await SessionClient.new(name, info);
 
-		return new this(
-			ui, client, canvas
-		);
+		const board = new this(ui, client, canvas);
+
+		await board.init();
+
+		return board;
 	}
 
 	private constructor(
@@ -36,6 +41,25 @@ export class Board {
 		client.bindNotify("PathStarted", ({ id, stroke }) => {
 			this.handlePath(id, stroke);
 		});
+	}
+
+	private async init() {
+		(async () => {
+			const ids = await this.client.method.GetAllItemIDs({});
+			const items = this.client.iterate.GetFullItems({ ids });
+
+			for await (const [id, res] of zip(
+				ids,
+				dechunk(items),
+			)) {
+				const { status, value: item } = res;
+				if (status == "Ok") {
+					this.canvas.addItem(id, item);
+				} else {
+					logger.error("Recieved error code fetching item %o: %o", id, item);
+				}
+			}
+		})();
 	}
 
 	private async handlePath(id: ClientID, stroke: Stroke) {
