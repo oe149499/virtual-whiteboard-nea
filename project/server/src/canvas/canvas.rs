@@ -11,7 +11,7 @@ pub use active::ActiveCanvas;
 pub use item::Item;
 
 /// A global location on the board plane
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
 #[cfg_attr(feature = "codegen", derive(TS))]
 pub struct Point {
     x: f64,

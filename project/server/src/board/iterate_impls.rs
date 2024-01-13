@@ -1,5 +1,6 @@
 use crate::message::{
-    iterate::{Count, GetActivePath, IterateCall, Iterates},
+    self,
+    iterate::{Count, GetActivePath, GetFullItems, IterateCall, Iterates},
     ClientID,
 };
 
@@ -10,7 +11,7 @@ impl Board {
         match call {
             Iterates::Count(call) => self.handle_count(id, call).await,
             Iterates::GetPartialItems(_) => todo!(),
-            Iterates::GetFullItems(_) => todo!(),
+            Iterates::GetFullItems(call) => self.handle_get_full_items(id, call).await,
             Iterates::GetActivePath(call) => self.handle_get_active_path(id, call).await,
         }
     }
@@ -21,6 +22,22 @@ impl Board {
         for i in params.from..=params.to {
             handle.add_item(i);
             if rand::random::<u8>() < 16 {
+                handle.flush_response();
+            }
+        }
+        handle.finalize();
+    }
+
+    async fn handle_get_full_items(&self, id: ClientID, call: IterateCall<GetFullItems>) {
+        let (params, mut handle) = call.get_handle(self.get_client(&id).await.get().handle.clone());
+
+        for (idx, id) in params.ids.into_iter().enumerate() {
+            if let Some(item) = self.canvas.get_item(id).await {
+                handle.add_item(message::Ok(item));
+            } else {
+                handle.add_item(message::Err(message::ErrorCode::NotFound.into()));
+            }
+            if idx % 16 == 0 {
                 handle.flush_response();
             }
         }

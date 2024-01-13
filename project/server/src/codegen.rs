@@ -1,10 +1,13 @@
+#![cfg(feature = "codegen")]
 use camino::Utf8PathBuf;
 use clap::Parser;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::fs;
 use ts_rs::TS;
-use virtual_whiteboard::message::{iterate::IterateSpec, notify_c::NotifyCSpec};
+use virtual_whiteboard::message::{
+    iterate::IterateSpec, method::MethodSpec, notify_c::NotifyCSpec,
+};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -107,9 +110,7 @@ fn main() {
             m::ClientID,
             m::ItemID,
             m::LocationUpdate,
-            m::ItemsDeselected,
             m::BatchChanges,
-            m::ClientTable,
 
 
             c::Point,
@@ -146,9 +147,6 @@ fn main() {
         names.join(", ")
     });
 
-    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
-    static mut methods: Vec<String> = Vec::new();
-
     let method_export = {
         use virtual_whiteboard::message::method::*;
         export_str! {[
@@ -163,14 +161,8 @@ fn main() {
             EndPath,
             GetAllItemIDs,
             GetAllClientInfo,
-        ] with T : Method => {
-            unsafe { methods.push(T::name()) };
-            format!(
-                "\t{}: [{{{}}}, {}],",
-                T::name(),
-                T::ts_params(),
-                T::ts_return(),
-            )
+        ] with T : TS => {
+            T::decl()
         }}
     };
 
@@ -178,26 +170,24 @@ fn main() {
         ExportTarget::Methods,
         format!(
             r#"// @ts-ignore: Generated code
-{}
-export type Methods = {{
-{}
-}};
+{names_import}
 
-export const MethodNames: (keyof Methods)[] = [
+{}
+
+export {}
+
+export const MethodNames: (keyof MethodSpec)[] = [
 	{}
 ];
 "#,
-            names_import, // Safe because single-threaded
             method_export,
-            unsafe { &methods }
+            MethodSpec::decl(),
+            MethodSpec::NAMES
                 .iter()
                 .map(|s| format!("\"{}\"", s))
                 .join(", "),
         ),
     );
-
-    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
-    static mut notify_c_names: Vec<String> = Vec::new();
 
     let notify_c_export = {
         use virtual_whiteboard::message::notify_c::*;
@@ -215,7 +205,6 @@ export const MethodNames: (keyof Methods)[] = [
             ItemCreated,
             PathStarted,
         ] with T : TS => {
-            unsafe { notify_c_names.push(T::name()) };
             T::decl()
         })
     };
@@ -243,9 +232,6 @@ export const NotifyCNames: (keyof NotifyCSpec)[] = [
         ),
     );
 
-    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
-    static mut iterate_names: Vec<String> = Vec::new();
-
     let iterate_export = {
         use virtual_whiteboard::message::iterate::*;
         export_str!([
@@ -254,7 +240,6 @@ export const NotifyCNames: (keyof NotifyCSpec)[] = [
             GetActivePath,
             Count,
         ] with T : TS => {
-            unsafe { iterate_names.push(T::name()) };
             T::decl()
         })
     };

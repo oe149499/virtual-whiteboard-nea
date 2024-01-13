@@ -70,6 +70,7 @@ impl Board {
             selected_items: AsyncHashMap::new(),
         }
     }
+
     fn launch(self, tasks: usize) -> (BoardHandle, impl Future<Output = Self>) {
         let (sender, receiver) = async_channel::unbounded();
         let self_rc = Arc::new(self);
@@ -157,6 +158,10 @@ impl Board {
             .expect("Missing client ID, something is very wrong")
     }
 
+    async fn get_handle(&self, id: &ClientID) -> Option<ClientHandle> {
+        self.clients.get_async(id).await?.get().handle.clone()
+    }
+
     async fn send_notify_c(&self, msg: impl NotifyCType) {
         let msg = msg.as_notify().as_msg();
         let payload = MessagePayload::new(&msg);
@@ -170,6 +175,7 @@ impl Board {
 pub fn debug_board() -> BoardHandle {
     let board = Board::new_debug();
     let (handle, task) = board.launch(4);
+    Box::leak(Box::new(handle.clone()));
     tokio::task::spawn(task);
     handle
 }

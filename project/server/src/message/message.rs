@@ -3,10 +3,7 @@
 pub mod iterate;
 pub mod method;
 pub mod notify_c;
-use std::{
-    collections::{BTreeMap, HashMap},
-    str::FromStr,
-};
+use std::str::FromStr;
 
 use derive_more::Deref;
 use serde::{Deserialize, Serialize};
@@ -46,9 +43,15 @@ pub enum MsgSend {
 /// A generic error code that indicates a problem with a request
 pub enum ErrorCode {
     /// The request attempted to access a resource which is currently in use by another client
-    NotAvailable = 0,
+    NotAvailable,
     /// An internal server error happened, no further information is available
-    Internal = 1,
+    Internal,
+    /// The requested resource does not exist
+    NotFound,
+    /// The path was not created due to the length being 0
+    EmptyPath,
+    /// Data provided is incompatible with the target operation
+    BadData,
 }
 
 impl Into<Error> for ErrorCode {
@@ -88,8 +91,8 @@ impl Error {
 /// Convenient default type parameters are also set.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "codegen", derive(TS))]
-#[serde(tag = "status")]
-pub enum Result<T = (), TErr = ErrorCode> {
+#[serde(tag = "status", content = "value")]
+pub enum Result<T = (), TErr = Error> {
     /// Success
     Ok(T),
     /// Failure
@@ -176,14 +179,6 @@ pub enum LocationUpdate {
     Points(Vec<Point>),
 }
 
-#[derive(Serialize, Deserialize, Deref, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-/// The information required to describe a collection of [`crate::canvas::Item`]s being deselected.
-/// Each item needs to have a new absolute position, but that could be a [`Transform`] or collection of [`Point`]s.
-///
-/// See also [`LocationUpdate`]
-pub struct ItemsDeselected(HashMap<ItemID, LocationUpdate>);
-
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]
 /// The edits that can be made to multiple [`crate::canvas::Item`]s at the same time
@@ -193,8 +188,3 @@ pub struct BatchChanges {
     /// The new [`Stroke`] information for the items
     pub stroke: Option<Stroke>,
 }
-
-/// A wrapper around a mapping from [`ClientID`]s to [`ClientInfo`]s
-#[derive(Serialize, Deref, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-pub struct ClientTable(pub BTreeMap<ClientID, ClientInfo>);

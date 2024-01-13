@@ -1,7 +1,7 @@
 //! The item types themselves
 
 use super::{Color, Point, Spline, Stroke, Transform};
-use crate::tags::TagID;
+use crate::{message::LocationUpdate, tags::TagID};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "codegen")]
@@ -21,6 +21,7 @@ macro_rules! item_enum {
 
         $(
             impl paste!([<$name Item>]) {
+                /// Wraps self in the Item enum
                 pub fn to_item(self) -> $enum_name {
                     $enum_name::$name(self)
                 }
@@ -46,6 +47,64 @@ item_enum! {
         Text,
         Link,
         Tag
+    }
+}
+
+impl Item {
+    /// Attempt to update the position of an item, returning the update if it is successful and the original location if not
+    pub fn apply_location_update(&mut self, update: LocationUpdate) -> LocationUpdate {
+        macro_rules! transform_types {
+            {
+                $($name:ident),*: ($item:ident) => $te:expr,
+                $(
+                    $oname:ident($si:ident) => $e:expr
+                ),*$(,)?
+            } => {
+                match self {
+                    $(
+                        Self::$name($item) => {
+                            $te
+                        },
+                    )*
+                    $(
+                        Self::$oname($si) => $e,
+                    )*
+                }
+            };
+        }
+
+        match update {
+            LocationUpdate::Transform(ref t) => transform_types! {
+                Rectangle, Ellipse, Path, Image, Text, Link, Tag: (item) => {
+                    item.transform = t.clone();
+                    update
+                },
+                Line(item) => {
+                    LocationUpdate::Points(vec![item.start, item.end])
+                },
+                Polygon(item) => {
+                    LocationUpdate::Points(item.points.clone())
+                },
+            },
+            LocationUpdate::Points(ref p) => transform_types! {
+                Rectangle, Ellipse, Path, Image, Text, Link, Tag: (item) => {
+                    LocationUpdate::Transform(item.transform.clone())
+                },
+                Polygon(item) => {
+                    item.points = p.clone();
+                    update
+                },
+                Line(item) => {
+                    if p.len() == 2 {
+                        item.start = p[0];
+                        item.end = p[1];
+                        update
+                    } else {
+                        LocationUpdate::Points(vec![item.start, item.end])
+                    }
+                },
+            },
+        }
     }
 }
 

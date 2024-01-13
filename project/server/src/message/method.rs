@@ -1,37 +1,31 @@
 //! Method call signatures and helper types
 
+use std::marker::PhantomData;
+
+use crate::client::ClientHandle;
+
 use super::MsgSend;
 use serde::{Deserialize, Serialize};
+
 #[cfg(feature = "codegen")]
 use ts_rs::TS;
 
 /// The information describing a method call
-pub trait Method {
+pub trait MethodType {
     /// The type that should be sent back to the client
     #[cfg(not(feature = "codegen"))]
-    type Response: Serialize;
+    type Response: Serialize + Sized;
 
-    /// The type that should be sent back to the client
     #[cfg(feature = "codegen")]
-    type Response: TS + Serialize;
+    type Response: Serialize + Sized + TS;
 
-    /// The name of the method in Typescript
-    #[cfg(feature = "codegen")]
-    fn name() -> String;
-
-    /// The parameters of the method as a Typescript object
-    #[cfg(feature = "codegen")]
-    fn ts_params() -> String;
-
-    /// The return type in Typescript
-    #[cfg(feature = "codegen")]
-    fn ts_return() -> String;
+    fn wrap_response(data: Response<Self>) -> Responses;
 }
 
 #[derive(Deserialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]
 /// An object representing a method call packet
-pub struct Call<T: Method> {
+pub struct Call<T: MethodType> {
     /// The call ID for the client to associate the response with the call
     id: u32,
     #[serde(flatten)]
@@ -39,314 +33,178 @@ pub struct Call<T: Method> {
     pub params: T,
 }
 
-impl<T: Method> Call<T> {
-    /// Construct a return packet from the call
-    pub fn create_response(&self, value: T::Response) -> Response<T> {
-        Response { id: self.id, value }
+pub struct MethodHandle<T: MethodType> {
+    id: u32,
+    client: Option<ClientHandle>,
+    _t: PhantomData<T>,
+}
+
+impl<T: MethodType> Call<T> {
+    pub fn create_handle(self, client: Option<ClientHandle>) -> (T, MethodHandle<T>) {
+        (
+            self.params,
+            MethodHandle {
+                id: self.id,
+                client,
+                _t: PhantomData,
+            },
+        )
     }
 }
 
-impl<T: Method<Response = super::Result<TOk, TErr>>, TOk, TErr> Call<T> {
+impl<T: MethodType> MethodHandle<T> {
+    pub fn respond(self, value: T::Response) {
+        let response = T::wrap_response(Response { id: self.id, value });
+        if let Some(client) = self.client {
+            client.send_message(MsgSend::Response(response));
+        }
+    }
+}
+
+impl<T: MethodType<Response = super::Result<TOk, TErr>>, TOk, TErr> MethodHandle<T> {
     /// Construct a return packet from a [`super::Result::Ok`] value
-    pub fn create_ok(&self, value: TOk) -> Response<T> {
-        self.create_response(super::Result::Ok(value))
+    pub fn ok(self, value: TOk) {
+        self.respond(super::Result::Ok(value))
     }
 
     /// Construct a return packet from a [`super::Result::Err`] value
-    pub fn create_err(&self, value: TErr) -> Response<T> {
-        self.create_response(super::Result::Err(value))
+    pub fn err(self, value: TErr) {
+        self.respond(super::Result::Err(value))
     }
 }
 
 /// An object representing a method return packet
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]
-pub struct Response<T: Method> {
+pub struct Response<T: MethodType + ?Sized> {
     /// See [`Call::id`]
     id: u32,
     /// The return value
     pub value: T::Response,
 }
 
-#[cfg(feature = "codegen")]
-macro_rules! parse_type {
-	//($($t:tt)*) => ($($t)*);
-
-	(@(
-		$main:ty,
-		$($p:expr),*
-	)) => {
-		<$main as TS>::name_with_type_args(
-			vec![
-				$($p),*
-			]
-		)
-	};
-
-	(@[$($p:tt)*] $i:ident $($r:tt)*) => (
-		parse_type!(
-			@[$($p)* $i]
-			$($r)*
-		)
-	);
-
-	(@[$($p:tt)*] :: $($r:tt)*) => (
-		parse_type!(
-			@[$($p)* ::]
-			$($r)*
-		)
-	);
-
-	(@[$($p:tt)*]) => {
-		<$($p)* as TS>::name()
-	};
-
-	(@[$($p:tt)*] <($($inner:tt)*)>) => (
-		parse_type!(@(
-			$($p)*<$($inner)*>,
-			parse_type!(
-					$($inner)*
-			)
-		))
-	);
-
-	(@ $($t:tt)*) => {
-		compile_error!($($t)*)
-	};
-
-	(()) => {
-		"null".to_string()
-	};
-
-	($($t:tt)*) => (
-		parse_type!(
-			@[]
-			$($t)*
-		)
-	);
-}
-
-#[cfg(feature = "codegen")]
-macro_rules! parse_params {
-	(@{$name:ident : $($ty:tt)*}) => (
-		format!(
-			"{}: {}",
-			stringify!($name),
-			parse_type!($($ty)*),
-		)
-	);
-
-	(@{}) => {};
-
-	(@($($curr:tt)*)[$($d:tt)*] ,$($n:tt)+) => (
-		parse_params!(@
-			()
-			[$($d)* parse_params!(@{
-				$($curr)*
-			}),]
-			$($n)+
-		)
-	);
-
-	(@($($curr:tt)*)[$($d:tt)*] $next:tt $($n:tt)*) => (
-		parse_params!(@
-			($($curr)* $next)
-			[$($d)*]
-			$($n)*
-		)
-	);
-
-	(@($($curr:tt)*)[$($d:tt)*]) => (
-		[
-			$($d)*
-			parse_params!(@{$($curr)*})
-		].join(", ")
-	);
-
-	(@($($t1:tt)*) $($t:tt)*) => {
-		macro_error
-	};
-
-	() => (String::new());
-
-	($($t:tt)*) => {
-		parse_params!(
-			@()[] $($t)*
-		)
-	}
-}
-
-macro_rules! pubify {
-	([$($attrs:tt)*] $mname:ident => $($name:ident : $type:ty),*) => (
-		$($attrs)*
-		#[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-		pub struct $mname {
-			$(
-				#[allow(missing_docs)]
-				pub $name: $type
-			),*
-		}
-	)
-}
-
-#[cfg(feature = "codegen")]
-macro_rules! declare_method {
+macro_rules! method_declarations {
 	{
-		$(#[$($attr:tt)*])*
-		fn $method_name:ident($($params:tt)*) -> $($rt:tt)*
-	} => {
-		pubify!{[$(#[$($attr)*])*]$method_name => $($params)*}
-
-		impl Method for $method_name {
-			type Response = $($rt)*;
-
-			fn name() -> String {
-				stringify!($method_name).to_string()
-			}
-
-			fn ts_params() -> String {
-				parse_params!($($params)*)
-			}
-
-			fn ts_return() -> String {
-				parse_type!($($rt)*)
-			}
-		}
-	}
-}
-
-#[cfg(not(feature = "codegen"))]
-macro_rules! declare_method {
-	{
-		$(#[$($attr:tt)*])*
-		fn $method_name:ident($($params:tt)*) -> $($rt:tt)*
-	} => {
-		pubify!{[$(#[$($attr)*])*]$method_name => $($params)*}
-
-		impl Method for $method_name {
-			type Response = $($rt)*;
-		}
-	}
-}
-
-/// Helper macro to generate the enum of all methods
-macro_rules! method_enum {
-	{
-		$call_name:ident, $resp_name:ident => $($type:ident,)*
-	} => {
-		/// The enumeration of all method call types
-		#[derive(Deserialize, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-		#[serde(tag = "name")]
-		pub enum $call_name {
-			$(
-				/// See individual types for more information
-				$type(Call<$type>),
-			)*
-		}
-
-		/// The enumeration of all method return types
-		#[derive(Serialize, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-		#[serde(untagged)]
-		pub enum $resp_name {
-			$(
-				/// See individual types for more information
-				$type(Response<$type>),
-			)*
-		}
-
+		$(#[$($eattr:tt)*])*
+		enum $enum_name:ident => $response_enum_name:ident;
+		spec $spec_name:ident;
 		$(
-			impl Response<$type> {
-				/// Generate a [`MsgSend`] from the response
-				pub fn to_msg(self) -> MsgSend {
-					MsgSend::Response(
-						$resp_name::$type(self)
-					)
+			$(#[$($attr:tt)*])*
+			fn $name:ident (
+				$(
+					$(#[$($pattr:tt)*])*
+					$pname:ident : $ptype:ty,
+				)*
+			) => $rtype:ty
+		)*
+	} => {
+		paste::paste!{
+			$(#[$($eattr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(tag = "name")]
+			#[allow(missing_docs)]
+			pub enum $enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name (Call<$name>),
+				)*
+			}
+
+			#[derive(Serialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(untagged)]
+			#[allow(missing_docs)]
+			pub enum $response_enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name (Response<$name>),
+				)*
+			}
+
+			#[cfg(feature = "codegen")]
+			#[allow(non_snake_case, unused)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			pub struct $spec_name {
+				$(
+					$name: ($name, $rtype),
+				)*
+			}
+
+			#[cfg(feature = "codegen")]
+			impl $spec_name {
+				pub const NAMES: &'static [&'static str] = &[$(stringify!($name)),*];
+			}
+		}
+		$(
+			$(#[$($attr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			pub struct $name {
+				$(
+					$(#[$($pattr)*])*
+					pub $pname : $ptype,
+				)*
+			}
+
+
+			impl MethodType for $name {
+				type Response = $rtype;
+
+				fn wrap_response(r: Response<Self>) -> Responses {
+					Responses::$name(r)
 				}
 			}
 		)*
 	}
 }
 
-method_enum! {
-    Methods, Responses =>
-        SelectionAddItems,
-        SelectionRemoveItems,
-        EditBatchItems,
-        EditSingleItem,
-        DeleteItems,
-        CreateItem,
-        BeginPath,
-        ContinuePath,
-        EndPath,
-        GetAllItemIDs,
-        GetAllClientInfo,
-}
-
 pub use _methods::*;
-#[allow(unused_parens, non_snake_case)]
+#[allow(non_snake_case)]
 mod _methods {
+    use std::collections::BTreeMap;
+
     use super::*;
     use crate::{
-        canvas::{Item, Point, SplineNode, Stroke},
-        message::{self as m, BatchChanges, ClientTable, ItemID, ItemsDeselected},
+        canvas::{Item, SplineNode, Stroke},
+        message::{self as m, BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate},
     };
 
-    declare_method! {
+    method_declarations! {
+        enum Methods => Responses;
+        spec MethodSpec;
         /// Attempt to add a set of items to the client's selection
-        fn SelectionAddItems(items: Vec<(ItemID)>) -> Vec<(m::Result)>
-    }
+        fn SelectionAddItems(items: Vec<ItemID>,) => Vec<m::Result>
 
-    declare_method! {
         /// Remove a set of items from the client's selection.
         /// This operation should be either fully successful or fully unsuccessful
-        fn SelectionRemoveItems(items: ItemsDeselected) -> m::Result
-    }
+        fn SelectionRemoveItems(items: BTreeMap<ItemID, LocationUpdate>,) => m::Result
 
-    declare_method! {
         /// Apply a [`BatchChanges`] to the set of items
-        fn EditBatchItems(ids: Vec<(ItemID)>, changes: BatchChanges) -> Vec<(m::Result)>
-    }
+        fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
 
-    declare_method! {
         /// Replace/Merge \[TODO: Clarify/decide] an item with a new item
-        fn EditSingleItem(id: ItemID, item: Item) -> m::Result
-    }
+        fn EditSingleItem(id: ItemID, item: Item,) => m::Result
 
-    declare_method! {
         /// Delete multiple items from the board
-        fn DeleteItems(ids: Vec<(ItemID)>) -> Vec<(m::Result)>
-    }
+        fn DeleteItems(ids: Vec<ItemID>,) => Vec<m::Result>
 
-    declare_method! {
         /// Create a new item
-        fn CreateItem(item: Item) -> ItemID
-    }
+        fn CreateItem(item: Item,) => ItemID
 
-    declare_method! {
         /// Start a new path
-        fn BeginPath(stroke: Stroke) -> ()
-    }
+        fn BeginPath(stroke: Stroke,) => ()
 
-    declare_method! {
         /// Continue the path
-        fn ContinuePath(points: Vec<(SplineNode)>) -> ()
-    }
+        fn ContinuePath(points: Vec<SplineNode>,) => ()
 
-    declare_method! {
         /// Close the path
-        fn EndPath() -> ItemID
-    }
+        fn EndPath() => m::Result<ItemID>
 
-    declare_method! {
         /// Get a list of every ID on the board
-        fn GetAllItemIDs() -> Vec<(ItemID)>
-    }
+        fn GetAllItemIDs() => Vec<ItemID>
 
-    declare_method! {
         /// Get a list of all clients and their associated information
-        fn GetAllClientInfo() -> ClientTable
+        fn GetAllClientInfo() => BTreeMap<ClientID, ClientInfo>
     }
 }

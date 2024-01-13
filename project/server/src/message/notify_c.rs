@@ -1,9 +1,11 @@
 #![allow(missing_docs)] // API is documented in design section
 //! Types associated with server-to-client notification messages
 
+use std::collections::BTreeMap;
+
 use crate::canvas::{Item, Stroke, Transform};
 
-use super::{BatchChanges, ClientID, ClientInfo, ItemID, ItemsDeselected, MsgSend};
+use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend};
 use paste::paste;
 use serde::Serialize;
 #[cfg(feature = "codegen")]
@@ -117,7 +119,7 @@ notify_c_declarations! {
 
     SelectionItemsRemoved (
         id: ClientID,
-        items: ItemsDeselected,
+        items: BTreeMap<ItemID, LocationUpdate>,
     )
 
     SelectionMoved (
@@ -141,6 +143,7 @@ notify_c_declarations! {
 
     ItemCreated (
         id: ItemID,
+        client: ClientID,
         item: Item,
     )
 
