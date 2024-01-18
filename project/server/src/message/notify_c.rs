@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::canvas::{Item, Stroke, Transform};
 
-use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend};
+use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend, PathID};
 use paste::paste;
 use serde::Serialize;
 #[cfg(feature = "codegen")]
@@ -148,8 +148,9 @@ notify_c_declarations! {
     )
 
     PathStarted (
-        id: ClientID,
+        client: ClientID,
         stroke: Stroke,
+        path: PathID,
     )
 }
 

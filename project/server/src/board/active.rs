@@ -15,7 +15,7 @@ use crate::{
     message::{
         iterate::{GetActivePath, IterateHandle},
         notify_c::{ClientJoined, NotifyCType},
-        ClientID, ClientInfo, ConnectionInfo, ItemID, MsgRecv, MsgSend, SessionID,
+        ClientID, ClientInfo, ConnectionInfo, ItemID, MsgRecv, MsgSend, PathID, SessionID,
     },
 };
 
@@ -59,6 +59,7 @@ struct Board {
     clients: AsyncHashMap<ClientID, ClientState>,
     canvas: ActiveCanvas,
     selected_items: AsyncHashMap<ItemID, ClientID>,
+    active_paths: AsyncHashMap<PathID, ActivePath>,
 }
 
 impl Board {
@@ -68,6 +69,7 @@ impl Board {
             clients: AsyncHashMap::new(),
             canvas: ActiveCanvas::new_empty(),
             selected_items: AsyncHashMap::new(),
+            active_paths: AsyncHashMap::default(),
         }
     }
 

@@ -46,12 +46,10 @@ impl Board {
 
     async fn handle_get_active_path(&self, id: ClientID, call: IterateCall<GetActivePath>) {
         let (params, mut handle) = call.get_handle(self.get_client(&id).await.get().handle.clone());
-        let client = self.clients.get_async(&params.client).await;
 
-        let Some(mut client) = client else { todo!() };
-        let Some(path) = &mut client.get_mut().path_state else {
-            todo!()
-        };
+        let entry = self.active_paths.get_async(&params.path).await;
+        let Some(mut entry) = entry else { todo!() };
+        let path = entry.get_mut();
 
         handle.add_items(&path.nodes).flush_response();
 

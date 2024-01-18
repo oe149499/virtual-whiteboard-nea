@@ -3,6 +3,7 @@
 pub mod iterate;
 pub mod method;
 pub mod notify_c;
+pub mod reject;
 use std::str::FromStr;
 
 use derive_more::Deref;
@@ -168,6 +169,20 @@ impl ClientID {
 #[cfg_attr(feature = "codegen", derive(TS))]
 /// A board-unique ID for each [`crate::canvas::Item`]
 pub struct ItemID(pub u32);
+
+/// A unique ID for each active path
+#[derive(
+    Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct PathID(pub u32);
+
+impl PathID {
+    /// Atomically create a new unique [`PathID`]
+    pub fn new() -> Self {
+        Self(crate::utils::counter!(AtomicU32))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]

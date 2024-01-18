@@ -12,7 +12,7 @@ use crate::{
     client::ClientHandle,
 };
 
-use super::{ClientID, ItemID, MsgSend};
+use super::{ItemID, MsgSend, PathID};
 
 pub trait IterateType: Sized {
     #[cfg(not(feature = "codegen"))]
@@ -204,6 +204,6 @@ iterate_declarations! {
     ) => super::Result<Item>
 
     GetActivePath(
-        client: ClientID,
+        path: PathID,
     ) => SplineNode
 }

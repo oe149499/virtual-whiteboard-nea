@@ -8,7 +8,7 @@ use crate::{
         self,
         method::*,
         notify_c::{ItemCreated, PathStarted, SelectionItemsAdded},
-        ClientID, ErrorCode,
+        ClientID, ErrorCode, PathID,
     },
 };
 
@@ -132,29 +132,30 @@ impl Board {
             last_flush: Instant::now(),
         };
 
-        {
-            let mut client = self.get_client(&id).await;
-            if let Some(_) = &client.get().path_state {
-                todo!()
-            }
-            client.get_mut().path_state = Some(path);
-        }
+        let path_id = PathID::new();
 
-        handle.respond(());
+        self.active_paths
+            .insert_async(path_id, path)
+            .await
+            .expect("PathIDs should always be unique");
+
+        handle.respond(path_id);
 
         self.send_notify_c(PathStarted {
-            id,
+            client: id,
             stroke: params.stroke,
+            path: path_id,
         })
         .await;
     }
 
     async fn handle_continue_path(&self, id: ClientID, call: Call<ContinuePath>) {
         let (mut params, handle) = call.create_handle(self.get_handle(&id).await);
-        let mut client = self.get_client(&id).await;
-        let Some(path) = &mut client.get_mut().path_state else {
-            todo!()
-        };
+
+        let entry = self.active_paths.get_async(&params.id).await;
+
+        let Some(mut entry) = entry else { todo!() };
+        let path = entry.get_mut();
 
         handle.respond(());
 
@@ -178,14 +179,12 @@ impl Board {
     }
 
     async fn handle_end_path(&self, id: ClientID, call: Call<EndPath>) {
-        let (_, handle) = call.create_handle(self.get_handle(&id).await);
+        let (params, handle) = call.create_handle(self.get_handle(&id).await);
 
-        let path = {
-            let mut client = self.get_client(&id).await;
-            client.get_mut().path_state.take()
-        };
+        let entry = self.active_paths.get_async(&params.id).await;
 
-        let Some(path) = path else { todo!() };
+        let Some(entry) = entry else { todo!() };
+        let path = entry.remove();
 
         for handle in path.listeners {
             handle.finalize();

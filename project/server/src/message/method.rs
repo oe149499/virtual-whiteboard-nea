@@ -19,6 +19,7 @@ pub trait MethodType {
     #[cfg(feature = "codegen")]
     type Response: Serialize + Sized + TS;
 
+    /// Wrap self in the [`Responses`] enum
     fn wrap_response(data: Response<Self>) -> Responses;
 }
 
@@ -33,6 +34,7 @@ pub struct Call<T: MethodType> {
     pub params: T,
 }
 
+/// A reference to the information needed to reply to a method
 pub struct MethodHandle<T: MethodType> {
     id: u32,
     client: Option<ClientHandle>,
@@ -40,6 +42,7 @@ pub struct MethodHandle<T: MethodType> {
 }
 
 impl<T: MethodType> Call<T> {
+    /// Deconstruct self into parameters and a [`MethodHandle`]
     pub fn create_handle(self, client: Option<ClientHandle>) -> (T, MethodHandle<T>) {
         (
             self.params,
@@ -53,6 +56,7 @@ impl<T: MethodType> Call<T> {
 }
 
 impl<T: MethodType> MethodHandle<T> {
+    /// Send a response to the client
     pub fn respond(self, value: T::Response) {
         let response = T::wrap_response(Response { id: self.id, value });
         if let Some(client) = self.client {
@@ -160,14 +164,14 @@ macro_rules! method_declarations {
 }
 
 pub use _methods::*;
-#[allow(non_snake_case)]
+#[allow(non_snake_case, missing_docs)]
 mod _methods {
     use std::collections::BTreeMap;
 
     use super::*;
     use crate::{
         canvas::{Item, SplineNode, Stroke},
-        message::{self as m, BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate},
+        message::{self as m, BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, PathID},
     };
 
     method_declarations! {
@@ -193,13 +197,13 @@ mod _methods {
         fn CreateItem(item: Item,) => ItemID
 
         /// Start a new path
-        fn BeginPath(stroke: Stroke,) => ()
+        fn BeginPath(stroke: Stroke,) => PathID
 
         /// Continue the path
-        fn ContinuePath(points: Vec<SplineNode>,) => ()
+        fn ContinuePath(id: PathID, points: Vec<SplineNode>,) => ()
 
         /// Close the path
-        fn EndPath() => m::Result<ItemID>
+        fn EndPath(id: PathID,) => m::Result<ItemID>
 
         /// Get a list of every ID on the board
         fn GetAllItemIDs() => Vec<ItemID>
