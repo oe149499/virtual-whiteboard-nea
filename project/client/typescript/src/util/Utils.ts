@@ -43,6 +43,19 @@ export function point(x?: number, y?: number): Point {
 	return { x, y };
 }
 
+export function clone<T>(value: T): T {
+	if (typeof value == "object") {
+		const out = {};
+		for (const name of Object.getOwnPropertyNames(value)) {
+			// @ts-expect-error assigning nonexistent properties
+			out[name] = value[name];
+		}
+		Object.setPrototypeOf(out, Object.getPrototypeOf(value));
+		return out as T;
+	}
+	return value;
+}
+
 export async function* asyncMap<TIn, TOut>(src: AsyncIterator<TIn>, f: (_: TIn) => TOut): AsyncIterator<TOut> {
 	while (true) {
 		const { done, value } = await src.next();
@@ -102,6 +115,56 @@ export async function splitFirstAsync<T>(iter: AsyncIterable<T>): Promise<[T, As
 	const rest = { [Symbol.asyncIterator]: () => iterator };
 	return [first.value, rest];
 }
+
+function unpackPromise<T, U>(p: Promise<[T, U]>): [Promise<T>, Promise<U>] {
+	return [
+		p.then(([t, _]) => t),
+		p.then(([_, u]) => u),
+	];
+}
+
+export function peekFirstAsync<T>(iter: AsyncIterable<T>): [Promise<T>, AsyncIterable<T>] {
+	const [first, rest] = unpackPromise(splitFirstAsync(iter));
+	const rIter = rest.then(r => r[Symbol.asyncIterator]());
+	let useFirst = true;
+	return [first, {
+		[Symbol.asyncIterator]() {
+			return {
+				next() {
+					if (useFirst) {
+						useFirst = false;
+						return first.then(value => ({ value }));
+					} else {
+						return rIter.then(i => i.next());
+					}
+				}
+			};
+		}
+	}];
+}
+
+export function wrapIterAsync<T>(iter: AsyncIterator<T>): AsyncIterable<T> {
+	return {
+		[Symbol.asyncIterator]() { return iter; }
+	};
+}
+
+const timeoutVal = Symbol();
+
+async function maxTimeout<T>(this: Promise<T>, time: number): Promise<Result<T, number>> {
+	const timeout = new Promise<typeof timeoutVal>(r => setTimeout(r.bind(undefined, timeoutVal), time));
+	const val = await Promise.race([this, timeout]);
+	if (val === timeoutVal) return {
+		status: "Err",
+		value: time,
+	};
+	else return {
+		status: "Ok",
+		value: val,
+	};
+}
+
+Promise.prototype.maxTimeout = maxTimeout;
 
 Element.prototype.addClasses = function (...classes) {
 	for (const c of classes) {

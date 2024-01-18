@@ -1,110 +1,105 @@
-import { Color } from "./gen/Types";
+import { Color } from "./gen/Types.js";
+import { MutableState, mutableStateOf } from "./util/State.js";
 
-interface Accessor<T> {
-	get(): T,
-	set(_: T): T,
+type KeysWhere<T, V> = { [K in keyof T]: T[K] extends V ? K : never }[keyof T] & string;
+
+export interface PropertyBuilder<TSchema> {
+	number<K extends KeysWhere<TSchema, number>>(name: K): NumberProperty;
+	color<K extends KeysWhere<TSchema, Color>>(name: K): ColorProperty;
+
+	struct<K extends KeysWhere<TSchema, object>>(name: K, body: BuilderFn<TSchema[K]>): StructProperty<TSchema[K]>;
 }
 
-type KeysWhere<T, V> = { [K in keyof T]-?: T[K] extends V ? K : never }[keyof T];
-
-export interface PropertyBuilder<TStore> {
-	get<TObj, TKey extends keyof TObj>(obj: TObj, key: TKey): Accessor<TObj[TKey]>;
-
-	number<K extends KeysWhere<TStore, number>>(name: K): NumberProperty;
-	number(name: string, accessor: Accessor<number>): NumberProperty;
-	color<K extends KeysWhere<TStore, Color>>(name: K): ColorProperty;
-	color(name: string, accessor: Accessor<Color>): ColorProperty;
-	//struct(name: string, body: BuilderFn<null>): StructProperty;
-	struct<K extends keyof TStore>(name: K, body: BuilderFn<TStore[K]>): StructProperty;
+type PropertyValue<T> = T extends object ? PropertyStore<T> : MutableState<T>;
+export type PropertyStore<T extends object> = {
+	[K in keyof T]: PropertyValue<T[K]>
 }
 
-type VConst<P extends Property, V> = new (name: string, get: () => V, set: (_: V) => V) => P;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyPropertyStore = PropertyStore<any>;
+
+type PropertyInstance<T> = true extends false ? never
+	: T extends number ? NumberProperty
+	: T extends Color ? ColorProperty
+	: T extends object ? StructProperty<T>
+	: never;
+
+export type PropertyMap<T extends object> = { [K in keyof T]: PropertyInstance<T[K]> };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyPropertyMap = PropertyMap<{ [x: string]: unknown }>;
 
 type BuilderFn<TStore> = ($: PropertyBuilder<TStore>) => void;
 
-class Builder<TStore extends object> implements PropertyBuilder<TStore> {
+class Builder<TSchema extends object> implements PropertyBuilder<TSchema> {
 	private constructor(
-		private store: TStore,
-		output?: Property[]
+		private source: TSchema,
+		output?: Record<string, never>
 	) {
-		this.output = output ?? [];
+		this.output = (output ?? {}) as never;
 	}
 
-	private output: Property[] = [];
+	private store: Partial<PropertyStore<TSchema>> = {};
+	private output: { [K in keyof TSchema]: PropertyInstance<TSchema[K]> };
 
-	public get<TObj, TKey extends keyof TObj>(obj: TObj, key: TKey): Accessor<TObj[TKey]> {
-		return {
-			get() { return obj[key]; },
-			set(value) {
-				obj[key] = value;
-				return obj[key];
-			}
-		};
+	private getNewState<N extends keyof TSchema>(name: N): MutableState<TSchema[N]> {
+		return mutableStateOf(this.source[name]);
 	}
 
-	private getAccessor<V>(name: KeysWhere<TStore, V>): Accessor<V> {
-		return {
-			get: () => this.store[name] as V,
-			// @ts-expect-error madness
-			set: (value) => this.store[name] = value,
-		};
-	}
-
-	private value<V, TProp extends ValueProperty<V>>(name: string, accessor: Accessor<V> | null | undefined, constructor: VConst<TProp, V>): TProp {
-		accessor ??= this.getAccessor(name as KeysWhere<TStore, V>);
-		const prop = new constructor(name, accessor.get, accessor.set);
-		this.output.push(prop);
+	number<K extends KeysWhere<TSchema, number>>(name: K): NumberProperty {
+		const state = this.getNewState(name);
+		const prop = new NumberProperty(name, state as unknown as MutableState<number>);
+		// @ts-expect-error filtering keys by value doesn't work
+		this.output[name] = prop;
+		// @ts-expect-error filtering keys by value doesn't work
+		this.store[name] = state;
 		return prop;
 	}
 
-	number<K extends KeysWhere<TStore, number>>(name: K): NumberProperty;
-	number(name: string, accessor: Accessor<number>): NumberProperty;
-	number(name: string, accessor?: Accessor<number>): NumberProperty {
-		return this.value(name, accessor, NumberProperty);
+	color<K extends KeysWhere<TSchema, Color>>(name: K): ColorProperty {
+		const state = this.getNewState(name);
+		const prop = new ColorProperty(name, state as unknown as MutableState<Color>);
+		// @ts-expect-error filtering keys by value doesn't work
+		this.output[name] = prop;
+		// @ts-expect-error filtering keys by value doesn't work
+		this.store[name] = state;
+		return prop;
 	}
+	// @ts-check
 
-
-	color<K extends KeysWhere<TStore, Color>>(name: K): ColorProperty;
-	color(name: string, accessor: Accessor<Color>): ColorProperty;
-	color(name: string, accessor?: Accessor<string>): ColorProperty {
-		return this.value(name, accessor, ColorProperty);
-	}
-
-	struct(name: string, body: BuilderFn<null>): StructProperty;
-	struct<K extends keyof TStore>(name: K, body: BuilderFn<TStore[K]>): StructProperty;
-	struct<K extends string>(name: K, fields: BuilderFn<K extends keyof TStore ? TStore[K] : null>): StructProperty {
-		const builder = new Builder(name in this.store ? (this.store as Record<K, object>)[name] : {});
+	struct<K extends KeysWhere<TSchema, object>, V extends TSchema[K] & object>(name: K, fields: BuilderFn<V>): StructProperty<TSchema[K]> {
+		const builder = new Builder<V>(this.source[name] as V);
 
 		fields(builder);
 
 		const prop = new StructProperty(name, builder.output);
-		this.output.push(prop);
+		// @ts-expect-error filtering keys by value doesn't work
+		this.output[name] = prop;
+		// @ts-expect-error filtering keys by value doesn't work
+		this.store[name] = builder.store;
 		return prop;
 	}
 
-	public evaluate<T>(fields: ($: PropertyBuilder<T>) => void) {
+	public evaluate(fields: ($: PropertyBuilder<TSchema>) => void) {
 		fields(this);
-		return this.output;
+		return this.output as PropertyStore<TSchema>;
 	}
 
-	public static evaluate<T extends object>(store: T, fields: BuilderFn<T>) {
-		return new this(store).evaluate(fields);
-	}
+	public static evaluate<T extends object>(source: T, fields: BuilderFn<T>) {
+		const builder = new this(source);
 
-	public static evaluateDeferred<T extends object>(store: () => T, fields: BuilderFn<T>) {
-		const output = [] as Property[];
-		setTimeout(() => {
-			new this(store(), output).evaluate(fields);
-		}, 0);
-		return output;
+		fields(builder);
+
+		return {
+			store: builder.store as PropertyStore<T>,
+			props: builder.output,
+		};
 	}
 }
 
 export const buildProperties = Builder.evaluate.bind(Builder);
-export const buildPropertiesDeferred = Builder.evaluateDeferred.bind(Builder);
 
 export abstract class Property {
-	#displayName?: string;
+	#displayName?: string | undefined;
 	public get displayName() {
 		return this.#displayName ?? this.name;
 	}
@@ -122,8 +117,7 @@ export abstract class Property {
 abstract class ValueProperty<T> extends Property {
 	public constructor(
 		name: string,
-		public readonly get: () => T,
-		public readonly set: (_: T) => T,
+		public readonly state: MutableState<T>,
 	) {
 		super(name);
 	}
@@ -133,10 +127,10 @@ export class NumberProperty extends ValueProperty<number> { }
 
 export class ColorProperty extends ValueProperty<Color> { }
 
-export class StructProperty extends Property {
+export class StructProperty<TSchema> extends Property {
 	public constructor(
 		name: string,
-		public readonly fields: Property[],
+		public readonly fields: { [K in keyof TSchema]: PropertyInstance<TSchema[K]> }
 	) {
 		super(name);
 	}

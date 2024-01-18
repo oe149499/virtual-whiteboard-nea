@@ -5,6 +5,7 @@
 			"es2019",
 			"es2022.Error",
 			"ES2021.Promise",
+			"ES2021.WeakRef",
 			"dom"
 		],
 		"module": "ES2015",

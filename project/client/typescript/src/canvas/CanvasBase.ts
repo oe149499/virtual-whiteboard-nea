@@ -1,9 +1,19 @@
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
+import { State } from "../util/State.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 
+export interface CoordinateMapping {
+	screenOrigin: Point,
+	stretch: number,
+	targetOffset: Point,
+}
+
 export class CanvasContext {
-	constructor(private svgroot: SVGSVGElement) { }
+	constructor(
+		private svgroot: SVGSVGElement,
+		public readonly coordMapping: State<CoordinateMapping>,
+	) { }
 
 	public createElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
 		return document.createElementNS(SVGNS, name);
@@ -15,6 +25,22 @@ export class CanvasContext {
 
 	public createRootElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
 		return this.svgroot.appendChild(this.createElement(name));
+	}
+
+	/** @deprecated */
+	public translateCoordinate(p: Point): Point;
+	public translateCoordinate(x: number, y: number): Point;
+	public translateCoordinate(x: number | Point, y?: number): Point {
+		const p = (typeof x == "object") ? x : { x, y: y! };
+		return this.translate(p);
+	}
+
+	public translate(p: Point, m?: CoordinateMapping) {
+		const { screenOrigin, stretch, targetOffset } = m ?? this.coordMapping.get();
+		return {
+			x: ((p.x - screenOrigin.x) / stretch) + targetOffset.x,
+			y: ((p.y - screenOrigin.y) / stretch) + targetOffset.y,
+		};
 	}
 }
 

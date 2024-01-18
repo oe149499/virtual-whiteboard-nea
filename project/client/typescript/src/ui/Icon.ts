@@ -1,5 +1,6 @@
 import { Logger } from "../Logger.js";
-import { Tool } from "../tool/Tool.js";
+import { Tool, ToolState } from "../tool/Tool.js";
+import { State, deferredStateOf } from "../util/State.js";
 
 const logger = new Logger("ui/icon");
 
@@ -33,35 +34,18 @@ export class SvgIcon {
 	}
 }
 
+export type ToolIconCallback = (tool: Tool) => void;
+
 export class ToolIcon {
 	private icon: SvgIcon;
 	public readonly element: HTMLElement;
 
-	#active = false;
+	private _toolState = deferredStateOf(null as ToolState);
+	public readonly active = this._toolState.derived(t => t?.tool === this.tool);
 
-	public get active() {
-		return this.#active;
-	}
+	public onselect?: ToolIconCallback;
 
-	protected set active(value) {
-		this.#active = value;
-		this.element.classList.set("selected", value);
-	}
-
-	public deactivate() {
-		this.active = false;
-	}
-
-
-	public onselect: ((_: {
-		tool: Tool,
-		icon: ToolIcon,
-	}) => boolean) | null = null;
-
-	public ondeselect: ((_: {
-		tool: Tool,
-		icon: ToolIcon,
-	}) => boolean) | null = null;
+	public ondeselect?: ToolIconCallback;
 
 	constructor(iconName: string, public readonly tool: Tool) {
 		this.icon = new SvgIcon(iconName);
@@ -70,23 +54,23 @@ export class ToolIcon {
 
 		this.element.appendChild(this.icon.objectElement);
 
+		this.active.watch(active => this.element.classList.set("selected", active));
+		this._toolState.watch(t => logger.debug("Tool state changed: %o", t));
+
 		this.element.onclick = () => {
-			if (this.active) {
-				if (this.ondeselect?.({
-					tool: this.tool,
-					icon: this,
-				})) {
-					this.active = false;
-				}
+			logger.debug("tool icon clicked", this.active);
+			if (this.active.get()) {
+				this.ondeselect?.(this.tool);
 			}
 			else {
-				if (this.onselect?.({
-					tool: this.tool,
-					icon: this,
-				})) {
-					this.active = true;
-				}
+				this.onselect?.(this.tool);
 			}
 		};
+	}
+
+	public bind(toolState: State<ToolState>) {
+		logger.debug("Binding to current state %o", toolState.get());
+		toolState.watch(t => logger.debug("Source tool state changed: %o", t));
+		this._toolState.bind(toolState);
 	}
 }

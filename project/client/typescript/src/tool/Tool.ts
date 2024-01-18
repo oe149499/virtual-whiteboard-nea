@@ -1,6 +1,13 @@
 import type { Board } from "../Board.js";
-import { Property } from "../Properties.js";
+import { AnyPropertyMap, AnyPropertyStore } from "../Properties.js";
 import { DragGestureState } from "../canvas/Gesture.js";
+
+export type ToolState = {
+	tool: ModeTool,
+} | {
+	tool: ActionTool,
+	action?: Action,
+} | null;
 
 export enum ToolType {
 	Action,
@@ -9,7 +16,7 @@ export enum ToolType {
 }
 
 interface _Tool {
-	properties: Property[];
+	properties?: AnyPropertyMap
 }
 
 export interface ModeTool extends _Tool {
@@ -40,16 +47,16 @@ export interface InstantaneousTool {
 
 export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
-abstract class ToolBase {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+interface ToolBase {
+	readonly properties?: AnyPropertyMap;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+abstract class ToolBase implements _Tool {
 	public abstract get type(): ToolType;
 	protected get canvas() {
 		return this.board.canvas;
-	}
-
-	public properties: Property[];
-
-	protected buildProperties(): Property[] {
-		return [];
 	}
 
 	protected init?(): void;
@@ -57,7 +64,6 @@ abstract class ToolBase {
 	public constructor(
 		protected board: Board,
 	) {
-		this.properties = this.buildProperties();
 		this.init?.();
 	}
 }

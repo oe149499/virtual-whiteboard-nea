@@ -25,3 +25,8 @@
 	background-color: var(--panel-background);
 	border: var(--panel-border);
 }
+
+.selected {
+	background-color: #eeeeee;
+	border-width: 4px;
+}

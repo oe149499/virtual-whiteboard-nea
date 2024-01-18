@@ -1,5 +1,7 @@
 import { Logger } from "../Logger.js";
-import { ColorProperty, NumberProperty, Property, StructProperty } from "../Properties.js";
+import { AnyPropertyMap, ColorProperty, NumberProperty, Property, StructProperty } from "../Properties.js";
+import { ToolState } from "../tool/Tool.js";
+import { State } from "../util/State.js";
 import { getObjectID } from "../util/Utils.js";
 const logger = new Logger("ui/PropertiesEditor");
 
@@ -19,27 +21,36 @@ class ObjectCacheMap<K extends object, V> {
 }
 
 export class PropertyEditor {
-	private propertyCache = new ObjectCacheMap<Property[], HTMLDivElement>();
-	private currentProps?: Property[];
+	private propertyCache = new ObjectCacheMap<AnyPropertyMap, HTMLDivElement>();
 	private currentElement?: HTMLElement;
 
 	public constructor(
 		private container: HTMLElement,
-	) { }
+		toolState: State<ToolState>,
+	) {
+		toolState.watch(s => {
+			if (s) {
+				const props = s.tool.properties;
+				if (props) this.loadProperties(props);
+			} else this.currentElement?.remove();
+		});
+	}
 
-	public loadProperties(props: Property[]) {
+	public loadProperties(props: AnyPropertyMap) {
 		logger.debug("loading properties");
-		this.currentProps = props;
-		this.currentElement?.remove();
-		this.currentElement = this.propertyCache.get(props, (props) => {
+		const current = this.propertyCache.get(props, (props) => {
 			logger.debug("building properties: %o", props);
 			const root = document.createElement("div").addClasses("property-container");
-			for (const prop of props) {
-				this.buildPropertyUI(root, prop);
+			for (const name in props) {
+				this.buildPropertyUI(root, props[name]);
 			}
 			return root;
 		});
-		this.container.prepend(this.currentElement);
+		if (current !== this.currentElement) {
+			this.currentElement?.remove();
+			this.container.prepend(current);
+			this.currentElement = current;
+		}
 	}
 
 	private buildPropertyUI(target: HTMLElement, prop: Property) {
@@ -61,12 +72,12 @@ export class PropertyEditor {
 				pattern: "[0-9](\\.[0-9]+)",
 				inputMode: "numeric",
 				id: propID,
-				value: prop.get(),
+				value: prop.state.get(),
 				step: "any",
 			});
 		input.oninput = () => {
 			if (input.checkValidity()) {
-				prop.set(Number(input.value)).toString();
+				prop.state.set(Number(input.value));
 			}
 		};
 	}
@@ -81,21 +92,22 @@ export class PropertyEditor {
 			.setAttrs({
 				type: "color",
 				id: propID,
-				value: prop.get(),
+				value: prop.state.get(),
 			});
 		input.oninput = () => {
-			input.value = prop.set(input.value);
+			prop.state.set(input.value);
 		};
 	}
 
-	private buildStructUI(target: HTMLElement, prop: StructProperty) {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private buildStructUI(target: HTMLElement, prop: StructProperty<any>) {
 		const container = target.createChild("div")
 			.addClasses("property-struct");
 		container.createChild("span")
 			.addClasses("struct-header")
 			.setContent(prop.displayName);
-		for (const innerProp of prop.fields) {
-			this.buildPropertyUI(container, innerProp);
+		for (const name in prop.fields) {
+			this.buildPropertyUI(container, prop.fields[name]);
 		}
 	}
 }

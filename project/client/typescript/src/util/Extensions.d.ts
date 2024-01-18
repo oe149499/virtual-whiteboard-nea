@@ -2,9 +2,6 @@ interface DOMTokenList {
 	set(name: string, value: boolean): void;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type PropertyMap<T> = { [K in keyof T]?: string | number | T[K] };
-
 interface HTMLElement {
 
 	createChild<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
@@ -17,7 +14,11 @@ interface SVGElement {
 interface Element {
 	addClasses(...classes: string[]): this;
 
-	setAttrs(attrs: PropertyMap<this>): this;
+	setAttrs(attrs: { [K in keyof this]?: string | number | this[K] }): this;
 
 	setContent(content: string): this;
+}
+
+interface Promise<T> {
+	maxTimeout(time: number): Promise<import("../gen/Types").Result<T, number>>;
 }

@@ -1,32 +1,42 @@
 import { Logger } from "../Logger.js";
-import { Property, buildProperties, buildPropertiesDeferred } from "../Properties.js";
+import { AnyPropertyMap, PropertyMap, PropertyStore, buildProperties } from "../Properties.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
 import { DragGestureState } from "../canvas/Gesture.js";
 import { ActionToolBase } from "./Tool.js";
 import { splitFirstAsync } from "../util/Utils.js";
+import { Board } from "../Board.js";
+import { State, Stateless, collectStateOf } from "../util/State.js";
 const logger = new Logger("tool/Path");
 
-export class PathTool extends ActionToolBase {
-	private propStore = {
-		stroke: {
-			width: 1,
-			color: "black",
-		},
-	};
+const propSchema = {
+	stroke: {
+		width: 0.1,
+		color: "black",
+	}
+};
 
-	protected override buildProperties(): Property[] {
-		return buildPropertiesDeferred(() => this.propStore, ($) => {
-			$.struct("stroke", ($) => {
-				$.number("width").as("Stroke Width");
-				$.color("color").as("Stroke Color");
+export class PathTool extends ActionToolBase {
+	public constructor(board: Board) {
+		super(board);
+		const { store, props } = buildProperties(propSchema, $ => {
+			$.struct("stroke", $ => {
+				$.number("width");
+				$.color("color");
 			});
 		});
+		this.propStore = store;
+		this.properties = props;
+		this.props = collectStateOf(this.propStore);
 	}
+
+	private readonly propStore: PropertyStore<typeof propSchema>;
+	private readonly props: State<Stateless<typeof propSchema>>;
+	public override readonly properties: PropertyMap<typeof propSchema>;
 
 	protected override async onDragGesture(gesture: DragGestureState) {
 		const { points } = gesture;
-		const stroke = { ...this.propStore.stroke };
+		const stroke = { ...this.props.get().stroke };
 
 		this.start();
 

@@ -1,10 +1,10 @@
 import { Logger } from "../Logger.js";
-import { Item, ItemID } from "../gen/Types.js";
+import { Item, ItemID, Point } from "../gen/Types.js";
 import { Channel } from "../util/Channel.js";
-import { State, stateBy } from "../util/State.js";
-import { CanvasContext, SVGNS } from "./CanvasBase.js";
+import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
+import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
-import { DragGestureState, GestureHandler } from "./Gesture.js";
+import { DragGestureState, Gesture, GestureHandler } from "./Gesture.js";
 import { SelectionBox } from "./SelectionBox.js";
 
 
@@ -26,7 +26,8 @@ export class CanvasController {
 	public elementBounds: State<DOMRectReadOnly>;
 
 	private activeGestures: { [key: number]: { move: Channel<PointerEvent>, end: (_: PointerEvent) => void } } = {};
-	private gestures = new GestureHandler();
+	private gestures: GestureHandler;
+	private coordMapping: MutableState<CoordinateMapping>;
 
 	public ondraggesture: null | ((_: DragGestureState) => void) = null;
 
@@ -34,9 +35,17 @@ export class CanvasController {
 		const svgElement = document.createElementNS(SVGNS, "svg");
 		this.svgElement = svgElement;
 
-		this.ctx = new CanvasContext(this.svgElement);
+		this.coordMapping = mutableStateOf({
+			screenOrigin: { x: 0, y: 0 },
+			stretch: PX_PER_CM,
+			targetOffset: { x: 0, y: 0 }
+		});
+
+		this.ctx = new CanvasContext(this.svgElement, this.coordMapping);
 		this.selection = new SelectionBox(this.ctx);
 
+		this.gestures = new GestureHandler(this.ctx);
+		this.gestures.ongesture = this.onGesture.bind(this);
 
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
@@ -45,13 +54,22 @@ export class CanvasController {
 			set => new ResizeObserver((e) => set(e[0].contentRect)).observe(svgElement)
 		);
 
-		this.elementBounds.watch(({ width, height }) => {
+		this.elementBounds.watch(({ x, y, width, height }) => {
+			this.coordMapping.updateBy(m => (
+				m.screenOrigin = { x, y }, m
+			));
 			this.targetRect.width = width / PX_PER_CM;
 			this.targetRect.height = height / PX_PER_CM;
 		});
 
 		svgElement.onpointerdown = this.pointerDown.bind(this);
 		svgElement.onpointerup = this.pointerUp.bind(this);
+	}
+
+	private onGesture(gesture: Gesture): void {
+		switch (gesture.type) {
+			case "Drag": return this.ondraggesture?.(gesture);
+		}
 	}
 
 	public addItem(id: ItemID, item: Item) {
@@ -64,18 +82,6 @@ export class CanvasController {
 		this.svgElement.appendChild(elem);
 	}
 
-	public translateCoordinate(x: number, y: number) {
-		const bounds = this.elementBounds.get();
-
-		const rx = x - bounds.x;
-		const ry = y - bounds.y;
-
-		return {
-			x: this.targetRect.x + rx / PX_PER_CM,
-			y: this.targetRect.y + ry / PX_PER_CM,
-		};
-	}
-
 	public getOrigin() {
 		return { x: this.targetRect.x, y: this.targetRect.y };
 	}
@@ -83,6 +89,10 @@ export class CanvasController {
 	public setOrigin({ x, y }: { x: number, y: number }) {
 		this.targetRect.x = x;
 		this.targetRect.y = y;
+		logger.debug("Current target: %o", this.targetRect);
+		this.coordMapping.updateBy(m =>
+			(m.targetOffset = { x, y }, m)
+		);
 	}
 
 	private pointerDown(e: PointerEvent): void {

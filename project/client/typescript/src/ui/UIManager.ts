@@ -1,8 +1,12 @@
-import { Action, Tool, ToolType } from "../tool/Tool.js";
+import { ToolState, ToolType } from "../tool/Tool.js";
 import { CanvasController } from "../canvas/Canvas.js";
-import { ToolIcon } from "./Icon.js";
+import { ToolIcon, ToolIconCallback } from "./Icon.js";
 import { PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
+import { MutableState, State, mutableStateOf } from "../util/State.js";
+import { Logger } from "../Logger.js";
+
+const logger = new Logger("ui/manager");
 
 export class UIManager {
 	public readonly containerElement: HTMLDivElement;
@@ -11,9 +15,8 @@ export class UIManager {
 	public readonly propertiesPanel: PanelController;
 	public readonly properties: PropertyEditor;
 
-	public lastTool?: Tool;
-	public lastIcon?: ToolIcon;
-	public currentAction?: Action;
+	public readonly toolState: State<ToolState>;
+	private readonly _toolState: MutableState<ToolState>;
 
 	public constructor(
 		private readonly canvas: CanvasController,
@@ -59,65 +62,60 @@ export class UIManager {
 			.createChild("div")
 			.addClasses("panel-contents");
 
+
+		this._toolState = mutableStateOf(null as ToolState);
+		this.toolState = this._toolState;
+
 		this.propertiesPanel = new PanelController(panelContainer);
-		this.properties = new PropertyEditor(propEditorContainer);
+		this.properties = new PropertyEditor(propEditorContainer, this.toolState);
 	}
 
 	public addToolIcon(icon: ToolIcon) {
 		this.toolPanel.contents.appendChild(icon.element);
+		icon.bind(this.toolState);
 		icon.onselect = this.onIconSelect;
 		icon.ondeselect = this.onItemDeselect;
 	}
 
-	private readonly onIconSelect: ToolIcon["onselect"] = ({ tool, icon }) => {
-		if (tool.type != ToolType.Instantaneous) {
-			switch (this.lastTool?.type) {
-				case null: break;
-				case ToolType.Action: {
-					if (this.currentAction) {
-						this.currentAction.cancel();
-					}
-				} break;
-				case ToolType.Mode: {
-					this.lastTool.unbind();
-				} break;
-			}
-			this.lastIcon?.deactivate();
+	private cancelTool() {
+		const state = this.toolState.get();
+		if (state === null) return;
+		const { tool } = state;
+		if (tool.type == ToolType.Action) {
+			// @ts-ignore there should be narrowing here
+			state.action?.cancel();
+		} else {
+			tool.unbind();
 		}
-		switch (tool.type) {
-			case ToolType.Action: {
-				tool.bind(async (action) => {
-					this.currentAction = action;
-					await action.completion;
-					icon.deactivate();
-				});
-				this.properties.loadProperties(tool.properties);
-				this.lastTool = tool;
-				this.lastIcon = icon;
-			} break;
-			case ToolType.Mode: {
-				tool.bind();
-				this.properties.loadProperties(tool.properties);
-				this.lastTool = tool;
-				this.lastIcon = icon;
-			} break;
-			case ToolType.Instantaneous: {
-				tool.execute();
-				return false;
-			}
+		this._toolState.set(null);
+	}
+
+	private readonly onIconSelect: ToolIconCallback = tool => {
+		logger.debug("Selected tool %o", tool);
+		if (tool.type == ToolType.Action) {
+			this.cancelTool();
+			tool.bind(async (action) => {
+				this._toolState.updateBy(s =>
+					s?.tool === tool ? {
+						tool: s.tool,
+						action
+					} : s
+				);
+				await action.completion;
+				this._toolState.set(null);
+			});
+			this._toolState.set({ tool });
+		} else if (tool.type == ToolType.Mode) {
+			this.cancelTool();
+			tool.bind();
+			this._toolState.set({ tool });
+		} else {
+			tool.execute();
 		}
-		return true;
 	};
 
-	private readonly onItemDeselect: ToolIcon["ondeselect"] = ({ tool, icon }) => {
-		switch (tool.type) {
-			case ToolType.Action: {
-				this.currentAction?.cancel();
-			} break;
-			case ToolType.Mode: {
-				tool.unbind();
-			} break;
-		}
-		return true;
+	private readonly onItemDeselect: ToolIconCallback = tool => {
+		const toolState = this.toolState.get();
+		if (toolState?.tool === tool) this.cancelTool();
 	};
 }
