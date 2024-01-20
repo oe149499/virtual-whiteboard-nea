@@ -172,6 +172,7 @@ macro_rules! method_declarations {
 			$(#[$($attr)*])*
 			#[derive(Deserialize, Debug)]
 			#[cfg_attr(feature = "codegen", derive(TS))]
+            #[serde(rename_all = "camelCase")]
 			pub struct $name {
 				$(
 					$(#[$($pattr)*])*
@@ -218,7 +219,7 @@ mod _methods {
         fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
 
         /// Replace/Merge \[TODO: Clarify/decide] an item with a new item
-        fn EditSingleItem(id: ItemID, item: Item,) => m::Result
+        fn EditSingleItem(item_id: ItemID, item: Item,) => m::Result
 
         /// Delete multiple items from the board
         fn DeleteItems(ids: Vec<ItemID>,) => Vec<m::Result>
@@ -230,10 +231,10 @@ mod _methods {
         fn BeginPath(stroke: Stroke,) => PathID
 
         /// Continue the path
-        fn ContinuePath(id: PathID, points: Vec<SplineNode>,) => ()
+        fn ContinuePath(path_id: PathID, points: Vec<SplineNode>,) => ()
 
         /// Close the path
-        fn EndPath(id: PathID,) => m::Result<ItemID>
+        fn EndPath(path_id: PathID,) => m::Result<ItemID>
 
         /// Get a list of every ID on the board
         fn GetAllItemIDs() => Vec<ItemID>

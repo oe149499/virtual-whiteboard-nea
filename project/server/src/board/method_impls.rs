@@ -167,12 +167,12 @@ impl Board {
     async fn handle_continue_path(&self, id: ClientID, call: Call<ContinuePath>) {
         let (mut params, handle) = call.create_handle(self.get_handle(&id).await);
 
-        let entry = self.active_paths.get_async(&params.id).await;
+        let entry = self.active_paths.get_async(&params.path_id).await;
 
         let Some(mut entry) = entry else {
             return handle.error(NonExistentID {
                 id_type: "PathID",
-                value: *params.id,
+                value: *params.path_id,
             });
         };
         let path = entry.get_mut();
@@ -180,7 +180,7 @@ impl Board {
         if path.client != id {
             return handle.error(ResourceNotOwned {
                 resource_type: "Path",
-                target_id: *params.id,
+                target_id: *params.path_id,
             });
         }
 
@@ -208,12 +208,12 @@ impl Board {
     async fn handle_end_path(&self, id: ClientID, call: Call<EndPath>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
 
-        let entry = self.active_paths.get_async(&params.id).await;
+        let entry = self.active_paths.get_async(&params.path_id).await;
 
         let Some(entry) = entry else {
             return handle.error(NonExistentID {
                 id_type: "PathID",
-                value: *params.id,
+                value: *params.path_id,
             });
         };
 
@@ -222,7 +222,7 @@ impl Board {
         if path.client != id {
             return handle.error(ResourceNotOwned {
                 resource_type: "Path",
-                target_id: *params.id,
+                target_id: *params.path_id,
             });
         }
 
