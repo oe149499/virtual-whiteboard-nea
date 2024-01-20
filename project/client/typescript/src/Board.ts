@@ -3,11 +3,12 @@ import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
 import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
-import { ClientID, ClientInfo, Stroke } from "./gen/Types.js";
+import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
 import { createEditToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
-import { dechunk, splitFirstAsync, zip } from "./util/Utils.js";
+import { AsyncIter } from "./util/AsyncIter.js";
+import { None } from "./util/Utils.js";
 
 const logger = new Logger("board");
 
@@ -38,8 +39,8 @@ export class Board {
 			canvas.addItem(id, item);
 		});
 
-		client.bindNotify("PathStarted", ({ id, stroke }) => {
-			this.handlePath(id, stroke);
+		client.bindNotify("PathStarted", ({ path, stroke, client }) => {
+			this.handlePath(client, stroke, path);
 		});
 	}
 
@@ -48,9 +49,8 @@ export class Board {
 			const ids = await this.client.method.GetAllItemIDs({});
 			const items = this.client.iterate.GetFullItems({ ids });
 
-			for await (const [id, res] of zip(
-				ids,
-				dechunk(items),
+			for await (const [id, res] of AsyncIter.zip(
+				AsyncIter.of(ids), items.dechunk()
 			)) {
 				const { status, value: item } = res;
 				if (status == "Ok") {
@@ -62,18 +62,21 @@ export class Board {
 		})();
 	}
 
-	private async handlePath(id: ClientID, stroke: Stroke) {
-		if (id == this.client.clientID) return;
+	private async handlePath(client: ClientID, stroke: Stroke, path: PathID) {
+		if (client == this.client.clientID) return;
+
+		const points = this.client.iterate.GetActivePath({
+			path
+		});
+
+		const first = await points.next();
+
+		if (first === None) return;
+
 		const pathElem = this.canvas.ctx.createElement("path");
 		pathElem.setAttribute("fill", "none");
 
 		this.canvas.addRawElement(pathElem);
-
-		const _points = this.client.iterate.GetActivePath({
-			client: id,
-		});
-
-		const [first, points] = await splitFirstAsync(_points);
 
 		const helper = new PathHelper(pathElem, first.shift()!.position);
 		new StrokeHelper(pathElem.style, stroke);

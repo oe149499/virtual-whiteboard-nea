@@ -2,6 +2,7 @@ import { IterateNames, IterateSpec } from "./gen/Iterate.js";
 import { MethodNames, MethodSpec } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
+import { AsyncIter } from "./util/AsyncIter.js";
 import { Channel } from "./util/Channel.js";
 
 type Id<T> = { [K in keyof T]: T[K] };
@@ -101,10 +102,10 @@ export function createIteratePayload<I extends IName>(name: I, id: number, args:
 }
 
 export type IterateDispatcher = {
-	[I in IName]: (args: IArgs<I>) => AsyncIterable<IItem<I>[]>
+	[I in IName]: (args: IArgs<I>) => AsyncIter<IItem<I>[]>
 }
 
-export type IterateHandler = <I extends IName>(name: I, args: IArgs<I>) => AsyncIterable<IItem<I>[]>;
+export type IterateHandler = <I extends IName>(name: I, args: IArgs<I>) => AsyncIter<IItem<I>[]>;
 
 export function createIterateReciever(handler: IterateHandler): IterateDispatcher {
 	// This should work but fails type checking

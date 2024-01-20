@@ -1,19 +1,19 @@
 import { Logger } from "../Logger.js";
 import { Point } from "../gen/Types.js";
-import { asyncMap, peekFirstAsync, wrapIterAsync } from "../util/Utils.js";
+import { AsyncIter } from "../util/AsyncIter.js";
 import { CanvasContext } from "./CanvasBase.js";
 const logger = new Logger("canvas/Gesture");
 
 export type PointerEventStream = {
 	start: PointerEvent,
-	moves: AsyncIterable<PointerEvent>,
+	moves: AsyncIter<PointerEvent>,
 	end: Promise<PointerEvent>,
 }
 
 export interface DragGestureState {
 	type?: "Drag";
 	initialOrigin: Point;
-	points: AsyncIterable<Point>;
+	points: AsyncIter<Point>;
 }
 
 export type Gesture = Required<DragGestureState>;
@@ -22,24 +22,19 @@ export type Gesture = Required<DragGestureState>;
 export class GestureHandler {
 	public constructor(private readonly ctx: CanvasContext) { }
 
-	public async processEvents({ start, moves, end }: PointerEventStream) {
+	public async processEvents({ start: _1, moves, end }: PointerEventStream) {
 		const mapping = this.ctx.coordMapping.getSnapshot();
-		const startPoint = this.ctx.translate(start, mapping);
-		const [first, rest] = peekFirstAsync(moves);
+		const first = moves.peek();
 		const { status, value: _ } = await first.maxTimeout(500);
-		if (status == "Err") {
+		if (status == "Err"/*/false/**/) {
 			// Long press or click
 		} else {
 			this.ongesture?.({
 				type: "Drag",
 				initialOrigin: mapping.targetOffset,
-				points: wrapIterAsync(asyncMap(
-					rest[Symbol.asyncIterator](),
-					ev => (
-						logger.debug("Start point translates to %o", this.ctx.translate(start, mapping)),
-						this.ctx.translate(ev, mapping)
-					)
-				)),
+				points: moves.map(
+					ev => this.ctx.translate(ev, mapping),
+				),
 			});
 		}
 	}

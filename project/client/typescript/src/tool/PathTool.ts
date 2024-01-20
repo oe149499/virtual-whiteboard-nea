@@ -1,12 +1,12 @@
 import { Logger } from "../Logger.js";
-import { AnyPropertyMap, PropertyMap, PropertyStore, buildProperties } from "../Properties.js";
+import { PropertyMap, PropertyStore, buildProperties } from "../Properties.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
 import { DragGestureState } from "../canvas/Gesture.js";
 import { ActionToolBase } from "./Tool.js";
-import { splitFirstAsync } from "../util/Utils.js";
 import { Board } from "../Board.js";
 import { State, Stateless, collectStateOf } from "../util/State.js";
+import { None } from "../util/Utils.js";
 const logger = new Logger("tool/Path");
 
 const propSchema = {
@@ -38,24 +38,27 @@ export class PathTool extends ActionToolBase {
 		const { points } = gesture;
 		const stroke = { ...this.props.get().stroke };
 
+		const first = await points.next();
+
+		if (first === None) return;
+
 		this.start();
 
-		await this.board.client.method.BeginPath({ stroke });
+		const pathId = await this.board.client.method.BeginPath({ stroke });
 
 		const pathElem = this.board.canvas.ctx.createElement("path");
 		pathElem.setAttribute("fill", "none");
 		this.board.canvas.addRawElement(pathElem);
-		const [first, rest] = await splitFirstAsync(points);
 
 		const helper = new PathHelper(pathElem, first);
 		new StrokeHelper(pathElem.style, stroke);
 
-		for await (const point of rest) {
+		for await (const point of points) {
 			const node = {
 				position: point,
 				velocity: { x: 0, y: 0 },
 			};
-			await this.board.client.method.ContinuePath({ points: [node] });
+			await this.board.client.method.ContinuePath({ pathId, points: [node] });
 			helper.addNode({
 				position: point,
 				velocity: { x: 0, y: 0 },
@@ -66,7 +69,7 @@ export class PathTool extends ActionToolBase {
 
 		pathElem.remove();
 
-		await this.board.client.method.EndPath({});
+		await this.board.client.method.EndPath({ pathId });
 	}
 
 	protected override cancel(): void {

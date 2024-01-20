@@ -1,6 +1,6 @@
 import { Logger } from "../Logger.js";
 import { Item, ItemID, Point } from "../gen/Types.js";
-import { Channel } from "../util/Channel.js";
+import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
@@ -99,7 +99,7 @@ export class CanvasController {
 		logger.debug("Mouse down: %o", e);
 		logger.debug("Gestures: %o", this.activeGestures);
 
-		const channel = new Channel<PointerEvent>();
+		const [channel, receiver] = makeChannel<PointerEvent>();
 
 		let endResolve!: (_: PointerEvent) => void;
 
@@ -114,7 +114,7 @@ export class CanvasController {
 		this.activeGestures[id] = handle;
 		this.gestures.processEvents({
 			start: e,
-			moves: channel,
+			moves: receiver,
 			end: endPromise,
 		});
 

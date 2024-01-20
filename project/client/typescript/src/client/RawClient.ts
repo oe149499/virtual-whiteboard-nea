@@ -1,7 +1,8 @@
 import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler, IName, IArgs, IItem, createIteratePayload } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
-import { Channel } from "../util/Channel.js";
-import { IterateReceiver } from "./IterateReceiver.js";
+import { AsyncIter } from "../util/AsyncIter.js";
+import { Channel, makeChannel } from "../util/Channel.js";
+import { IterateReceiver, createReceiver } from "./IterateReceiver.js";
 
 const logger = new Logger("ws-client");
 
@@ -22,9 +23,12 @@ export class RawClient {
 		[n: number]: IterateReceiver<IName>,
 	} = {};
 
-	private messageQueue = new Channel<string>();
+	private messageQueue: Channel<string>;
+	private messageStream: AsyncIter<string>;
 
 	constructor(private url: URL) {
+		[this.messageQueue, this.messageStream] = makeChannel();
+
 		this.socket = new WebSocket(this.url);
 		this.bindSocket();
 	}
@@ -57,19 +61,19 @@ export class RawClient {
 		return promise;
 	}
 
-	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIterable<IItem<I>[]> {
+	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIter<IItem<I>[]> {
 		const id = this.callId++;
 
 		const payload = createIteratePayload(name, id, args);
 
 		this.sendPayload(JSON.stringify(payload));
 
-		const receiver = new IterateReceiver<I>();
+		const [receiver, iter] = createReceiver<I>();
 
 		// @ts-expect-error This all relies on the ID being handled correctly
 		this.iterateReceivers[id] = receiver;
 
-		return receiver.chunks;
+		return iter;
 	}
 
 	public getMethodHandler(): MethodHandler {
@@ -120,7 +124,7 @@ export class RawClient {
 	private async onSocketOpen(_event: Event) {
 		logger.info(`Connection opened at ${this.url}`);
 
-		for await (const payload of this.messageQueue) {
+		for await (const payload of this.messageStream) {
 			this.socket.send(payload);
 		}
 	}
