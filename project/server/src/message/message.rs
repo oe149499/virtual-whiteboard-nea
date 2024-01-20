@@ -37,6 +37,9 @@ pub enum MsgSend {
     /// A segment of an iteration response
     #[serde(rename = "Response-Part")]
     IterateResponse(iterate::IterateResponses),
+
+    /// A failure message
+    Reject(reject::RejectMessage),
 }
 
 #[derive(Serialize, Debug)]

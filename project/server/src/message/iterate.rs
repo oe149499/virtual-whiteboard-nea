@@ -12,9 +12,15 @@ use crate::{
     client::ClientHandle,
 };
 
-use super::{ItemID, MsgSend, PathID};
+use super::{
+    reject::{RejectLevel, RejectMessage, RejectReason},
+    ItemID, MsgSend, PathID,
+};
 
 pub trait IterateType: Sized {
+    /// The name of the call
+    const NAME: &'static str;
+
     #[cfg(not(feature = "codegen"))]
     type Item: Serialize;
 
@@ -112,6 +118,28 @@ impl<M: IterateType> IterateHandle<M> {
             );
         }
     }
+
+    fn send_reject(&self, reason: RejectReason, level: RejectLevel) {
+        if let Some(client) = &self.client {
+            let message = RejectMessage {
+                request_protocol: M::NAME,
+                request_id: Some(self.id),
+                level,
+                reason,
+            };
+            client.send_message(MsgSend::Reject(message));
+        }
+    }
+
+    /// Reply with an error rejection
+    pub fn error(self, reason: RejectReason) {
+        self.send_reject(reason, RejectLevel::Error)
+    }
+
+    /// Reply with a warning rejection
+    pub fn warn(&self, reason: RejectReason) {
+        self.send_reject(reason, RejectLevel::Warning)
+    }
 }
 
 macro_rules! iterate_declarations {
@@ -176,6 +204,7 @@ macro_rules! iterate_declarations {
 
 
 			impl IterateType for $name {
+                const NAME: &'static str = stringify!($name);
 				type Item = $itype;
 
 				fn make_response(r: IterateResponse<Self>) -> IterateResponses {

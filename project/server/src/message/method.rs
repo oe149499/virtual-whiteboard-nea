@@ -4,7 +4,10 @@ use std::marker::PhantomData;
 
 use crate::client::ClientHandle;
 
-use super::MsgSend;
+use super::{
+    reject::{RejectLevel, RejectMessage, RejectReason},
+    MsgSend,
+};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "codegen")]
@@ -12,6 +15,9 @@ use ts_rs::TS;
 
 /// The information describing a method call
 pub trait MethodType {
+    /// The name of the method
+    const NAME: &'static str;
+
     /// The type that should be sent back to the client
     #[cfg(not(feature = "codegen"))]
     type Response: Serialize + Sized;
@@ -58,10 +64,32 @@ impl<T: MethodType> Call<T> {
 impl<T: MethodType> MethodHandle<T> {
     /// Send a response to the client
     pub fn respond(self, value: T::Response) {
-        let response = T::wrap_response(Response { id: self.id, value });
         if let Some(client) = self.client {
+            let response = T::wrap_response(Response { id: self.id, value });
             client.send_message(MsgSend::Response(response));
         }
+    }
+
+    fn send_reject(&self, reason: RejectReason, level: RejectLevel) {
+        if let Some(client) = &self.client {
+            let message = RejectMessage {
+                request_protocol: T::NAME,
+                request_id: Some(self.id),
+                level,
+                reason,
+            };
+            client.send_message(MsgSend::Reject(message));
+        }
+    }
+
+    /// Reply with an error rejection
+    pub fn error(self, reason: RejectReason) {
+        self.send_reject(reason, RejectLevel::Error)
+    }
+
+    /// Reply with a warning rejection
+    pub fn warn(&self, reason: RejectReason) {
+        self.send_reject(reason, RejectLevel::Warning)
     }
 }
 
@@ -154,6 +182,8 @@ macro_rules! method_declarations {
 
 			impl MethodType for $name {
 				type Response = $rtype;
+
+                const NAME: &'static str = stringify!($name);
 
 				fn wrap_response(r: Response<Self>) -> Responses {
 					Responses::$name(r)

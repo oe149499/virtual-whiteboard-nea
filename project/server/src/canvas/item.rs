@@ -1,7 +1,10 @@
 //! The item types themselves
 
 use super::{Color, Point, Spline, Stroke, Transform};
-use crate::{message::LocationUpdate, tags::TagID};
+use crate::{
+    message::{reject::RejectReason, ItemID, LocationUpdate},
+    tags::TagID,
+};
 use paste::paste;
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "codegen")]
@@ -52,10 +55,14 @@ item_enum! {
 
 impl Item {
     /// Attempt to update the position of an item, returning the update if it is successful and the original location if not
-    pub fn apply_location_update(&mut self, update: LocationUpdate) -> LocationUpdate {
+    pub fn apply_location_update(
+        &mut self,
+        id: ItemID,
+        update: &LocationUpdate,
+    ) -> Result<(), (LocationUpdate, RejectReason)> {
         macro_rules! transform_types {
             {
-                $($name:ident),*: ($item:ident) => $te:expr,
+                $($name:ident),* ($item:ident) => $te:expr,
                 $(
                     $oname:ident($si:ident) => $e:expr
                 ),*$(,)?
@@ -74,33 +81,61 @@ impl Item {
         }
 
         match update {
-            LocationUpdate::Transform(ref t) => transform_types! {
-                Rectangle, Ellipse, Path, Image, Text, Link, Tag: (item) => {
+            LocationUpdate::Transform(t) => transform_types! {
+                Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
                     item.transform = t.clone();
-                    update
+                    Ok(())
                 },
                 Line(item) => {
-                    LocationUpdate::Points(vec![item.start, item.end])
+                    Err((
+                        LocationUpdate::Points(vec![item.start, item.end]),
+                        RejectReason::IncorrectType {
+                            key: Some(id.to_string()),
+                            expected: "Point[2]",
+                            received: "Transform".to_string()
+                        }
+                    ))
                 },
                 Polygon(item) => {
-                    LocationUpdate::Points(item.points.clone())
+                    Err((
+                        LocationUpdate::Points(item.points.clone()),
+                        RejectReason::IncorrectType {
+                            key: Some(id.to_string()),
+                            expected: "Point[]",
+                            received: "Transform".to_string()
+                        }
+                    ))
                 },
             },
-            LocationUpdate::Points(ref p) => transform_types! {
-                Rectangle, Ellipse, Path, Image, Text, Link, Tag: (item) => {
-                    LocationUpdate::Transform(item.transform.clone())
+            LocationUpdate::Points(p) => transform_types! {
+                Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
+                    Err((
+                        LocationUpdate::Transform(item.transform.clone()),
+                        RejectReason::IncorrectType {
+                            key: Some(id.to_string()),
+                            expected: "Transform",
+                            received: "Point[]".to_string()
+                        }
+                    ))
                 },
                 Polygon(item) => {
                     item.points = p.clone();
-                    update
+                    Ok(())
                 },
                 Line(item) => {
                     if p.len() == 2 {
                         item.start = p[0];
                         item.end = p[1];
-                        update
+                        Ok(())
                     } else {
-                        LocationUpdate::Points(vec![item.start, item.end])
+                        Err((
+                            LocationUpdate::Points(vec![item.start, item.end]),
+                            RejectReason::IncorrectType {
+                                key: Some(id.to_string()),
+                                expected: "Point[2]",
+                                received: "Point[]".to_string()
+                            }
+                        ))
                     }
                 },
             },

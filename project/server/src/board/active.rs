@@ -25,6 +25,7 @@ static PATH_FLUSH_TIME: Duration = Duration::from_millis(750);
 
 #[derive(Debug)]
 struct ActivePath {
+    client: ClientID,
     nodes: Vec<SplineNode>,
     listeners: Vec<IterateHandle<GetActivePath>>,
     stroke: Stroke,
@@ -36,7 +37,6 @@ struct ClientState {
     info: ClientInfo,
     handle: Option<ClientHandle>,
     selection: std::collections::BTreeSet<ItemID>,
-    path_state: Option<ActivePath>,
 }
 
 impl ClientState {
@@ -121,7 +121,6 @@ impl Board {
                     info: info.clone(),
                     handle: None,
                     selection: Default::default(),
-                    path_state: None,
                 };
                 self.clients
                     .insert_async(client_id, client)

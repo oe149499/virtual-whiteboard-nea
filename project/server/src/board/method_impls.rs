@@ -8,6 +8,7 @@ use crate::{
         self,
         method::*,
         notify_c::{ItemCreated, PathStarted, SelectionItemsAdded},
+        reject::RejectReason::{NonExistentID, ResourceNotOwned},
         ClientID, ErrorCode, PathID,
     },
 };
@@ -81,15 +82,28 @@ impl Board {
         for (item_id, update) in params.items {
             let item = self.selected_items.get_async(&item_id).await;
             let Some(item) = item else {
+                handle.warn(NonExistentID {
+                    id_type: "ItemID",
+                    value: *item_id,
+                });
                 ok = false;
                 continue;
             };
             if *item.get() == client_id {
                 let item = self.canvas.get_ref_mut(item_id).await;
                 let Some(mut item) = item else { continue };
-                let update = item.apply_location_update(update);
-                out.insert(item_id, update);
+                let res = item.apply_location_update(item_id, &update);
+                if let Err((update, reason)) = res {
+                    out.insert(item_id, update);
+                    handle.warn(reason);
+                } else {
+                    out.insert(item_id, update);
+                }
             } else {
+                handle.warn(ResourceNotOwned {
+                    resource_type: "Item",
+                    target_id: *item_id,
+                });
                 ok = false;
             }
         }
@@ -126,6 +140,7 @@ impl Board {
     async fn handle_begin_path(&self, id: ClientID, call: Call<BeginPath>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
         let path = ActivePath {
+            client: id,
             nodes: Vec::new(),
             listeners: Default::default(),
             stroke: params.stroke.clone(),
@@ -154,8 +169,20 @@ impl Board {
 
         let entry = self.active_paths.get_async(&params.id).await;
 
-        let Some(mut entry) = entry else { todo!() };
+        let Some(mut entry) = entry else {
+            return handle.error(NonExistentID {
+                id_type: "PathID",
+                value: *params.id,
+            });
+        };
         let path = entry.get_mut();
+
+        if path.client != id {
+            return handle.error(ResourceNotOwned {
+                resource_type: "Path",
+                target_id: *params.id,
+            });
+        }
 
         handle.respond(());
 
@@ -183,8 +210,21 @@ impl Board {
 
         let entry = self.active_paths.get_async(&params.id).await;
 
-        let Some(entry) = entry else { todo!() };
+        let Some(entry) = entry else {
+            return handle.error(NonExistentID {
+                id_type: "PathID",
+                value: *params.id,
+            });
+        };
+
         let path = entry.remove();
+
+        if path.client != id {
+            return handle.error(ResourceNotOwned {
+                resource_type: "Path",
+                target_id: *params.id,
+            });
+        }
 
         for handle in path.listeners {
             handle.finalize();

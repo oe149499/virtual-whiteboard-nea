@@ -98,7 +98,9 @@ fn main() {
     static mut names: Vec<String> = Vec::new();
 
     let type_export = {
-        use virtual_whiteboard::{canvas as c, canvas::item as i, message as m};
+        use virtual_whiteboard::{
+            canvas as c, canvas::item as i, message as m, message::reject as r,
+        };
         export_str! {
             [
             m::ErrorCode,
@@ -109,9 +111,12 @@ fn main() {
             m::SessionID,
             m::ClientID,
             m::ItemID,
+            m::PathID,
             m::LocationUpdate,
             m::BatchChanges,
-
+            r::RejectLevel,
+            r::RejectMessage,
+            r::RejectReason,
 
             c::Point,
             c::Color,
