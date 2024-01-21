@@ -4,7 +4,7 @@ import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
-import { DragGestureState, Gesture, GestureHandler } from "./Gesture.js";
+import { DragGestureState, Gesture, GestureHandler, LongPressGesture, PressGesture } from "./Gesture.js";
 import { SelectionBox } from "./SelectionBox.js";
 
 
@@ -23,13 +23,18 @@ export class CanvasController {
 	private targetRect: DOMRect;
 	private targetStart = { x: -1, y: -1 };
 
-	public elementBounds: State<DOMRectReadOnly>;
+	public readonly elementBounds: State<DOMRectReadOnly>;
 
 	private activeGestures: { [key: number]: { move: Channel<PointerEvent>, end: (_: PointerEvent) => void } } = {};
 	private gestures: GestureHandler;
 	private coordMapping: MutableState<CoordinateMapping>;
 
-	public ondraggesture: null | ((_: DragGestureState) => void) = null;
+	private gestureCount = mutableStateOf(0);
+	public readonly isGesture = this.gestureCount.derived(c => c !== 0);
+
+	public ondraggesture: Handler<DragGestureState> = null;
+	public onpressgesture: Handler<PressGesture> = null;
+	public onlongpressgesture: Handler<LongPressGesture> = null;
 
 	constructor() {
 		const svgElement = document.createElementNS(SVGNS, "svg");
@@ -63,12 +68,15 @@ export class CanvasController {
 		});
 
 		svgElement.onpointerdown = this.pointerDown.bind(this);
+		svgElement.onpointermove = this.pointerMove.bind(this);
 		svgElement.onpointerup = this.pointerUp.bind(this);
 	}
 
 	private onGesture(gesture: Gesture): void {
 		switch (gesture.type) {
 			case "Drag": return this.ondraggesture?.(gesture);
+			case "Click": return this.onpressgesture?.(gesture);
+			case "LongClick": return this.onlongpressgesture?.(gesture);
 		}
 	}
 
@@ -99,6 +107,8 @@ export class CanvasController {
 		logger.debug("Mouse down: %o", e);
 		logger.debug("Gestures: %o", this.activeGestures);
 
+		this.gestureCount.updateBy(c => c + 1);
+
 		const [channel, receiver] = makeChannel<PointerEvent>();
 
 		let endResolve!: (_: PointerEvent) => void;
@@ -117,16 +127,16 @@ export class CanvasController {
 			moves: receiver,
 			end: endPromise,
 		});
-
-		this.svgElement.onpointermove = this.pointerMove.bind(this);
 	}
 
 	private pointerUp(e: PointerEvent): void {
 		if (!(e.pointerId in this.activeGestures)) return;
+
+		this.gestureCount.updateBy(c => c - 1);
+
 		this.activeGestures[e.pointerId].move.close();
 		this.activeGestures[e.pointerId].end(e);
 		delete this.activeGestures[e.pointerId];
-		this.svgElement.onpointermove = null;
 	}
 
 	private pointerMove(e: PointerEvent): void {

@@ -17,6 +17,11 @@ body {
 	height: 100%;
 }
 
+.gesture-active>div,
+.gesture-active>div * {
+	pointer-events: none;
+}
+
 .bottom-container {
 	position: absolute;
 	bottom: 0.5cm;

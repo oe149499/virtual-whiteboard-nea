@@ -1,5 +1,5 @@
 import { Transform } from "../gen/Types.js";
-import { point } from "../util/Utils.js";
+import { None, Option, point } from "../util/Utils.js";
 import { CanvasContext, TransformHelper } from "./CanvasBase.js";
 
 export class SelectionBox {
@@ -28,14 +28,14 @@ export class SelectionBox {
 	}
 
 	private bindDrag(startBox: Transform) {
-		let pointerId: number | null = null;
+		let pointerId: Option<number> = None;
 		let initialX = startBox.origin.x;
 		let initialY = startBox.origin.y;
 
 		let dx = -1;
 		let dy = -1;
 		this.container.onpointerdown = e => {
-			if (pointerId != null) return;
+			if (pointerId !== None) return;
 
 			pointerId = e.pointerId;
 
@@ -44,7 +44,7 @@ export class SelectionBox {
 		};
 
 		this.container.parentElement?.addEventListener("pointermove", e => {
-			if (e.pointerId != pointerId) return;
+			if (e.pointerId !== pointerId) return;
 
 			dx += e.movementX;
 			dy += e.movementY;

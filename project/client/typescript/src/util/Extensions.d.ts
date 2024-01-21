@@ -1,24 +1,33 @@
-interface DOMTokenList {
-	set(name: string, value: boolean): void;
-}
+import { Result } from "../gen/Types";
+import { State } from "./State";
 
-interface HTMLElement {
+declare global {
+	type Handler<T> = ((_: T) => void) | null;
 
-	createChild<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
-}
+	interface DOMTokenList {
+		set(name: string, value: boolean): void;
 
-interface SVGElement {
-	createChild<K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K];
-}
+		setBy(name: string, source: State<boolean>): void;
+	}
 
-interface Element {
-	addClasses(...classes: string[]): this;
+	interface HTMLElement {
 
-	setAttrs(attrs: { [K in keyof this]?: string | number | this[K] }): this;
+		createChild<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
+	}
 
-	setContent(content: string): this;
-}
+	interface SVGElement {
+		createChild<K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K];
+	}
 
-interface Promise<T> {
-	maxTimeout(time: number): Promise<import("../gen/Types").Result<T, number>>;
+	interface Element {
+		addClasses(...classes: string[]): this;
+
+		setAttrs(attrs: { [K in keyof this]?: string | number | this[K] }): this;
+
+		setContent(content: string): this;
+	}
+
+	interface Promise<T> {
+		maxTimeout(time: number): Promise<Result<T, number>>;
+	}
 }

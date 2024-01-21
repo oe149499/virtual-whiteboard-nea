@@ -2,7 +2,7 @@ import { Logger } from "../Logger.js";
 import { AnyPropertyMap, ColorProperty, NumberProperty, Property, StructProperty } from "../Properties.js";
 import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
-import { getObjectID } from "../util/Utils.js";
+import { None, getObjectID } from "../util/Utils.js";
 const logger = new Logger("ui/PropertiesEditor");
 
 class ObjectCacheMap<K extends object, V> {
@@ -29,10 +29,13 @@ export class PropertyEditor {
 		toolState: State<ToolState>,
 	) {
 		toolState.watch(s => {
-			if (s) {
+			if (s !== None) {
 				const props = s.tool.properties;
 				if (props) this.loadProperties(props);
-			} else this.currentElement?.remove();
+			} else {
+				this.currentElement?.remove();
+				delete this.currentElement;
+			}
 		});
 	}
 

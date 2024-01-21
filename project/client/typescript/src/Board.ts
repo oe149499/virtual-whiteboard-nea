@@ -20,7 +20,7 @@ export class Board {
 
 		const board = new this(ui, client, canvas);
 
-		await board.init();
+		queueMicrotask(() => board.init());
 
 		return board;
 	}
@@ -29,37 +29,37 @@ export class Board {
 		public readonly ui: UIManager,
 		public readonly client: SessionClient,
 		public readonly canvas: CanvasController,
-	) {
-		for (const [name, tool] of createEditToolList(this)) {
-			const icon = new ToolIcon(name, tool);
-			ui.addToolIcon(icon);
-		}
-
-		client.bindNotify("ItemCreated", ({ id, item }) => {
-			canvas.addItem(id, item);
-		});
-
-		client.bindNotify("PathStarted", ({ path, stroke, client }) => {
-			this.handlePath(client, stroke, path);
-		});
-	}
+	) { }
 
 	private async init() {
-		(async () => {
-			const ids = await this.client.method.GetAllItemIDs({});
-			const items = this.client.iterate.GetFullItems({ ids });
+		for (const [name, tool] of createEditToolList(this)) {
+			const icon = new ToolIcon(name, tool);
+			this.ui.addToolIcon(icon);
+		}
 
-			for await (const [id, res] of AsyncIter.zip(
-				AsyncIter.of(ids), items.dechunk()
-			)) {
-				const { status, value: item } = res;
-				if (status == "Ok") {
-					this.canvas.addItem(id, item);
-				} else {
-					logger.error("Recieved error code fetching item %o: %o", id, item);
-				}
+		this.ui.containerElement.classList.setBy("gesture-active", this.canvas.isGesture);
+
+		this.client.bindNotify("ItemCreated", ({ id, item }) => {
+			this.canvas.addItem(id, item);
+		});
+
+		this.client.bindNotify("PathStarted", ({ path, stroke, client }) => {
+			this.handlePath(client, stroke, path);
+		});
+
+		const ids = await this.client.method.GetAllItemIDs({});
+		const items = this.client.iterate.GetFullItems({ ids });
+
+		for await (const [id, res] of AsyncIter.zip(
+			AsyncIter.of(ids), items.dechunk()
+		)) {
+			const { status, value: item } = res;
+			if (status == "Ok") {
+				this.canvas.addItem(id, item);
+			} else {
+				logger.error("Recieved error code fetching item %o: %o", id, item);
 			}
-		})();
+		}
 	}
 
 	private async handlePath(client: ClientID, stroke: Stroke, path: PathID) {

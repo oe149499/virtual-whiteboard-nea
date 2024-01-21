@@ -1,7 +1,7 @@
 import { clone, getObjectID } from "./Utils.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-type Primitive = undefined | null | boolean | string | number | Function;
+type Primitive = undefined | null | boolean | string | number | symbol | Function;
 
 type ROAction<T> = (_: Readonly<T>) => void;
 type ROMap<T, U> = (_: Readonly<T>) => U;

@@ -53,7 +53,11 @@ const item = JSON.stringify(basic_item);
 console.log(message, item);
 
 export async function createTestUI() {
+	console.log("Creating board");
+
 	const board = await Board.new("test", { name: "Oscar" });
+
+	console.log("Board created");
 
 	document.body.appendChild(board.ui.containerElement);
 

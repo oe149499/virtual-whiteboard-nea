@@ -63,47 +63,6 @@ export function clone<T>(value: T): T {
 	return value;
 }
 
-// export async function* asyncMap<TIn, TOut>(src: AsyncIterator<TIn>, f: (_: TIn) => TOut): AsyncIterator<TOut> {
-// 	while (true) {
-// 		const { done, value } = await src.next();
-// 		logger.debug("", { done, value });
-// 		if (done) return;
-// 		else yield f(value);
-// 	}
-// }
-
-// export async function* dechunk<T>(i: AsyncIterable<T[]>): AsyncIterable<T> {
-// 	for await (const chunk of i) {
-// 		for (const item of chunk) {
-// 			yield item;
-// 		}
-// 	}
-// }
-
-// export function getIter<T>(i: AsyncIterable<T> | Iterable<T>): AsyncIterator<T> {
-// 	if (Symbol.asyncIterator in i) {
-// 		return i[Symbol.asyncIterator]();
-// 	} else {
-// 		const iter = i[Symbol.iterator]();
-// 		return {
-// 			next: () => Promise.resolve(iter.next()),
-// 		};
-// 	}
-// }
-
-// export async function* zip<L, R>(l: AsyncIterable<L> | Iterable<L>, r: AsyncIterable<R> | Iterable<R>): AsyncIterable<[L, R]> {
-// 	const iterL = getIter(l);
-// 	const iterR = getIter(r);
-// 	while (true) {
-// 		const [il, ir] = await Promise.all([iterL.next(), iterR.next()]);
-// 		if (il.done || ir.done) {
-// 			return;
-// 		} else {
-// 			yield [il.value, ir.value];
-// 		}
-// 	}
-// }
-
 const objectIDs = new WeakMap<object, number>();
 let nextObjID = 0;
 
@@ -116,50 +75,6 @@ function createObjectID(o: object) {
 	objectIDs.set(o, id);
 	return id;
 }
-
-// export async function splitFirstAsync<T>(iter: AsyncIterable<T>): Promise<[T | undefined, AsyncIterable<T>]> {
-// 	const iterator = iter[Symbol.asyncIterator]();
-// 	const { done, value } = await iterator.next();
-// 	const rest = { [Symbol.asyncIterator]: () => iterator };
-// 	return [done ? value : undefined, rest];
-// }
-
-// function unpackPromise<T, U>(p: Promise<[T, U]>): [Promise<T>, Promise<U>] {
-// 	return [
-// 		p.then(([t, _]) => t),
-// 		p.then(([_, u]) => u),
-// 	];
-// }
-
-// export function peekFirstAsync<T>(iter: AsyncIterable<T>): [Promise<T | undefined>, AsyncIterable<T>] {
-// 	const [first, rest] = unpackPromise(splitFirstAsync(iter));
-// 	const rIter = rest.then(r => r[Symbol.asyncIterator]());
-// 	let useFirst = true;
-// 	return [first, {
-// 		[Symbol.asyncIterator]() {
-// 			return {
-// 				next() {
-// 					if (useFirst) {
-// 						useFirst = false;
-// 						return first.then(first =>
-// 							first === undefined
-// 								? { done: true, value: undefined }
-// 								: { value: first }
-// 						);
-// 					} else {
-// 						return rIter.then(i => i.next());
-// 					}
-// 				}
-// 			};
-// 		}
-// 	}];
-// }
-
-// export function wrapIterAsync<T>(iter: AsyncIterator<T>): AsyncIterable<T> {
-// 	return {
-// 		[Symbol.asyncIterator]() { return iter; }
-// 	};
-// }
 
 const timeoutVal = Symbol();
 
@@ -211,4 +126,11 @@ Element.prototype.setContent = function (content) {
 DOMTokenList.prototype.set = function (name, value) {
 	if (value) this.add(name);
 	else this.remove(name);
+};
+
+const keepaliveMap = new WeakMap();
+
+DOMTokenList.prototype.setBy = function (name, source) {
+	const handle = source.watch(value => this.set(name, value));
+	keepaliveMap.set(this, handle);
 };

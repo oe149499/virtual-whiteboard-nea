@@ -1,13 +1,14 @@
 import type { Board } from "../Board.js";
 import { AnyPropertyMap, AnyPropertyStore } from "../Properties.js";
-import { DragGestureState } from "../canvas/Gesture.js";
+import { DragGestureState, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
+import { None } from "../util/Utils.js";
 
 export type ToolState = {
 	tool: ModeTool,
 } | {
 	tool: ActionTool,
 	action?: Action,
-} | null;
+} | None;
 
 export enum ToolType {
 	Action,
@@ -69,8 +70,9 @@ abstract class ToolBase implements _Tool {
 }
 
 type GestureHandlers = {
-	drag: (_: DragGestureState) => void,
-	click: (x: number, y: number) => void,
+	drag: Handler<DragGestureState>,
+	press: Handler<PressGesture>,
+	longpress: Handler<LongPressGesture>,
 };
 
 abstract class InteractiveToolBase extends ToolBase {
@@ -79,8 +81,9 @@ abstract class InteractiveToolBase extends ToolBase {
 	private get gestureHandlers() {
 		if (!this.#gestureHandlers) {
 			const handlers: Partial<GestureHandlers> = {};
-			handlers.drag = this.onDragGesture?.bind(this) ?? (() => { });
-			handlers.click = this.onClickGesture?.bind(this) ?? (() => { });
+			handlers.drag = this.onDragGesture?.bind(this) ?? null;
+			handlers.press = this.onPressGesture?.bind(this) ?? null;
+			handlers.longpress = this.onLongPressGesture?.bind(this) ?? null;
 			this.#gestureHandlers = handlers as GestureHandlers;
 		}
 		return this.#gestureHandlers;
@@ -89,12 +92,20 @@ abstract class InteractiveToolBase extends ToolBase {
 	protected onDragGesture?(gesture: DragGestureState): void;
 	protected get dragHandler() { return this.gestureHandlers.drag; }
 
-	protected onClickGesture?(x: number, y: number): void;
-	protected get clickHandler() { return this.gestureHandlers.click; }
+	protected onPressGesture?(gesture: PressGesture): void;
+	protected get pressHandler() { return this.gestureHandlers.press; }
+
+	protected onLongPressGesture?(gesture: LongPressGesture): void;
+	protected get longPressHandler() { return this.gestureHandlers.longpress; }
 
 	protected unbindGestures() {
 		if (this.canvas.ondraggesture === this.dragHandler)
 			this.canvas.ondraggesture = null;
+		if (this.canvas.onpressgesture === this.pressHandler)
+			this.canvas.onpressgesture = null;
+		if (this.canvas.onlongpressgesture === this.longPressHandler)
+			this.canvas.onlongpressgesture = null;
+
 	}
 }
 

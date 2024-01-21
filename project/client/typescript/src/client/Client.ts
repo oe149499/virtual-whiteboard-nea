@@ -41,9 +41,7 @@ export class SessionClient {
 	readonly socketUrl: URL;
 
 	public get method(): MethodDispatcher {
-		if (this.methodDispatcher == null) {
-			this.methodDispatcher = createMethodReciever(this.rawClient.getMethodHandler());
-		}
+		this.methodDispatcher ??= createMethodReciever(this.rawClient.getMethodHandler());
 		return this.methodDispatcher;
 	}
 

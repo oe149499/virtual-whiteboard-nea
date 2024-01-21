@@ -1,6 +1,7 @@
 import { Logger } from "../Logger.js";
 import { Tool, ToolState } from "../tool/Tool.js";
 import { State, deferredStateOf } from "../util/State.js";
+import { None } from "../util/Utils.js";
 
 const logger = new Logger("ui/icon");
 
@@ -40,8 +41,10 @@ export class ToolIcon {
 	private icon: SvgIcon;
 	public readonly element: HTMLElement;
 
-	private _toolState = deferredStateOf(null as ToolState);
-	public readonly active = this._toolState.derived(t => t?.tool === this.tool);
+	private _toolState = deferredStateOf(None as ToolState);
+	public readonly active = this._toolState.derived(
+		t => t !== None && t?.tool === this.tool
+	);
 
 	public onselect?: ToolIconCallback;
 

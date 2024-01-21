@@ -5,6 +5,7 @@ import { PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
 import { MutableState, State, mutableStateOf } from "../util/State.js";
 import { Logger } from "../Logger.js";
+import { None } from "../util/Utils.js";
 
 const logger = new Logger("ui/manager");
 
@@ -63,7 +64,7 @@ export class UIManager {
 			.addClasses("panel-contents");
 
 
-		this._toolState = mutableStateOf(null as ToolState);
+		this._toolState = mutableStateOf(None as ToolState);
 		this.toolState = this._toolState;
 
 		this.propertiesPanel = new PanelController(panelContainer);
@@ -79,7 +80,7 @@ export class UIManager {
 
 	private cancelTool() {
 		const state = this.toolState.get();
-		if (state === null) return;
+		if (state === None) return;
 		const { tool } = state;
 		if (tool.type == ToolType.Action) {
 			// @ts-ignore there should be narrowing here
@@ -87,22 +88,23 @@ export class UIManager {
 		} else {
 			tool.unbind();
 		}
-		this._toolState.set(null);
+		this._toolState.set(None);
 	}
 
 	private readonly onIconSelect: ToolIconCallback = tool => {
 		logger.debug("Selected tool %o", tool);
-		if (tool.type == ToolType.Action) {
+		if (tool.type === ToolType.Action) {
 			this.cancelTool();
 			tool.bind(async (action) => {
-				this._toolState.updateBy(s =>
-					s?.tool === tool ? {
+				this._toolState.updateBy(s => {
+					if (s !== None && s.tool === tool) return {
 						tool: s.tool,
 						action
-					} : s
+					}; else return s;
+				}
 				);
 				await action.completion;
-				this._toolState.set(null);
+				this._toolState.set(None);
 			});
 			this._toolState.set({ tool });
 		} else if (tool.type == ToolType.Mode) {
@@ -116,6 +118,7 @@ export class UIManager {
 
 	private readonly onItemDeselect: ToolIconCallback = tool => {
 		const toolState = this.toolState.get();
-		if (toolState?.tool === tool) this.cancelTool();
+		if (toolState === None) return;
+		if (toolState.tool === tool) this.cancelTool();
 	};
 }
