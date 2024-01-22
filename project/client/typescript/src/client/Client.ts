@@ -3,6 +3,7 @@ import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "../util/Utils.js";
 import { ClientInfo, ConnectionInfo, Result } from "../gen/Types.js";
+import { API } from "./HttpApi.js";
 
 const logger = new Logger("session-client");
 
@@ -11,16 +12,7 @@ export class SessionClient {
 		boardName: string,
 		info: ClientInfo,
 	): Promise<SessionClient> {
-		const boardURL = new URL(`/api/board/${boardName}/`, window.location.href);
-		const response = await fetch(boardURL.toString(), {
-			method: "POST",
-			body: JSON.stringify(info),
-			headers: {
-				"Content-Type": "application/json"
-			}
-		});
-
-		const data = await response.json() as Result<ConnectionInfo>;
+		const data = await API.openSession(boardName, info);
 
 		logger.info("Recieved connection information:", data);
 

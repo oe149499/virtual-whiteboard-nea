@@ -66,7 +66,8 @@ export function clone<T>(value: T): T {
 const objectIDs = new WeakMap<object, number>();
 let nextObjID = 0;
 
-export function getObjectID(o: object): number {
+export function getObjectID(o?: object): number {
+	if (!o) return ++nextObjID;
 	return objectIDs.get(o) ?? createObjectID(o);
 }
 
@@ -112,8 +113,9 @@ SVGElement.prototype.createChild = function (tagname) {
 
 Element.prototype.setAttrs = function (attrs) {
 	for (const name in attrs) {
+		const attrName = name.startsWith("html") ? name.slice(4) : name;
 		// @ts-expect-error I'M LITERALLY ITERATING OVER THE KEYS OF THE OBJECT
-		this.setAttribute(name, attrs[name]);
+		this.setAttribute(attrName, attrs[name]);
 	}
 	return this;
 };

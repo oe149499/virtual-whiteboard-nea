@@ -1,6 +1,7 @@
 import { Logger } from "../Logger.js";
 import { Point } from "../gen/Types.js";
 import { AsyncIter } from "../util/AsyncIter.js";
+import { None } from "../util/Utils.js";
 import { CanvasContext } from "./CanvasBase.js";
 const logger = new Logger("canvas/Gesture");
 
@@ -13,6 +14,7 @@ export type PointerEventStream = {
 export interface DragGestureState {
 	type?: "Drag";
 	initialOrigin: Point;
+	location: Point;
 	points: AsyncIter<Point>;
 }
 
@@ -36,8 +38,9 @@ export class GestureHandler {
 		const mapping = this.ctx.coordMapping.getSnapshot();
 		const first = moves.peek().maxTimeout(500);
 		const endTimeout = end.maxTimeout(500);
-		const { status, value: _ } = await first;
-		if (status == "Err") {
+		const { status, value } = await first;
+		if (status == "Err" || value === None) {
+			logger.debug("First movement timed out");
 			const endRes = await endTimeout;
 			if (endRes.status === "Err") {
 				this.ongesture?.({
@@ -51,9 +54,11 @@ export class GestureHandler {
 				});
 			}
 		} else {
+			logger.debug("First movement didn't time out");
 			this.ongesture?.({
 				type: "Drag",
 				initialOrigin: mapping.targetOffset,
+				location: this.ctx.translate(start, mapping),
 				points: moves.map(
 					ev => this.ctx.translate(ev, mapping),
 				),

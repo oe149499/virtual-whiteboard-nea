@@ -50,9 +50,9 @@ export class TransformHelper {
 	private stretch: SVGTransform;
 
 	constructor(
-		ctx: CanvasContext,
-		list: SVGTransformList,
-		transform: Transform,
+		private ctx: CanvasContext,
+		private list: SVGTransformList,
+		transform: Transform | State<Transform>,
 	) {
 		this.translate = ctx.createTransform();
 		this.rotate = ctx.createTransform();
@@ -61,7 +61,12 @@ export class TransformHelper {
 		list.appendItem(this.translate);
 		list.appendItem(this.rotate);
 		list.appendItem(this.stretch);
-		this.update(transform);
+
+		if ("get" in transform) {
+			transform.watch(this.update.bind(this));
+			this.update(transform.get());
+		}
+		else this.update(transform);
 	}
 
 	public update(value: Transform) {
@@ -78,6 +83,12 @@ export class TransformHelper {
 
 	public updateOrigin({ x, y }: Point) {
 		this.translate.setTranslate(x, y);
+	}
+
+	public createExtra(): SVGTransform {
+		const item = this.ctx.createTransform();
+		this.list.appendItem(item);
+		return item;
 	}
 }
 

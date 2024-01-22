@@ -1,11 +1,13 @@
-use std::path::PathBuf;
-use clap::Parser;
 use camino::Utf8PathBuf;
+use clap::Parser;
 use flexi_logger::Logger;
-use log::{info, error};
+use log::{error, info};
 use tokio::runtime;
-use virtual_whiteboard::{create_api_filter, create_static_filter, create_script_filter, board::BoardManager, GlobalResources, GlobalRes};
-use warp::{Filter, filters::BoxedFilter, reply::Reply};
+use virtual_whiteboard::{
+    board::BoardManager, create_api_filter, create_media_filter, create_script_filter,
+    create_static_filter, ConfigurationBuilder, GlobalRes, GlobalResources,
+};
+use warp::{filters::BoxedFilter, reply::Reply, Filter};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -19,6 +21,9 @@ struct Args {
     #[arg(short = 'j', long = "script-root")]
     script_root: Utf8PathBuf,
 
+    #[arg(short = 'm', long = "media-root")]
+    media_root: Utf8PathBuf,
+
     #[arg(long, default_value_t = true)]
     serve_ts: bool,
 }
@@ -30,6 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let args = Args::parse();
 
+    let config = ConfigurationBuilder::default()
+        .static_root(args.static_path.into())
+        .script_root(args.script_root.into())
+        .media_root(args.media_root.into())
+        .serve_ts(args.serve_ts)
+        .build()
+        .unwrap();
 
     info!("Program Startup");
 
@@ -39,11 +51,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_io()
         .enable_time()
         .worker_threads(2)
-        .build().map_err(|e| {
+        .build()
+        .map_err(|e| {
             error!("Failed to build Tokio runtime: {}", &e);
             e
         })?;
-    
+
     info!("Successfully constructed Tokio runtime");
 
     runtime.block_on(async move {
@@ -51,14 +64,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // The board manager should stay alive for the lifetime of the program
         let boards = BoardManager::new_debug();
 
-        let res = GlobalResources::new(boards).as_static();
-    
-        let filter = create_filter(
-            args.static_path.into(),
-            args.script_root.into(),
-            args.serve_ts,
-            res,
-        );
+        let res = GlobalResources::new(boards, config).as_static();
+
+        let filter = create_filter(res);
 
         info!("Starting server");
         warp::serve(filter).bind(([0, 0, 0, 0], 8080)).await
@@ -67,11 +75,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn create_filter(static_path: PathBuf, script_path: PathBuf, enable_source: bool, res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+fn create_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
     info!("Building filters");
-    let index_filter = warp::path("index.html").and(warp::fs::file(static_path.join("index.html")));
+    let index_filter =
+        warp::path("index.html").and(warp::fs::file(res.config.static_root.join("index.html")));
     let api_filter = warp::path("api").and(create_api_filter(res));
-    let static_filter = warp::path("static").and(create_static_filter(static_path));
-    let script_filter = warp::path("script").and(create_script_filter(script_path, enable_source));
-    return api_filter.or(static_filter).or(index_filter).or(script_filter).boxed()
+    let static_filter = warp::path("static").and(create_static_filter(res));
+    let script_filter = warp::path("script").and(create_script_filter(res));
+    let media_filter = warp::path("media").and(create_media_filter(res));
+
+    return api_filter
+        .or(static_filter)
+        .or(index_filter)
+        .or(script_filter)
+        .or(media_filter)
+        .boxed();
 }

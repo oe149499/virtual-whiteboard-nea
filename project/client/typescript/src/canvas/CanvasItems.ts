@@ -1,6 +1,6 @@
 import { HasFill, HasStroke, HasTransform, ItemType, SpecificItem } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
-import { Item, LineItem, PathItem, PolygonItem } from "../gen/Types.js";
+import { ImageItem, Item, LineItem, PathItem, PolygonItem } from "../gen/Types.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "./CanvasBase.js";
 import { PathHelper } from "./Path.js";
 
@@ -203,10 +203,41 @@ export class Path extends CanvasItem {
 	}
 }
 
+class Image extends CanvasItem {
+	private elem: SVGImageElement;
+
+	public override get element() { return this.elem; }
+
+	private transform: TransformHelper;
+
+	public constructor(
+		ctx: CanvasContext,
+		item: ImageItem,
+	) {
+		super();
+
+		const elem = ctx.createElement("image")
+			.setAttrs({
+				href: item.url,
+			});
+		this.elem = elem;
+
+		this.transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
+		this.transform.createExtra().setScale(1 / 37.8, 1 / 37.8);
+	}
+
+	public override update(value: Item): void {
+		if (value.type !== "Image") return logger.error(`Tried to update \`Image\` item with type \`${value.type}\`: `, value);
+
+		this.transform.update(value.transform);
+	}
+}
+
 const itemBuilders = {
 	Rectangle,
 	Ellipse,
 	Line,
 	Polygon,
 	Path,
+	Image,
 } as { [K in ItemType]?: new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem };

@@ -1,8 +1,9 @@
 import { Logger } from "../Logger.js";
-import { AnyPropertyMap, ColorProperty, NumberProperty, Property, StructProperty } from "../Properties.js";
+import { AnyPropertyMap, ColorProperty, ResourceProperty, NumberProperty, Property, StructProperty, TextProperty } from "../Properties.js";
 import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
 import { None, getObjectID } from "../util/Utils.js";
+import { buildResourcePicker } from "./ResourcePicker.js";
 const logger = new Logger("ui/PropertiesEditor");
 
 class ObjectCacheMap<K extends object, V> {
@@ -60,6 +61,8 @@ export class PropertyEditor {
 		logger.debug("%o", prop);
 		if (prop instanceof NumberProperty) return this.buildNumberUI(target, prop);
 		if (prop instanceof ColorProperty) return this.buildColorUI(target, prop);
+		if (prop instanceof TextProperty) return this.buildTextUI(target, prop);
+		if (prop instanceof ResourceProperty) return this.buildFileUI(target, prop);
 		if (prop instanceof StructProperty) return this.buildStructUI(target, prop);
 	}
 
@@ -100,6 +103,32 @@ export class PropertyEditor {
 		input.oninput = () => {
 			prop.state.set(input.value);
 		};
+	}
+
+	private buildTextUI(target: HTMLElement, prop: TextProperty) {
+		const propID = getObjectID(prop);
+		target.createChild("label")
+			.setAttrs({ htmlFor: propID })
+			.addClasses()
+			.setContent(prop.displayName);
+		const input = target.createChild("input")
+			.addClasses("property-text")
+			.setAttrs({
+				type: "text",
+				id: propID,
+				value: prop.state.get(),
+			});
+		input.oninput = () => {
+			prop.state.set(input.value);
+		};
+	}
+
+	private buildFileUI(target: HTMLElement, prop: ResourceProperty) {
+		const propID = getObjectID(prop);
+		target.createChild("label")
+			.addClasses("property-label-wide")
+			.setContent(prop.displayName);
+		buildResourcePicker(target, prop.state);
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

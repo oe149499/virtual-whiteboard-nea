@@ -3,7 +3,7 @@ import { CanvasController } from "../canvas/Canvas.js";
 import { ToolIcon, ToolIconCallback } from "./Icon.js";
 import { PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
-import { MutableState, State, mutableStateOf } from "../util/State.js";
+import { MutableState, State, mutableStateOfNone, mutableStateOf } from "../util/State.js";
 import { Logger } from "../Logger.js";
 import { None } from "../util/Utils.js";
 
@@ -64,7 +64,7 @@ export class UIManager {
 			.addClasses("panel-contents");
 
 
-		this._toolState = mutableStateOf(None as ToolState);
+		this._toolState = mutableStateOfNone<ToolState>();
 		this.toolState = this._toolState;
 
 		this.propertiesPanel = new PanelController(panelContainer);

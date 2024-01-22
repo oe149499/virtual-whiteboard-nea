@@ -118,6 +118,8 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 	public bind(onBegin: OnBegin) {
 		this.onBegin = onBegin;
 		this.canvas.ondraggesture = this.dragHandler;
+		this.canvas.onpressgesture = this.pressHandler;
+		this.canvas.onlongpressgesture = this.longPressHandler;
 	}
 
 	protected start() {

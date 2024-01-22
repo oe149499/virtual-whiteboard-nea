@@ -1,16 +1,17 @@
-import { clone, getObjectID } from "./Utils.js";
+import { None, Option, clone, getObjectID } from "./Utils.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-type Primitive = undefined | null | boolean | string | number | symbol | Function;
+export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL;
 
-type ROAction<T> = (_: Readonly<T>) => void;
-type ROMap<T, U> = (_: Readonly<T>) => U;
-type Readonly<T> = T extends Primitive ? T
-	: T extends (infer U)[] ? ReadonlyArray<Readonly<U>>
-	: { readonly [K in keyof T]: Readonly<T[K]> };
+type ROAction<T> = (_: DeepReadonly<T>) => void;
+type ROMap<T, U> = (_: DeepReadonly<T>) => U;
+export type DeepReadonly<T> = T extends SkipReadonly ? T
+	: T extends (infer U)[] ? ReadonlyArray<DeepReadonly<U>>
+	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
 export interface WatchHandle {
 	end(): void;
+	poll(): this;
 }
 
 export function stateWithSetterOf<T>(value: T) {
@@ -23,6 +24,10 @@ export function stateWithSetterOf<T>(value: T) {
 
 export function mutableStateOf<T>(value: T) {
 	return new _MutableState(value) as MutableState<T>;
+}
+
+export function mutableStateOfNone<T>(): MutableState<Option<T>> {
+	return mutableStateOf<Option<T>>(None);
 }
 
 export function stateBy<T>(value: T, executor: (f: ROAction<T>) => void) {
@@ -51,14 +56,14 @@ export abstract class State<T> {
 
 	protected constructor(private value: T) { }
 	public get() {
-		return this.value as Readonly<T>;
+		return this.value as DeepReadonly<T>;
 	}
 
 	public getSnapshot(): T {
 		return clone(this.value);
 	}
 
-	protected update(value: Readonly<T>) {
+	protected update(value: DeepReadonly<T>) {
 		this.value = value as T;
 		for (const f of this.weakWatchers.values()) {
 			f.deref()?.(value);
@@ -71,14 +76,26 @@ export abstract class State<T> {
 	public watch(f: ROAction<T>): WatchHandle {
 		const id = getObjectID(f);
 		this.watchers.set(id, f);
-		return { end: this.removeWatcher.bind(this, id) };
+		const handle = {
+			end: this.removeWatcher.bind(this, id),
+			poll: () => (
+				f(this.get()), handle
+			)
+		};
+		return handle;
 	}
 
 	public [watchWeak](f: ROAction<T>): WatchHandle {
 		const id = getObjectID(f);
 		this.weakWatchers.set(id, new WeakRef(f));
 		this.weakRemover.register(f, id, f);
-		return { end: this.removeWeak.bind(this, id) };
+		const handle = {
+			end: this.removeWeak.bind(this, id),
+			poll: () => (
+				f(this.get()), handle
+			)
+		};
+		return handle;
 	}
 
 	private weakRemover = new FinalizationRegistry((id: number) => this.removeWeak(id));
@@ -94,6 +111,10 @@ export abstract class State<T> {
 	public derived<U>(f: ROMap<T, U>): State<U> {
 		return new DerivedState(this, f);
 	}
+
+	public inspect<U>(f: ROMap<T, U>): U {
+		return f(this.get());
+	}
 }
 
 function compose<T, U, V>(f1: (_: T) => U, f2: (_: U) => V): (_: T) => V {
@@ -107,13 +128,13 @@ class DerivedState<T, U> extends State<U> {
 		private map: ROMap<T, U>,
 	) {
 		super(map(source.get()) as U);
-		const callback = (v: Readonly<T>) => this.update(map(v) as Readonly<U>);
+		const callback = (v: DeepReadonly<T>) => this.update(map(v) as DeepReadonly<U>);
 		source[watchWeak](callback);
 		this.#_c = callback;
 	}
 
 	public override derived<V>(f: ROMap<U, V>): State<V> {
-		return new DerivedState(this.source, compose(this.map as (_: Readonly<T>) => Readonly<U>, f));
+		return new DerivedState(this.source, compose(this.map as (_: DeepReadonly<T>) => DeepReadonly<U>, f));
 	}
 }
 
@@ -122,14 +143,14 @@ export abstract class MutableState<T> extends State<T> {
 		super(value);
 	}
 
-	public set(value: Readonly<T>) {
+	public set(value: DeepReadonly<T>) {
 		this.update(value);
 	}
 
 	updateBy(f: (_: T) => T | undefined): void {
 		const currentVal = this.get() as T;
 		const newVal = f(currentVal) ?? currentVal;
-		this.update(newVal as Readonly<T>);
+		this.update(newVal as DeepReadonly<T>);
 	}
 }
 
@@ -137,8 +158,9 @@ class _MutableState<T> extends MutableState<T> { }
 
 class DeadState<T> extends State<T> {
 	public constructor(value: T) { super(value); }
-	public override watch(_f: ROAction<T>): WatchHandle {
-		return { end() { } };
+	public override watch(f: ROAction<T>): WatchHandle {
+		const handle = { end() { }, poll: () => (f(this.get()), handle) };
+		return handle;
 	}
 
 	public override derived<U>(f: ROMap<T, U>): State<U> {
@@ -161,6 +183,7 @@ export abstract class DeferredState<T> extends State<T> {
 class _DeferredState<T> extends DeferredState<T> { }
 
 export type Stateless<T> = T extends State<infer S> ? S
+	: T extends SkipReadonly ? T
 	: T extends object ? {
 		readonly [K in keyof T]: Stateless<T[K]>
 	}

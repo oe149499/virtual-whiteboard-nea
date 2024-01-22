@@ -1,16 +1,19 @@
 import { Color } from "./gen/Types.js";
-import { MutableState, mutableStateOf } from "./util/State.js";
+import { Option } from "./util/Utils.js";
+import { MutableState, SkipReadonly, mutableStateOf } from "./util/State.js";
 
 type KeysWhere<T, V> = { [K in keyof T]: T[K] extends V ? K : never }[keyof T] & string;
 
 export interface PropertyBuilder<TSchema> {
 	number<K extends KeysWhere<TSchema, number>>(name: K): NumberProperty;
 	color<K extends KeysWhere<TSchema, Color>>(name: K): ColorProperty;
+	text<K extends KeysWhere<TSchema, string>>(name: K): TextProperty;
+	file<K extends KeysWhere<TSchema, Option<URL>>>(name: K): ResourceProperty;
 
 	struct<K extends KeysWhere<TSchema, object>>(name: K, body: BuilderFn<TSchema[K]>): StructProperty<TSchema[K]>;
 }
 
-type PropertyValue<T> = T extends object ? PropertyStore<T> : MutableState<T>;
+type PropertyValue<T> = T extends SkipReadonly ? MutableState<T> : T extends object ? PropertyStore<T> : MutableState<T>;
 export type PropertyStore<T extends object> = {
 	[K in keyof T]: PropertyValue<T[K]>
 }
@@ -20,7 +23,8 @@ export type AnyPropertyStore = PropertyStore<any>;
 
 type PropertyInstance<T> = true extends false ? never
 	: T extends number ? NumberProperty
-	: T extends Color ? ColorProperty
+	: T extends string ? ColorProperty | TextProperty
+	: T extends Option<URL> ? ResourceProperty
 	: T extends object ? StructProperty<T>
 	: never;
 
@@ -64,7 +68,26 @@ class Builder<TSchema extends object> implements PropertyBuilder<TSchema> {
 		this.store[name] = state;
 		return prop;
 	}
-	// @ts-check
+
+	file<K extends KeysWhere<TSchema, Option<URL>>>(name: K): ResourceProperty {
+		const state = this.getNewState(name);
+		const prop = new ResourceProperty(name, state as unknown as MutableState<Option<URL>>);
+		// @ts-expect-error filtering keys by value doesn't work
+		this.output[name] = prop;
+		// @ts-expect-error filtering keys by value doesn't work
+		this.store[name] = state;
+		return prop;
+	}
+
+	text<K extends KeysWhere<TSchema, Color>>(name: K): TextProperty {
+		const state = this.getNewState(name);
+		const prop = new TextProperty(name, state as unknown as MutableState<string>);
+		// @ts-expect-error filtering keys by value doesn't work
+		this.output[name] = prop;
+		// @ts-expect-error filtering keys by value doesn't work
+		this.store[name] = state;
+		return prop;
+	}
 
 	struct<K extends KeysWhere<TSchema, object>, V extends TSchema[K] & object>(name: K, fields: BuilderFn<V>): StructProperty<TSchema[K]> {
 		const builder = new Builder<V>(this.source[name] as V);
@@ -81,7 +104,7 @@ class Builder<TSchema extends object> implements PropertyBuilder<TSchema> {
 
 	public evaluate(fields: ($: PropertyBuilder<TSchema>) => void) {
 		fields(this);
-		return this.output as PropertyStore<TSchema>;
+		return this.output as unknown as PropertyStore<TSchema>;
 	}
 
 	public static evaluate<T extends object>(source: T, fields: BuilderFn<T>) {
@@ -126,6 +149,10 @@ abstract class ValueProperty<T> extends Property {
 export class NumberProperty extends ValueProperty<number> { }
 
 export class ColorProperty extends ValueProperty<Color> { }
+
+export class TextProperty extends ValueProperty<string> { }
+
+export class ResourceProperty extends ValueProperty<Option<URL>> { }
 
 export class StructProperty<TSchema> extends Property {
 	public constructor(

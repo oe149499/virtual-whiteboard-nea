@@ -10,6 +10,18 @@
 	grid-template-columns: 1fr 1fr;
 }
 
-.struct-header {
+.property-input-file,
+.struct-header,
+.property-label-wide,
+.property-file-upload-button,
+.property-input-url {
 	grid-column: 1 / 3;
+}
+
+.property-file-upload-button {
+	display: none;
+}
+
+.property-file-upload-button.file-present {
+	display: initial;
 }

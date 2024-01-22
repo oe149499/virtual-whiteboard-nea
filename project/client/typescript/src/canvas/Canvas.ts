@@ -73,7 +73,9 @@ export class CanvasController {
 	}
 
 	private onGesture(gesture: Gesture): void {
-		switch (gesture.type) {
+		if (this.selection.testIntersection(gesture.location)) {
+			this.selection.handleGesture(gesture);
+		} else switch (gesture.type) {
 			case "Drag": return this.ondraggesture?.(gesture);
 			case "Click": return this.onpressgesture?.(gesture);
 			case "LongClick": return this.onlongpressgesture?.(gesture);
