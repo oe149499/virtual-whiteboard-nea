@@ -1,4 +1,4 @@
-import { Result } from "../gen/Types";
+import { Point, Result } from "../gen/Types";
 import { State } from "./State";
 
 declare global {
@@ -10,6 +10,10 @@ declare global {
 		setBy(name: string, source: State<boolean>): void;
 	}
 
+	interface DOMRectReadOnly {
+		testIntersection(target: Point): boolean;
+	}
+
 	interface HTMLElement {
 
 		createChild<K extends keyof HTMLElementTagNameMap>(tagName: K): HTMLElementTagNameMap[K];
@@ -17,6 +21,10 @@ declare global {
 
 	interface SVGElement {
 		createChild<K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K];
+	}
+
+	interface SVGGraphicsElement {
+		getFinalTransform(current?: DOMMatrix): DOMMatrix;
 	}
 
 	interface Element {

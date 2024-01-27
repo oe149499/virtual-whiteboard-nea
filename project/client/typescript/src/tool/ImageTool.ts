@@ -2,7 +2,7 @@ import { Board } from "../Board.js";
 import { PropertyMap, PropertyStore, buildProperties } from "../Properties.js";
 import { PressGesture } from "../canvas/Gesture.js";
 import { Item } from "../gen/Types.js";
-import { None, Option } from "../util/Utils.js";
+import { None, Option, point } from "../util/Utils.js";
 import { ActionToolBase } from "./Tool.js";
 
 const propSchema = Object.freeze({
@@ -36,9 +36,9 @@ export class ImageTool extends ActionToolBase {
 			type: "Image",
 			transform: {
 				origin: gesture.location,
-				rotation: 0,
-				stretchX: 1,
-				stretchY: 1,
+				basisX: point(1, 0),
+				basisY: point(0, 1),
+
 			},
 			url: location.toString(),
 			description: this.propStore.description.get(),

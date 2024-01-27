@@ -1,14 +1,28 @@
 import { HasFill, HasStroke, HasTransform, ItemType, SpecificItem } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
-import { ImageItem, Item, LineItem, PathItem, PolygonItem } from "../gen/Types.js";
+import { ImageItem, Item, LineItem, PathItem, Point, PolygonItem } from "../gen/Types.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "./CanvasBase.js";
 import { PathHelper } from "./Path.js";
 
 const logger = new Logger("canvas-items");
 
 export abstract class CanvasItem {
-	public abstract get element(): SVGElement;
+	public readonly element: SVGGElement;
+	protected abstract get innerElement(): SVGGraphicsElement;
+
 	public abstract update(value: Item): void;
+	public testIntersection(target: Point): boolean {
+		const bbox = this.innerElement.getBBox();
+		logger.debug("elem: %o, BBox: %o, target: (%o, %o)", this.innerElement, bbox, target.x, target.y);
+		return this.innerElement.getBBox().testIntersection(target);
+	}
+
+	protected constructor(ctx: CanvasContext) {
+		this.element = ctx.createElement("g");
+		queueMicrotask(() => {
+			this.element.appendChild(this.innerElement);
+		});
+	}
 
 	public static create(ctx: CanvasContext, item: Item): CanvasItem {
 		const builder = itemBuilders[item.type];
@@ -29,7 +43,7 @@ abstract class ShapeItem extends CanvasItem {
 
 	private innerElem: SVGGraphicsElement;
 
-	public get element() { return this.innerElem; }
+	public get innerElement() { return this.innerElem; }
 
 	protected abstract createElement(ctx: CanvasContext): SVGGraphicsElement;
 
@@ -37,7 +51,8 @@ abstract class ShapeItem extends CanvasItem {
 		ctx: CanvasContext,
 		protected item: Extract<Item, HasFill & HasStroke & HasTransform>,
 	) {
-		super();
+		super(ctx);
+
 		const elem = this.createElement(ctx);
 		this.innerElem = elem;
 
@@ -64,14 +79,13 @@ abstract class ShapeItem extends CanvasItem {
 
 export class Rectangle extends ShapeItem {
 	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
-		const elem = ctx.createElement("rect");
-
-		elem.setAttribute("x", "-0.5cm");
-		elem.setAttribute("y", "-0.5cm");
-		elem.setAttribute("width", "1cm");
-		elem.setAttribute("height", "1cm");
-
-		return elem;
+		return ctx.createElement("rect")
+			.setAttrs({
+				x: -0.5,
+				y: -0.5,
+				width: 1,
+				height: 1,
+			});
 	}
 }
 
@@ -88,7 +102,7 @@ export class Ellipse extends ShapeItem {
 export class Line extends CanvasItem {
 	private elem: SVGLineElement;
 
-	public get element() { return this.elem; }
+	public get innerElement() { return this.elem; }
 
 	private _stroke: StrokeHelper;
 
@@ -96,7 +110,7 @@ export class Line extends CanvasItem {
 		ctx: CanvasContext,
 		private item: LineItem
 	) {
-		super();
+		super(ctx);
 		this.elem = ctx.createElement("line");
 
 		this.updateStart();
@@ -130,7 +144,7 @@ export class Line extends CanvasItem {
 export class Polygon extends CanvasItem {
 	private elem: SVGPolygonElement;
 
-	public override get element() { return this.elem; }
+	public override get innerElement() { return this.elem; }
 
 	private stroke: StrokeHelper;
 	private fill: FillHelper;
@@ -139,7 +153,7 @@ export class Polygon extends CanvasItem {
 		ctx: CanvasContext,
 		private item: PolygonItem,
 	) {
-		super();
+		super(ctx);
 		const elem = ctx.createElement("polygon");
 		this.elem = elem;
 
@@ -175,14 +189,14 @@ export class Path extends CanvasItem {
 	private pathHelper: PathHelper;
 	private stroke: StrokeHelper;
 	private transform: TransformHelper;
-	public override get element() { return this.elem; }
+	public override get innerElement() { return this.elem; }
 
 	public constructor(
 		ctx: CanvasContext,
 		item: PathItem,
 	) {
 		const [{ position: startPoint }, ...points] = item.path.points;
-		super();
+		super(ctx);
 		const elem = ctx.createElement("path");
 		this.elem = elem;
 
@@ -206,7 +220,7 @@ export class Path extends CanvasItem {
 class Image extends CanvasItem {
 	private elem: SVGImageElement;
 
-	public override get element() { return this.elem; }
+	public override get innerElement() { return this.elem; }
 
 	private transform: TransformHelper;
 
@@ -214,7 +228,7 @@ class Image extends CanvasItem {
 		ctx: CanvasContext,
 		item: ImageItem,
 	) {
-		super();
+		super(ctx);
 
 		const elem = ctx.createElement("image")
 			.setAttrs({

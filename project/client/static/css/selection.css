@@ -1,5 +1,15 @@
-rect.selection {
+.selection {
 	stroke: blue;
 	stroke-width: 0.1px;
 	fill: none;
+}
+
+.selection-handle {
+	stroke-width: 0.025px;
+	fill: blue;
+	stroke: darkgray;
+}
+
+.selection-handle:hover {
+	stroke-width: 0.05px;
 }

@@ -1,5 +1,5 @@
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
-import { State } from "../util/State.js";
+import { State, mutableStateOf } from "../util/State.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -9,30 +9,57 @@ export interface CoordinateMapping {
 	targetOffset: Point,
 }
 
+enum GestureLayer {
+
+}
+
 export class CanvasContext {
 	constructor(
 		private svgroot: SVGSVGElement,
 		public readonly coordMapping: State<CoordinateMapping>,
 	) { }
 
+	public registerGestureReciever() { }
+
 	public createElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
 		return document.createElementNS(SVGNS, name);
 	}
 
-	public createTransform() {
-		return this.svgroot.createSVGTransform();
+	public createTransform(matrix?: DOMMatrixReadOnly) {
+		const transform = this.svgroot.createSVGTransform();
+		if (matrix) transform.setMatrix(matrix);
+		return transform;
+	}
+
+	public createPoint(p?: Point): SVGPoint {
+		const point = this.svgroot.createSVGPoint();
+		if (p) {
+			point.x = p.x;
+			point.y = p.y;
+		}
+		return point;
+	}
+
+	public createPointBy = (s: State<Point>) => {
+		const point = this.createPoint();
+		return s.derived(({ x, y }) => {
+			point.x = x;
+			point.y = y;
+			return point;
+		});
+	};
+
+	public createRect(pos: Point, size: Point) {
+		const rect = this.svgroot.createSVGRect();
+		rect.x = pos.x;
+		rect.y = pos.y;
+		rect.width = size.x;
+		rect.height = size.y;
+		return rect;
 	}
 
 	public createRootElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
 		return this.svgroot.appendChild(this.createElement(name));
-	}
-
-	/** @deprecated */
-	public translateCoordinate(p: Point): Point;
-	public translateCoordinate(x: number, y: number): Point;
-	public translateCoordinate(x: number | Point, y?: number): Point {
-		const p = (typeof x == "object") ? x : { x, y: y! };
-		return this.translate(p);
 	}
 
 	public translate(p: Point, m?: CoordinateMapping) {
@@ -45,22 +72,20 @@ export class CanvasContext {
 }
 
 export class TransformHelper {
-	private translate: SVGTransform;
-	private rotate: SVGTransform;
-	private stretch: SVGTransform;
+	private svgTransform: SVGTransform;
+
+	private matrix: DOMMatrix;
 
 	constructor(
 		private ctx: CanvasContext,
 		private list: SVGTransformList,
 		transform: Transform | State<Transform>,
 	) {
-		this.translate = ctx.createTransform();
-		this.rotate = ctx.createTransform();
-		this.stretch = ctx.createTransform();
+		this.svgTransform = ctx.createTransform();
 
-		list.appendItem(this.translate);
-		list.appendItem(this.rotate);
-		list.appendItem(this.stretch);
+		this.matrix = this.svgTransform.matrix;
+
+		list.appendItem(this.svgTransform);
 
 		if ("get" in transform) {
 			transform.watch(this.update.bind(this));
@@ -70,19 +95,16 @@ export class TransformHelper {
 	}
 
 	public update(value: Transform) {
-		const { x: tx, y: ty } = value.origin;
-		this.translate.setTranslate(tx, ty);
+		const { x: a, y: b } = value.basisX;
+		const { x: c, y: d } = value.basisY;
+		const { x: e, y: f } = value.origin;
 
-		this.rotate.setRotate(value.rotation, 0, 0);
-
-		this.stretch.setScale(
-			value.stretchX,
-			value.stretchY,
-		);
+		Object.assign(this.matrix, { a, b, c, d, e, f });
 	}
 
 	public updateOrigin({ x, y }: Point) {
-		this.translate.setTranslate(x, y);
+		this.matrix.e = x;
+		this.matrix.f = y;
 	}
 
 	public createExtra(): SVGTransform {

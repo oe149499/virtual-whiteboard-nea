@@ -23,9 +23,8 @@ export const rect: SpecificItem<"Rectangle"> = {
 	type: "Rectangle",
 	transform: {
 		origin: { x: 10, y: 10 },
-		rotation: 0,
-		stretchX: 1,
-		stretchY: 1,
+		basisX: point(1, 0),
+		basisY: point(0, 1),
 	},
 	stroke: {
 		color: "red",

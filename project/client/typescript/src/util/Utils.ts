@@ -1,5 +1,7 @@
 import { Logger } from "../Logger.js";
-import { Point, Result } from "../gen/Types.js";
+import { Point, Result, Transform } from "../gen/Types.js";
+import { State } from "./State.js";
+import "./ExtensionsImpl.js";
 const logger = new Logger("util/Utils");
 
 export const None = Symbol("None");
@@ -76,63 +78,33 @@ function createObjectID(o: object) {
 	objectIDs.set(o, id);
 	return id;
 }
-
-const timeoutVal = Symbol();
-
-async function maxTimeout<T>(this: Promise<T>, time: number): Promise<Result<T, number>> {
-	const timeout = new Promise<typeof timeoutVal>(r => setTimeout(r.bind(undefined, timeoutVal), time));
-	const val = await Promise.race([this, timeout]);
-	if (val === timeoutVal) return {
-		status: "Err",
-		value: time,
-	};
-	else return {
-		status: "Ok",
-		value: val,
+export function applyTransform(t: Transform, p: Point): Point {
+	return {
+		x: p.x + t.origin.x,
+		y: p.y + t.origin.y,
 	};
 }
 
-Promise.prototype.maxTimeout = maxTimeout;
+function updateMatrix(m: DOMMatrix, t: Transform) {
+	const { x: a, y: b } = t.basisX;
+	const { x: c, y: d } = t.basisY;
+	const { x: e, y: f } = t.origin;
 
-Element.prototype.addClasses = function (...classes) {
-	for (const c of classes) {
-		this.classList.add(c);
+	Object.assign(m, { a, b, c, d, e, f });
+}
+
+export function asDomMatrix(t: Transform): DOMMatrix;
+export function asDomMatrix(t: State<Transform>): State<DOMMatrixReadOnly>;
+export function asDomMatrix(t: Transform | State<Transform>): DOMMatrix | State<DOMMatrixReadOnly> {
+	const matrix = new DOMMatrix();
+
+	if ("get" in t) {
+		return t.derived(t => {
+			updateMatrix(matrix, t);
+			return matrix as DOMMatrixReadOnly;
+		});
+	} else {
+		updateMatrix(matrix, t);
+		return matrix;
 	}
-	return this;
-};
-
-HTMLElement.prototype.createChild = function (tagname) {
-	const elem = document.createElement(tagname);
-	return this.appendChild(elem);
-};
-
-SVGElement.prototype.createChild = function (tagname) {
-	const elem = document.createElementNS("http://www.w3.org/2000/svg", tagname);
-	return this.appendChild(elem);
-};
-
-Element.prototype.setAttrs = function (attrs) {
-	for (const name in attrs) {
-		const attrName = name.startsWith("html") ? name.slice(4) : name;
-		// @ts-expect-error I'M LITERALLY ITERATING OVER THE KEYS OF THE OBJECT
-		this.setAttribute(attrName, attrs[name]);
-	}
-	return this;
-};
-
-Element.prototype.setContent = function (content) {
-	this.textContent = content;
-	return this;
-};
-
-DOMTokenList.prototype.set = function (name, value) {
-	if (value) this.add(name);
-	else this.remove(name);
-};
-
-const keepaliveMap = new WeakMap();
-
-DOMTokenList.prototype.setBy = function (name, source) {
-	const handle = source.watch(value => this.set(name, value));
-	keepaliveMap.set(this, handle);
-};
+}

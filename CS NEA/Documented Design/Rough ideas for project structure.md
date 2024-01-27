@@ -78,6 +78,8 @@
 	- Probably under `/script` or something similar
 	- Include original TS files so source mapping can be used during debugging
 	- Include generated files under `/script/gen`
+- Media files
+	- Under `media/`?
 ## Potential layout
 `
 - `/`
@@ -108,6 +110,7 @@
 				- `archive/ (POST)` - Archive the tag, preventing creation of new instances but not disabling old ones
 			- `query/`
 		- `upload/ (POST)` - Uploading media files
+	- `media/<ID>/filename` - user-uploaded media
 # Board representation
 - ID-Object table
 	- Board-unique IDs with stored counter

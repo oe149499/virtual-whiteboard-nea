@@ -45,21 +45,20 @@ pub struct Angle(f64);
 pub struct Transform {
     /// The global coordinate which the object is centered on and which all other transformations are relative to
     pub origin: Point,
-    /// The angle of the object, applied after scaling
-    pub rotation: Angle,
-    /// The horizontal scale of the object, applied before rotation
-    pub stretch_x: f64,
-    /// The vertical scale of the object, applied before rotation
-    pub stretch_y: f64,
+
+    /// The basis vector of the original X-direction
+    pub basis_x: Point,
+
+    /// The Y-direction basis vector
+    pub basis_y: Point,
 }
 
 impl Default for Transform {
     fn default() -> Self {
         Self {
             origin: Point::default(),
-            rotation: Angle(0.0),
-            stretch_x: 1.0,
-            stretch_y: 1.0,
+            basis_x: Point { x: 1.0, y: 0.0 },
+            basis_y: Point { x: 0.0, y: 1.0 },
         }
     }
 }

@@ -15,13 +15,10 @@ export class CanvasController {
 	public readonly svgElement: SVGSVGElement;
 	public readonly ctx: CanvasContext;
 	public readonly selection: SelectionBox;
-	private items = {} as { [x: ItemID]: CanvasItem };
 
-
-	private start = { x: -1, y: -1 };
+	private items = new Map<ItemID, CanvasItem>();
 
 	private targetRect: DOMRect;
-	private targetStart = { x: -1, y: -1 };
 
 	public readonly elementBounds: State<DOMRectReadOnly>;
 
@@ -72,6 +69,12 @@ export class CanvasController {
 		svgElement.onpointerup = this.pointerUp.bind(this);
 	}
 
+	public * probePoint(target: Point) {
+		for (const [id, item] of this.items.entries()) {
+			if (item.testIntersection(target)) yield { item, id };
+		}
+	}
+
 	private onGesture(gesture: Gesture): void {
 		if (this.selection.testIntersection(gesture.location)) {
 			this.selection.handleGesture(gesture);
@@ -83,9 +86,9 @@ export class CanvasController {
 	}
 
 	public addItem(id: ItemID, item: Item) {
-		const canvas_item = CanvasItem.create(this.ctx, item);
-		this.items[id] = canvas_item;
-		this.svgElement.appendChild(canvas_item.element);
+		const canvasItem = CanvasItem.create(this.ctx, item);
+		this.items.set(id, canvasItem);
+		this.svgElement.appendChild(canvasItem.element);
 	}
 
 	public addRawElement(elem: SVGElement) {
@@ -99,7 +102,7 @@ export class CanvasController {
 	public setOrigin({ x, y }: { x: number, y: number }) {
 		this.targetRect.x = x;
 		this.targetRect.y = y;
-		logger.debug("Current target: %o", this.targetRect);
+		//logger.debug("Current target: %o", this.targetRect);
 		this.coordMapping.updateBy(m =>
 			(m.targetOffset = { x, y }, m)
 		);

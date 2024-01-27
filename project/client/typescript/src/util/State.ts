@@ -1,10 +1,14 @@
+import { Logger } from "../Logger.js";
 import { None, Option, clone, getObjectID } from "./Utils.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL;
+export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly;
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;
 type ROMap<T, U> = (_: DeepReadonly<T>) => U;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type StateTuple<T extends any[]> = { [K in keyof T]: State<T[K]> };
+
 export type DeepReadonly<T> = T extends SkipReadonly ? T
 	: T extends (infer U)[] ? ReadonlyArray<DeepReadonly<U>>
 	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
@@ -45,12 +49,13 @@ export function deferredStateOf<T>(value: T): DeferredState<T> {
 }
 
 export function collectStateOf<T extends object>(value: T): State<Stateless<T>> {
-	return new _CollectedState(value);
+	return new CollectedState(value);
 }
 
 const watchWeak = Symbol();
 
-export abstract class State<T> {
+// @ts-expect-error watcher maps will still recieve the type they watched
+export abstract class State<out T> {
 	private watchers = new Map<number, ROAction<T>>();
 	private weakWatchers = new Map<number, WeakRef<ROAction<T>>>();
 
@@ -112,8 +117,25 @@ export abstract class State<T> {
 		return new DerivedState(this, f);
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public derivedT<T extends any[], U>(this: State<T>, f: (..._: { readonly [K in keyof T]: DeepReadonly<T[K]> }) => U): State<U> {
+		// @ts-expect-error technically this is a slightly different type
+		return this.derived(l => f(...l));
+	}
+
 	public inspect<U>(f: ROMap<T, U>): U {
 		return f(this.get());
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public with<U extends any[]>(...others: StateTuple<U>): State<[T, ...U]> {
+		const list: StateTuple<[T, ...U]> = [this, ...others];
+		return new CombinedState<[T, ...U]>(list);
+	}
+
+	public debug(logger: Logger, msg?: string): this {
+		this.watch(v => logger.debug(msg ?? "", v));
+		return this;
 	}
 }
 
@@ -147,7 +169,7 @@ export abstract class MutableState<T> extends State<T> {
 		this.update(value);
 	}
 
-	updateBy(f: (_: T) => T | undefined): void {
+	updateBy(f: (_: T) => T): void {
 		const currentVal = this.get() as T;
 		const newVal = f(currentVal) ?? currentVal;
 		this.update(newVal as DeepReadonly<T>);
@@ -210,10 +232,32 @@ function eliminateState<T extends object>(value: T, onChange: () => void): State
 	return out;
 }
 
-class _CollectedState<T extends object> extends State<Stateless<T>> {
+class CollectedState<T extends object> extends State<Stateless<T>> {
 	public constructor(value: T) {
 		super(
 			eliminateState(value, () => this.update(this.get()))
 		);
+	}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+class CombinedState<T extends any[]> extends MutableState<T> {
+	#handles: unknown[];
+	public constructor(
+		values: StateTuple<T>,
+	) {
+		const out = [];
+		const handles = [];
+		for (let idx = 0; idx < values.length; idx++) {
+			const value = values[idx];
+			handles.push(value);
+			out.push(value.get());
+			const handle = value[watchWeak](v => {
+				this.updateBy(l => ((l[idx] = v), l));
+			});
+			handles.push(handle);
+		}
+		super(out as T);
+		this.#handles = handles;
 	}
 }
