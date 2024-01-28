@@ -4,7 +4,7 @@ import { MutableState, State, collectStateOf, mutableStateOf } from "../util/Sta
 import { None, Option, applyTransform, asDomMatrix, point } from "../util/Utils.js";
 import { CanvasContext, TransformHelper } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
-import { Gesture } from "./Gesture.js";
+import { Gesture, GestureType } from "./Gesture.js";
 const logger = new Logger("canvas/SelectionBox");
 
 export class SelectionBox {
@@ -92,7 +92,7 @@ export class SelectionBox {
 
 	public async handleGesture(gesture: Gesture) {
 		logger.debug("Beginning gesture: %o", gesture);
-		if (gesture.type == "Drag") {
+		if (gesture.type == GestureType.Drag) {
 			const start = this.selectionTransform.getSnapshot().origin;
 			const ox = start.x - gesture.location.x;
 			const oy = start.y - gesture.location.y;

@@ -1,5 +1,6 @@
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
-import { State, mutableStateOf } from "../util/State.js";
+import { State } from "../util/State.js";
+import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -9,17 +10,26 @@ export interface CoordinateMapping {
 	targetOffset: Point,
 }
 
-enum GestureLayer {
-
-}
+export type CanvasContextExecutor = (_: {
+	gestures: GestureHandler,
+}) => void;
 
 export class CanvasContext {
 	constructor(
 		private svgroot: SVGSVGElement,
 		public readonly coordMapping: State<CoordinateMapping>,
-	) { }
+		exec?: CanvasContextExecutor,
+	) {
+		exec?.({
+			gestures: this.gestures,
+		});
+	}
 
-	public registerGestureReciever() { }
+	private gestures = new GestureHandler(this);
+
+	public createGestureFilter(layer: GestureLayer): FilterHandle {
+		return this.gestures.makeFilter(layer);
+	}
 
 	public createElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
 		return document.createElementNS(SVGNS, name);

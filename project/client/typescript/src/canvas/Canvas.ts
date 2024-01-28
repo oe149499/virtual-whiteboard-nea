@@ -4,7 +4,7 @@ import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
-import { DragGestureState, Gesture, GestureHandler, LongPressGesture, PressGesture } from "./Gesture.js";
+import { DragGestureState, Gesture, GestureHandler, GestureType, LongPressGesture, PressGesture } from "./Gesture.js";
 import { SelectionBox } from "./SelectionBox.js";
 
 
@@ -23,7 +23,7 @@ export class CanvasController {
 	public readonly elementBounds: State<DOMRectReadOnly>;
 
 	private activeGestures: { [key: number]: { move: Channel<PointerEvent>, end: (_: PointerEvent) => void } } = {};
-	private gestures: GestureHandler;
+	private gestures!: GestureHandler;
 	private coordMapping: MutableState<CoordinateMapping>;
 
 	private gestureCount = mutableStateOf(0);
@@ -43,11 +43,11 @@ export class CanvasController {
 			targetOffset: { x: 0, y: 0 }
 		});
 
-		this.ctx = new CanvasContext(this.svgElement, this.coordMapping);
-		this.selection = new SelectionBox(this.ctx);
+		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, ({ gestures }) => {
+			this.gestures = gestures;
+		});
 
-		this.gestures = new GestureHandler(this.ctx);
-		this.gestures.ongesture = this.onGesture.bind(this);
+		this.selection = new SelectionBox(this.ctx);
 
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
@@ -79,9 +79,9 @@ export class CanvasController {
 		if (this.selection.testIntersection(gesture.location)) {
 			this.selection.handleGesture(gesture);
 		} else switch (gesture.type) {
-			case "Drag": return this.ondraggesture?.(gesture);
-			case "Click": return this.onpressgesture?.(gesture);
-			case "LongClick": return this.onlongpressgesture?.(gesture);
+			case GestureType.Drag: return this.ondraggesture?.(gesture);
+			case GestureType.Click: return this.onpressgesture?.(gesture);
+			case GestureType.LongClick: return this.onlongpressgesture?.(gesture);
 		}
 	}
 

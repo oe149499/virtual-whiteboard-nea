@@ -1,6 +1,6 @@
 import type { Board } from "../Board.js";
 import { AnyPropertyMap, AnyPropertyStore } from "../Properties.js";
-import { DragGestureState, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
+import { DragGestureState, FilterHandle, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
 import { None } from "../util/Utils.js";
 
 export type ToolState = {
@@ -60,6 +60,10 @@ abstract class ToolBase implements _Tool {
 		return this.board.canvas;
 	}
 
+	protected get ctx() {
+		return this.board.canvas.ctx;
+	}
+
 	protected init?(): void;
 
 	public constructor(
@@ -76,37 +80,27 @@ type GestureHandlers = {
 };
 
 abstract class InteractiveToolBase extends ToolBase {
-	#gestureHandlers: GestureHandlers | null = null;
+	#filterHandle: FilterHandle | null = null;
 
-	private get gestureHandlers() {
-		if (!this.#gestureHandlers) {
-			const handlers: Partial<GestureHandlers> = {};
-			handlers.drag = this.onDragGesture?.bind(this) ?? null;
-			handlers.press = this.onPressGesture?.bind(this) ?? null;
-			handlers.longpress = this.onLongPressGesture?.bind(this) ?? null;
-			this.#gestureHandlers = handlers as GestureHandlers;
+	protected get gestureFilter(): FilterHandle {
+		if (!this.#filterHandle) {
+			const filter = this.ctx.createGestureFilter(GestureLayer.AboveItems).pause();
+			if (this.onDragGesture)
+				filter.addHandler(GestureType.Drag, this.onDragGesture.bind(this));
+			if (this.onPressGesture)
+				filter.addHandler(GestureType.Click, this.onPressGesture.bind(this));
+			if (this.onLongPressGesture)
+				filter.addHandler(GestureType.LongClick, this.onLongPressGesture.bind(this));
+			this.#filterHandle = filter;
 		}
-		return this.#gestureHandlers;
+		return this.#filterHandle;
 	}
 
 	protected onDragGesture?(gesture: DragGestureState): void;
-	protected get dragHandler() { return this.gestureHandlers.drag; }
 
 	protected onPressGesture?(gesture: PressGesture): void;
-	protected get pressHandler() { return this.gestureHandlers.press; }
 
 	protected onLongPressGesture?(gesture: LongPressGesture): void;
-	protected get longPressHandler() { return this.gestureHandlers.longpress; }
-
-	protected unbindGestures() {
-		if (this.canvas.ondraggesture === this.dragHandler)
-			this.canvas.ondraggesture = null;
-		if (this.canvas.onpressgesture === this.pressHandler)
-			this.canvas.onpressgesture = null;
-		if (this.canvas.onlongpressgesture === this.longPressHandler)
-			this.canvas.onlongpressgesture = null;
-
-	}
 }
 
 export abstract class ActionToolBase extends InteractiveToolBase implements ActionTool {
@@ -117,9 +111,7 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 
 	public bind(onBegin: OnBegin) {
 		this.onBegin = onBegin;
-		this.canvas.ondraggesture = this.dragHandler;
-		this.canvas.onpressgesture = this.pressHandler;
-		this.canvas.onlongpressgesture = this.longPressHandler;
+		this.gestureFilter.resume();
 	}
 
 	protected start() {
@@ -131,7 +123,7 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 		});
 	}
 	protected end() {
-		this.unbindGestures();
+		this.gestureFilter.pause();
 		this.completionResolve?.();
 	}
 
@@ -142,11 +134,11 @@ export abstract class ModeToolBase extends InteractiveToolBase implements ModeTo
 	public override get type(): ToolType.Mode { return ToolType.Mode; }
 
 	public bind(): void {
-		this.canvas.ondraggesture = this.dragHandler;
+		this.gestureFilter.resume();
 	}
 
 	public unbind(): void {
-		this.unbindGestures();
+		this.gestureFilter.pause();
 	}
 }
 

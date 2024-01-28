@@ -108,3 +108,7 @@ export function asDomMatrix(t: Transform | State<Transform>): DOMMatrix | State<
 		return matrix;
 	}
 }
+
+export function* rangeInclusive(min: number, max: number): Iterable<number> {
+	for (let v = min; v <= max; v++) yield v;
+}

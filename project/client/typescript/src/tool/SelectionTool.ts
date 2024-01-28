@@ -18,7 +18,7 @@ export class SelectionTool extends ActionToolBase {
 	}
 
 	protected override cancel(): void {
-		this.unbindGestures();
+		this.gestureFilter.pause();
 	}
 
 	protected override onPressGesture(gesture: PressGesture): void {
