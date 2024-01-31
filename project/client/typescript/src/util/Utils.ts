@@ -51,18 +51,25 @@ export function point(x?: number, y?: number): Point {
 	y ??= x;
 	return { x, y };
 }
+// export function clone<T>(value: T): T {
+// 	if (typeof value == "object") {
+// 		const out = {};
+// 		for (const name of Object.getOwnPropertyNames(value)) {
+// 			// @ts-expect-error assigning nonexistent properties
+// 			out[name] = clone(value[name]);
+// 		}
+// 		Object.setPrototypeOf(out, Object.getPrototypeOf(value));
+// 		return out as T;
+// 	}
+// 	return value;
+// }
 
-export function clone<T>(value: T): T {
-	if (typeof value == "object") {
-		const out = {};
-		for (const name of Object.getOwnPropertyNames(value)) {
-			// @ts-expect-error assigning nonexistent properties
-			out[name] = clone(value[name]);
-		}
-		Object.setPrototypeOf(out, Object.getPrototypeOf(value));
-		return out as T;
-	}
-	return value;
+export function deg2rad(val: number) {
+	return (val / 180) * Math.PI;
+}
+
+export function rad2deg(val: number) {
+	return (val / Math.PI) * 180;
 }
 
 const objectIDs = new WeakMap<object, number>();

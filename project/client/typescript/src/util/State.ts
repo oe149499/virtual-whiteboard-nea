@@ -1,5 +1,6 @@
 import { Logger } from "../Logger.js";
-import { None, Option, clone, getObjectID } from "./Utils.js";
+import { clone } from "./Clone.js";
+import { None, Option, getObjectID } from "./Utils.js";
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly;
@@ -74,7 +75,7 @@ export abstract class State<out T> {
 			f.deref()?.(value);
 		}
 		for (const f of this.watchers.values()) {
-			setTimeout(f, 0, value);
+			queueMicrotask(() => f(value));
 		}
 	}
 
@@ -115,6 +116,11 @@ export abstract class State<out T> {
 
 	public derived<U>(f: ROMap<T, U>): State<U> {
 		return new DerivedState(this, f);
+	}
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	public derivedI<U, P extends any[]>(f: (this: DeepReadonly<T>, ...args: P) => U, ...args: P): State<U> {
+		return this.derived(v => f.call(v, ...args));
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

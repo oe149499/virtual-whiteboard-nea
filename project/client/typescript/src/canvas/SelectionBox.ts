@@ -1,26 +1,25 @@
 import { Logger } from "../Logger.js";
-import { ItemID, Point, Transform } from "../gen/Types.js";
-import { MutableState, State, collectStateOf, mutableStateOf } from "../util/State.js";
-import { None, Option, applyTransform, asDomMatrix, point } from "../util/Utils.js";
-import { CanvasContext, TransformHelper } from "./CanvasBase.js";
+import { ItemID, Point } from "../gen/Types.js";
+import { MutableState, State, mutableStateOf } from "../util/State.js";
+import { asDomMatrix, point, rad2deg } from "../util/Utils.js";
+import { CanvasContext, MatrixHelper, TranslateHelper } from "./CanvasBase.js";
 import { CanvasItem } from "./CanvasItems.js";
-import { Gesture, GestureType } from "./Gesture.js";
+import { DragGestureState, FilterHandle, GestureLayer, GestureType } from "./Gesture.js";
 const logger = new Logger("canvas/SelectionBox");
 
 export class SelectionBox {
 	private container: SVGGElement;
 
-	private selectionTransform: MutableState<Transform> = mutableStateOf({
-		origin: point(),
-		basisX: point(1, 0),
-		basisY: point(0, 1),
-	});
+	private selectionTransform = mutableStateOf(new DOMMatrix());
+
+	private gestureFilter: FilterHandle;
 
 	private selectionSize = mutableStateOf(point(1, 1));
 
-	private selectionMatrix = asDomMatrix(this.selectionTransform);
+	//private selectionMatrix = asDomMatrix(this.selectionTransform);
+	private reverseMatrix = this.selectionTransform.derivedI(DOMMatrix.prototype.inverse);
 
-	private containerTransform: TransformHelper;
+	private containerTransform: MatrixHelper;
 
 	private items = new Map<ItemID, CanvasItem>();
 
@@ -30,11 +29,19 @@ export class SelectionBox {
 	constructor(private ctx: CanvasContext) {
 		this.container = ctx.createRootElement("g");
 
-		this.border = new BorderBox(ctx, this.container, this.selectionMatrix, this.selectionSize);
+		this.border = new BorderBox(ctx, this.container, this.selectionTransform, this.selectionSize);
 
 		this.itemContainer = this.container.createChild("g");
 
-		this.containerTransform = new TransformHelper(ctx, this.itemContainer.transform.baseVal, this.selectionTransform);
+		this.containerTransform = new MatrixHelper(this.itemContainer.transform.baseVal, this.selectionTransform);
+
+		this.gestureFilter = ctx.createGestureFilter(GestureLayer.AboveItems)
+			.addHandler(GestureType.Drag, this.handleGesture.bind(this))
+			.setTest((p) => {
+				const { x, y } = this.reverseMatrix.get().transformPoint(p);
+				const s = this.selectionSize.get();
+				return Math.abs(x) < s.x / 2 && Math.abs(y) < s.y / 2;
+			});
 
 		//this.selectionOrigin.watch(({ x, y }) => this.outerBorder.setAttrs({ x, y })).poll();
 		//this.selectionSize.watch(({ x, y }) => this.outerBorder.setAttrs({ width: x, height: y })).poll();
@@ -70,11 +77,11 @@ export class SelectionBox {
 
 		this.selectionSize.set({ x: bounds.width, y: bounds.height });
 
-		this.selectionTransform.set({
+		this.selectionTransform.set(asDomMatrix({
 			origin: center,
 			basisX: point(1, 0),
 			basisY: point(0, 1),
-		});
+		}));
 		newItemHolder.style.visibility = "initial";
 	}
 
@@ -90,100 +97,197 @@ export class SelectionBox {
 		// return true;
 	}
 
-	public async handleGesture(gesture: Gesture) {
-		logger.debug("Beginning gesture: %o", gesture);
-		if (gesture.type == GestureType.Drag) {
-			const start = this.selectionTransform.getSnapshot().origin;
-			const ox = start.x - gesture.location.x;
-			const oy = start.y - gesture.location.y;
+	public async handleGesture(gesture: DragGestureState) {
+		const { e: startX, f: startY } = this.selectionTransform.get();
+		const ox = startX - gesture.location.x;
+		const oy = startY - gesture.location.y;
 
-			for await (const { x, y } of gesture.points) {
-				logger.debug("Point: ", x, y);
-				this.selectionTransform.updateBy(t => {
-					t.origin = {
-						x: x + ox,
-						y: y + oy,
-					};
-					return t;
-				});
-				logger.debug("", this.selectionTransform.get());
-			}
+		for await (const { x, y } of gesture.points) {
+			//logger.debug("Point: ", x, y);
+			this.selectionTransform.updateBy(t => {
+				t.e = x + ox;
+				t.f = y + oy;
+				return t;
+			});
+			//logger.debug("", this.selectionTransform.get());
 		}
 	}
 }
 
 const dirs = [
-	point(-1, -1),
-	point(-1, +1),
-	point(+1, +1),
-	point(+1, -1),
-];
+	[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1]
+].map(([x, y]) => point(x / 2, y / 2));
+
+const rotateDir = point(0, -0.75);
 
 class BorderBox {
 	public readonly element: SVGPolygonElement;
 	private handles: BorderHandle[];
-	keepalive?: unknown[];
+	private rotateHandle: RotateHandle;
 
 	public constructor(
 		ctx: CanvasContext,
 		target: SVGElement,
-		transform: State<DOMMatrixReadOnly>,
-		size: State<Point>,
+		transform: MutableState<DOMMatrix>,
+		size: MutableState<Point>,
 	) {
 		const element = target.createChild("polygon").addClasses("selection");
-
-		const vertices: State<Point>[] = dirs.map(({ x: sx, y: sy }) =>
-			size.derived(({ x, y }) => point(x * sx / 2, y * sy / 2))
-		);
-		this.keepalive = vertices;
-
-		const points = vertices
-			.map(p => ctx
-				.createPointBy(p)
-				.with(transform)
-				.debug(logger, "Tuple state: ")
-				.derivedT((s, t) =>
-					t.transformPoint(s)
-				)
-			)
-			.map(ctx.createPointBy);
-
 		this.element = element;
-		logger.debug("", points);
-		this.handles = [];
-		for (const [idx, p] of points.entries()) {
-			this.handles.push(new BorderHandle(ctx, p, target));
-			this.keepalive.push(p);
-			logger.debug('"point": ', p.get());
-			element.points.appendItem(p.get());
-			const handle = p.watch(p => {
-				logger.debug("point: ", p);
-				element.points.replaceItem(p, idx);
+
+		this.handles = dirs.map(offset => new BorderHandle(
+			ctx,
+			target,
+			transform,
+			size,
+			offset,
+		));
+
+		this.rotateHandle = new RotateHandle(
+			ctx,
+			target,
+			transform,
+			size,
+			rotateDir,
+		);
+	}
+}
+
+abstract class HandleBase {
+	private translate: TranslateHelper;
+	protected position: State<Point>;
+	protected canvasPos: State<Point>;
+
+	protected constructor(
+		private elem: SVGGraphicsElement,
+		transform: State<DOMMatrix>,
+		size: State<Point>,
+		offset: Point,
+	) {
+		this.position = size
+			.derived(({ x, y }) => ({ x: x * offset.x, y: y * offset.y }));
+
+		this.canvasPos = this.position
+			.with(transform)
+			.derivedT((p, t) => t.transformPoint(p));
+
+		this.translate = new TranslateHelper(elem.transform.baseVal, this.canvasPos);
+	}
+}
+
+class BorderHandle extends HandleBase {
+	private gestureFilter: FilterHandle;
+
+	public constructor(
+		ctx: CanvasContext,
+		target: SVGElement,
+		private transform: MutableState<DOMMatrix>,
+		size: State<Point>,
+		private offset: Point,
+	) {
+		super(
+			target.createChild("rect")
+				.addClasses("selection-handle")
+				.setAttrs({
+					x: -0.1,
+					y: -0.1,
+					width: 0.2,
+					height: 0.2,
+				}),
+			transform,
+			size,
+			offset,
+		);
+
+		this.gestureFilter = ctx.createGestureFilter(GestureLayer.Highest)
+			.setTest(({ x, y }) => {
+				const pos = this.canvasPos.get();
+				return Math.abs(x - pos.x) < 0.1 && Math.abs(y - pos.y) < 0.1;
+			})
+			.addHandler(GestureType.Drag, this.handleDrag.bind(this));
+	}
+
+	private async handleDrag(gesture: DragGestureState) {
+		const { x: x0, y: y0 } = this.position.get();
+		const transform = this.transform.get();
+		const { a: a0, b: b0, c: c0, d: d0 } = transform;
+		const canvasToSelection = transform.inverse();
+
+		const l = (x0 * x0) + (y0 * y0);
+
+		const cx = (x0 || 1) / l;
+		const cy = (y0 || 1) / l;
+
+		for await (const p of gesture.points) {
+			const { x: x1, y: y1 } = canvasToSelection.transformPoint(p);
+			const f = (y1 * cy) + (x1 * cx);
+			logger.debug("f: ", f);
+			this.transform.updateBy(m => {
+				if (this.offset.x) {
+					m.a = f * a0;
+					m.b = f * b0;
+				}
+				if (this.offset.y) {
+					m.c = f * c0;
+					m.d = f * d0;
+				}
+				return m;
 			});
-			this.keepalive.push(handle);
 		}
 	}
 }
 
-class BorderHandle {
-	private transform: TransformHelper;
+class RotateHandle extends HandleBase {
+	private gestureFilter: FilterHandle;
+
 	public constructor(
 		ctx: CanvasContext,
-		private position: State<Point>,
 		target: SVGElement,
+		private transform: MutableState<DOMMatrix>,
+		size: State<Point>,
+		private offset: Point,
 	) {
-		const elem = target.createChild("rect")
-			.addClasses("selection-handle")
-			.setAttrs({
-				x: -0.1,
-				y: -0.1,
-				width: 0.2,
-				height: 0.2,
-			});
-		this.transform = new TransformHelper(ctx, elem.transform.baseVal, collectStateOf({
-			origin: position,
-			basisX: point(1, 0),
-			basisY: point(0, 1),
-		}));
+		super(
+			target.createChild("circle")
+				.addClasses("selection-handle")
+				.setAttrs({
+					cx: 0,
+					cy: 0,
+					r: 0.1,
+				}),
+			transform,
+			size,
+			offset,
+		);
+
+		this.gestureFilter = ctx.createGestureFilter(GestureLayer.Highest)
+			.setTest(({ x, y }) => {
+				const pos = this.canvasPos.get();
+				return Math.abs(x - pos.x) < 0.1 && Math.abs(y - pos.y) < 0.1;
+			})
+			.addHandler(GestureType.Drag, this.handleDrag.bind(this));
+	}
+
+	private async handleDrag(gesture: DragGestureState) {
+		const { x: x0, y: y0 } = this.position.get();
+		const targetAngle = Math.atan2(y0, x0);
+		const transform = this.transform.getSnapshot();
+		const reverseTransform = transform.inverse();
+
+		const identity = new DOMMatrix();
+
+		for await (const p of gesture.points.map(p => reverseTransform.transformPoint(p))) {
+			const cursorAngle = Math.atan2(p.y, p.x);
+
+			const angleDiff = rad2deg(cursorAngle - targetAngle);
+
+			const newVal = identity.rotate(angleDiff);
+
+			newVal.multiplySelf(transform);
+
+			newVal.e = transform.e;
+			newVal.f = transform.f;
+
+			this.transform.set(newVal);
+		}
 	}
 }

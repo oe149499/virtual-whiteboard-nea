@@ -81,6 +81,35 @@ export class CanvasContext {
 	}
 }
 
+export class MatrixHelper {
+	private svgTransform: SVGTransform;
+
+	constructor(
+		list: SVGTransformList,
+		private matrix: State<DOMMatrix>,
+	) {
+		this.svgTransform = list.createSVGTransformFromMatrix(matrix.get());
+		list.appendItem(this.svgTransform);
+		matrix.watch(m => this.svgTransform.setMatrix(m));
+	}
+}
+
+export class TranslateHelper {
+	private svgTransform: SVGTransform;
+	constructor(
+		list: SVGTransformList,
+		private position: State<Point>,
+	) {
+		this.svgTransform = list.createSVGTransformFromMatrix();
+		list.appendItem(this.svgTransform);
+		const matrix = this.svgTransform.matrix;
+		position.watch(({ x, y }) => {
+			matrix.e = x;
+			matrix.f = y;
+		});
+	}
+}
+
 export class TransformHelper {
 	private svgTransform: SVGTransform;
 

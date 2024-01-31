@@ -75,15 +75,15 @@ export class CanvasController {
 		}
 	}
 
-	private onGesture(gesture: Gesture): void {
-		if (this.selection.testIntersection(gesture.location)) {
-			this.selection.handleGesture(gesture);
-		} else switch (gesture.type) {
-			case GestureType.Drag: return this.ondraggesture?.(gesture);
-			case GestureType.Click: return this.onpressgesture?.(gesture);
-			case GestureType.LongClick: return this.onlongpressgesture?.(gesture);
-		}
-	}
+	// private onGesture(gesture: Gesture): void {
+	// 	if (this.selection.testIntersection(gesture.location)) {
+	// 		this.selection.handleGesture(gesture);
+	// 	} else switch (gesture.type) {
+	// 		case GestureType.Drag: return this.ondraggesture?.(gesture);
+	// 		case GestureType.Click: return this.onpressgesture?.(gesture);
+	// 		case GestureType.LongClick: return this.onlongpressgesture?.(gesture);
+	// 	}
+	// }
 
 	public addItem(id: ItemID, item: Item) {
 		const canvasItem = CanvasItem.create(this.ctx, item);
