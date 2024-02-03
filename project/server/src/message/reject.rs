@@ -5,6 +5,9 @@ use serde::Serialize;
 #[cfg(feature = "codegen")]
 use ts_rs::TS;
 
+#[path = "./reject_helpers.rs"]
+pub mod helpers;
+
 /// A generic rejection message for any failed request
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]

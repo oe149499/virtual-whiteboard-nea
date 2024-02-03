@@ -1,14 +1,13 @@
 //! API routes for file uploads
 
 use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
+    path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use futures_util::{StreamExt, TryStreamExt};
-use log::{debug, error};
-use tokio::{fs, io::AsyncWriteExt};
+use futures_util::StreamExt;
+use log::debug;
+use tokio::io::AsyncWriteExt;
 use warp::{
     filters::{multipart::FormData, BoxedFilter},
     reply::Reply,

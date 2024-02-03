@@ -58,7 +58,7 @@ struct Board {
     client_ids: RwLock<std::collections::BTreeSet<ClientID>>,
     clients: AsyncHashMap<ClientID, ClientState>,
     canvas: ActiveCanvas,
-    selected_items: AsyncHashMap<ItemID, ClientID>,
+    selected_items: AsyncHashMap<ItemID, Option<ClientID>>,
     active_paths: AsyncHashMap<PathID, ActivePath>,
 }
 

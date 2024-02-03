@@ -7,8 +7,8 @@ use crate::{
     message::{
         self,
         method::*,
-        notify_c::{ItemCreated, PathStarted, SelectionItemsAdded},
-        reject::RejectReason::{NonExistentID, ResourceNotOwned},
+        notify_c::{ItemCreated, PathStarted, SelectionItemsAdded, SingleItemEdited},
+        reject::helpers::{non_existent_id, resource_not_owned},
         ClientID, ErrorCode, PathID,
     },
 };
@@ -41,11 +41,18 @@ impl Board {
         for item_id in params.items {
             let item = self.selected_items.entry_async(item_id).await;
             match item {
-                scc::hash_map::Entry::Occupied(_) => {
-                    result.push(message::Err(ErrorCode::NotAvailable.into()));
+                scc::hash_map::Entry::Occupied(mut entry) => {
+                    let value = entry.get_mut();
+                    if value == &None {
+                        *value = Some(id);
+                        result.push(message::Ok(()));
+                        successful_ids.insert(item_id);
+                    } else {
+                        result.push(message::Err(ErrorCode::NotAvailable.into()));
+                    }
                 }
                 scc::hash_map::Entry::Vacant(entry) => {
-                    entry.insert_entry(id);
+                    entry.insert_entry(Some(id));
                     result.push(message::Ok(()));
                     successful_ids.insert(item_id);
                 }
@@ -82,14 +89,11 @@ impl Board {
         for (item_id, update) in params.items {
             let item = self.selected_items.get_async(&item_id).await;
             let Some(item) = item else {
-                handle.warn(NonExistentID {
-                    id_type: "ItemID",
-                    value: *item_id,
-                });
+                handle.warn(non_existent_id(item_id));
                 ok = false;
                 continue;
             };
-            if *item.get() == client_id {
+            if *item.get() == Some(client_id) {
                 let item = self.canvas.get_ref_mut(item_id).await;
                 let Some(mut item) = item else { continue };
                 let res = item.apply_location_update(item_id, &update);
@@ -100,10 +104,7 @@ impl Board {
                     out.insert(item_id, update);
                 }
             } else {
-                handle.warn(ResourceNotOwned {
-                    resource_type: "Item",
-                    target_id: *item_id,
-                });
+                handle.warn(resource_not_owned(item_id));
                 ok = false;
             }
         }
@@ -121,13 +122,42 @@ impl Board {
 
     async fn handle_edit_batch_items(&self, id: ClientID, call: Call<EditBatchItems>) {}
 
-    async fn handle_edit_single_item(&self, id: ClientID, call: Call<EditSingleItem>) {}
+    async fn handle_edit_single_item(&self, id: ClientID, call: Call<EditSingleItem>) {
+        let (params, handle) = call.create_handle(self.get_handle(&id).await);
+
+        let selected = self.selected_items.get_async(&params.item_id).await;
+
+        let Some(selected) = selected else {
+            return handle.error(non_existent_id(params.item_id));
+        };
+
+        if selected.get() != &Some(id) {
+            return handle.error(resource_not_owned(params.item_id));
+        }
+
+        let mut item = self.canvas.get_ref_mut(params.item_id).await.unwrap(); // Checked earlier that item exists
+        *item = params.item.clone();
+
+        handle.ok(());
+
+        self.send_notify_c(SingleItemEdited {
+            id: params.item_id,
+            item: params.item,
+        })
+        .await;
+    }
 
     async fn handle_delete_items(&self, id: ClientID, call: Call<DeleteItems>) {}
 
     async fn handle_create_item(&self, id: ClientID, call: Call<CreateItem>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
         let item_id = self.canvas.add_item(params.item.clone()).await;
+
+        self.selected_items
+            .insert_async(item_id, None)
+            .await
+            .unwrap(); // New ID was just created
+
         handle.respond(item_id);
         self.send_notify_c(ItemCreated {
             client: id,
@@ -170,18 +200,12 @@ impl Board {
         let entry = self.active_paths.get_async(&params.path_id).await;
 
         let Some(mut entry) = entry else {
-            return handle.error(NonExistentID {
-                id_type: "PathID",
-                value: *params.path_id,
-            });
+            return handle.error(non_existent_id(params.path_id));
         };
         let path = entry.get_mut();
 
         if path.client != id {
-            return handle.error(ResourceNotOwned {
-                resource_type: "Path",
-                target_id: *params.path_id,
-            });
+            return handle.error(resource_not_owned(params.path_id));
         }
 
         handle.respond(());
@@ -211,19 +235,13 @@ impl Board {
         let entry = self.active_paths.get_async(&params.path_id).await;
 
         let Some(entry) = entry else {
-            return handle.error(NonExistentID {
-                id_type: "PathID",
-                value: *params.path_id,
-            });
+            return handle.error(non_existent_id(params.path_id));
         };
 
         let path = entry.remove();
 
         if path.client != id {
-            return handle.error(ResourceNotOwned {
-                resource_type: "Path",
-                target_id: *params.path_id,
-            });
+            return handle.error(resource_not_owned(params.path_id));
         }
 
         for handle in path.listeners {

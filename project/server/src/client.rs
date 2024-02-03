@@ -23,6 +23,7 @@ use crate::{
 pub struct MessagePayload(Vec<u8>);
 
 impl MessagePayload {
+    /// Create a new stored payload from the send message
     pub fn new(msg: &MsgSend) -> Self {
         Self(serde_json::to_vec(msg).expect("Failed to serialize payload"))
     }
