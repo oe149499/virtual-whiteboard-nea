@@ -1,5 +1,5 @@
 import type { Board } from "../Board.js";
-import { AnyPropertyMap, AnyPropertyStore } from "../Properties.js";
+import { AnyPropertyMap, PropertySchema, SingletonPropertyStore } from "../Properties.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
 import { None } from "../util/Utils.js";
 
@@ -17,7 +17,8 @@ export enum ToolType {
 }
 
 interface _Tool {
-	properties?: AnyPropertyMap
+	_properties?: AnyPropertyMap;
+	properties?: SingletonPropertyStore;
 }
 
 export interface ModeTool extends _Tool {
@@ -50,7 +51,8 @@ export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 interface ToolBase {
-	readonly properties?: AnyPropertyMap;
+	readonly _properties?: AnyPropertyMap;
+	readonly properties?: SingletonPropertyStore;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
@@ -72,12 +74,6 @@ abstract class ToolBase implements _Tool {
 		this.init?.();
 	}
 }
-
-type GestureHandlers = {
-	drag: Handler<DragGestureState>,
-	press: Handler<PressGesture>,
-	longpress: Handler<LongPressGesture>,
-};
 
 abstract class InteractiveToolBase extends ToolBase {
 	#filterHandle: FilterHandle | null = null;

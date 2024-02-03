@@ -1,16 +1,16 @@
 import { Color } from "./gen/Types.js";
 import { Option } from "./util/Utils.js";
-import { MutableState, SkipReadonly, mutableStateOf } from "./util/State.js";
+import { BlockDeepReadonly, MutableState, SkipReadonly, mutableStateOf } from "./util/State.js";
 
 type KeysWhere<T, V> = { [K in keyof T]: T[K] extends V ? K : never }[keyof T] & string;
 
-export interface PropertyBuilder<TSchema> {
+export interface PropertyBuilder<in out TSchema> {
 	number<K extends KeysWhere<TSchema, number>>(name: K): NumberProperty;
 	color<K extends KeysWhere<TSchema, Color>>(name: K): ColorProperty;
 	text<K extends KeysWhere<TSchema, string>>(name: K): TextProperty;
 	file<K extends KeysWhere<TSchema, Option<URL>>>(name: K): ResourceProperty;
 
-	struct<K extends KeysWhere<TSchema, object>>(name: K, body: BuilderFn<TSchema[K]>): StructProperty<TSchema[K]>;
+	struct<K extends KeysWhere<TSchema, object>, V extends TSchema[K] & object>(name: K, fields: BuilderFn<V>): StructProperty<TSchema[K]>;
 }
 
 type PropertyValue<T> = T extends SkipReadonly ? MutableState<T> : T extends object ? PropertyStore<T> : MutableState<T>;
@@ -34,7 +34,7 @@ export type AnyPropertyMap = PropertyMap<{ [x: string]: unknown }>;
 
 type BuilderFn<TStore> = ($: PropertyBuilder<TStore>) => void;
 
-class Builder<TSchema extends object> implements PropertyBuilder<TSchema> {
+class Builder<in out TSchema extends object> implements PropertyBuilder<TSchema> {
 	private constructor(
 		private source: TSchema,
 		output?: Record<string, never>
@@ -119,7 +119,114 @@ class Builder<TSchema extends object> implements PropertyBuilder<TSchema> {
 	}
 }
 
+type PropertyGetter = <N extends PropType>(key: PropKey<N>) => PropValue<N>;
+
 export const buildProperties = Builder.evaluate.bind(Builder);
+
+export class PropKey<N extends keyof ValuePropertyTypes> {
+	public constructor(
+		public readonly type: N,
+		public readonly validator: (val: PropValue<N>) => boolean,
+	) { }
+}
+
+export class CompositeKey<T> {
+	public constructor(
+		public readonly extractor: (get: PropertyGetter) => T
+	) { }
+}
+
+const alwaysValid = () => true;
+
+export function key<N extends keyof ValuePropertyTypes>(name: N, validator?: (val: PropValue<N>) => boolean) {
+	return new PropKey(name, validator ?? alwaysValid);
+}
+
+type PropertySchemaBase = {
+	displayName?: string,
+};
+
+interface ValuePropertyTypes {
+	number: {
+		valType: number,
+		min?: number,
+		max?: number,
+		step?: number,
+	},
+	color: {
+		valType: Color,
+	},
+	text: {
+		valType: string,
+		display?: "short" | "long",
+	},
+	resource: {
+		valType: Option<URL>,
+		validExtensions?: string[],
+	},
+}
+
+export type PropType = keyof ValuePropertyTypes;
+type PropValue<T extends PropType> = ValuePropertyTypes[T]["valType"];
+
+export type ValuePropertyType<T extends PropType> = {
+	type: T,
+	key: PropKey<T>,
+} & Omit<ValuePropertyTypes[T], "valType"> & PropertySchemaBase;
+
+type ValuePropertySchema = { [K in PropType]: ValuePropertyType<K> }[PropType];
+
+type StructPropertySchema = PropertySchemaBase & {
+	type: "struct",
+	fields: PropertySchema[],
+};
+
+export type PropertySchema = ValuePropertySchema | StructPropertySchema;
+
+type NoValue = typeof PropertyKeyStore.NoValue;
+
+export abstract class PropertyKeyStore {
+	[BlockDeepReadonly]() { }
+	public static readonly NoValue = Symbol("NoValue");
+
+	public read<N extends PropType>(key: PropKey<N>): PropValue<N>;
+	public read<T>(key: CompositeKey<T>): T;
+	public read<N extends PropType, T>(key: PropKey<N> | CompositeKey<T>) {
+		if (key instanceof CompositeKey) return key.extractor(this.read.bind(this));
+		else {
+			const value = this.get(key);
+			if (value === PropertyKeyStore.NoValue) {
+				throw new Error("Missing property key");
+			} else return value;
+		}
+	}
+
+	protected abstract get<N extends PropType>(key: PropKey<N>): PropValue<N> | NoValue;
+	protected abstract set<N extends PropType>(key: PropKey<N>, value: PropValue<N>): void;
+}
+
+export class SingletonPropertyStore extends PropertyKeyStore {
+	public constructor(
+		public readonly schema: PropertySchema[],
+	) { super(); }
+
+	public static readonly Empty = new this([]);
+
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	private dataStore = new Map<PropKey<any>, any>();
+
+	protected override get<N extends keyof ValuePropertyTypes>(key: PropKey<N>) {
+		if (this.dataStore.has(key)) {
+			return this.dataStore.get(key);
+		} else {
+			return PropertyKeyStore.NoValue;
+		}
+	}
+
+	protected override set<N extends keyof ValuePropertyTypes>(key: PropKey<N>, value: PropValue<N>) {
+		this.dataStore.set(key, value);
+	}
+}
 
 export abstract class Property {
 	#displayName?: string | undefined;

@@ -3,7 +3,8 @@ import { Item, ItemID, Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
-import { CanvasItem } from "./CanvasItems.js";
+import { CanvasItem } from "./items/CanvasItems.js";
+import "./items/ItemBuilders.js";
 import { DragGestureState, Gesture, GestureHandler, GestureType, LongPressGesture, PressGesture } from "./Gesture.js";
 import { SelectionBox } from "./SelectionBox.js";
 

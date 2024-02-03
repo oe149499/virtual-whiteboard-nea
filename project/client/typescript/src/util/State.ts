@@ -2,8 +2,14 @@ import { Logger } from "../Logger.js";
 import { clone } from "./Clone.js";
 import { None, Option, getObjectID } from "./Utils.js";
 
-// eslint-disable-next-line @typescript-eslint/ban-types
-export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly;
+export const BlockDeepReadonly = Symbol("BlockReadonly");
+
+// eslint-disable-next-line @typescript-eslint/ban-types, @typescript-eslint/no-explicit-any
+export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly | BlockReadonly;
+
+interface BlockReadonly {
+	[BlockDeepReadonly]: unknown,
+}
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;
 type ROMap<T, U> = (_: DeepReadonly<T>) => U;
@@ -57,10 +63,11 @@ const watchWeak = Symbol();
 
 // @ts-expect-error watcher maps will still recieve the type they watched
 export abstract class State<out T> {
+	[BlockDeepReadonly]() { }
 	private watchers = new Map<number, ROAction<T>>();
 	private weakWatchers = new Map<number, WeakRef<ROAction<T>>>();
 
-	protected constructor(private value: T) { }
+	protected constructor(protected value: T) { }
 	public get() {
 		return this.value as DeepReadonly<T>;
 	}
@@ -129,6 +136,10 @@ export abstract class State<out T> {
 		return this.derived(l => f(...l));
 	}
 
+	public flatten(this: State<State<T>>): State<T> {
+		return new FlattenedState(this);
+	}
+
 	public inspect<U>(f: ROMap<T, U>): U {
 		return f(this.get());
 	}
@@ -166,6 +177,45 @@ class DerivedState<T, U> extends State<U> {
 	}
 }
 
+export abstract class MutableTransformer<T, U> {
+	public abstract forwards(src: DeepReadonly<T>): U;
+	public abstract backwards(src: DeepReadonly<U>): T;
+
+	public inverse(): MutableTransformer<U, T> {
+		return new InverseTransformer(this);
+	}
+}
+
+class InverseTransformer<T, U> extends MutableTransformer<U, T> {
+	public constructor(private inner: MutableTransformer<T, U>) { super(); }
+
+	public override forwards(src: DeepReadonly<U>): T {
+		return this.inner.backwards(src);
+	}
+	public override backwards(src: DeepReadonly<T>): U {
+		return this.inner.forwards(src);
+	}
+
+}
+
+export abstract class MutableExtractor<T, U> {
+	public abstract get(src: T): U;
+	public abstract patch(src: U, target: T): T;
+}
+
+class FieldExtractor<T, N extends keyof T> extends MutableExtractor<T, T[N]> {
+	public constructor(private field: N) { super(); }
+
+	public override get(src: T): T[N] {
+		return src[this.field];
+	}
+
+	public override patch(src: T[N], target: T): T {
+		target[this.field] = src;
+		return target;
+	}
+}
+
 export abstract class MutableState<T> extends State<T> {
 	public constructor(value: T) {
 		super(value);
@@ -175,14 +225,59 @@ export abstract class MutableState<T> extends State<T> {
 		this.update(value);
 	}
 
-	updateBy(f: (_: T) => T): void {
-		const currentVal = this.get() as T;
+	public updateBy(f: (_: T) => T): void {
+		const currentVal = this.value;
 		const newVal = f(currentVal) ?? currentVal;
-		this.update(newVal as DeepReadonly<T>);
+		this.set(newVal as DeepReadonly<T>);
+	}
+
+	public derivedM<U>(transformer: MutableTransformer<T, U>): MutableState<U> {
+		return new MutableDerived(this, transformer);
+	}
+
+	public extract<U>(extractor: MutableExtractor<T, U>): MutableState<U>;
+	public extract<N extends keyof T>(field: N): MutableState<T[N]>;
+	public extract<U, N extends keyof T>(extractorOrField: N | MutableExtractor<T, U>) {
+		if (extractorOrField instanceof MutableExtractor) {
+			return new MutableExtracted(this, extractorOrField);
+		} else {
+			return new MutableExtracted(this, new FieldExtractor(extractorOrField));
+		}
 	}
 }
 
 class _MutableState<T> extends MutableState<T> { }
+
+class MutableDerived<T, U> extends MutableState<U> {
+	#handle: unknown;
+	public constructor(
+		private source: MutableState<T>,
+		private transformer: MutableTransformer<T, U>,
+	) {
+		super(transformer.forwards(source.get()));
+		this.#handle = source[watchWeak](value => {
+			this.update(transformer.forwards(value) as DeepReadonly<U>);
+		});
+	}
+
+	public override set(value: DeepReadonly<U>) {
+		this.update(value);
+		this.source.set(this.transformer.backwards(value) as DeepReadonly<T>);
+	}
+}
+
+class MutableExtracted<T, U> extends MutableState<U> {
+	#handle: unknown;
+	public constructor(
+		private source: MutableState<T>,
+		private extractor: MutableExtractor<T, U>,
+	) {
+		super(extractor.get(source.get() as T));
+		this.#handle = source[watchWeak](value => {
+			this.update(extractor.get(value as T) as DeepReadonly<U>);
+		});
+	}
+}
 
 class DeadState<T> extends State<T> {
 	public constructor(value: T) { super(value); }
@@ -265,5 +360,25 @@ class CombinedState<T extends any[]> extends MutableState<T> {
 		}
 		super(out as T);
 		this.#handles = handles;
+	}
+}
+
+class FlattenedState<T> extends State<T> {
+	#outerHandle: WatchHandle;
+	private handle: WatchHandle;
+
+	public constructor(
+		private source: State<State<T>>,
+	) {
+		super(source.get().get() as T);
+
+		const update = this.update.bind(this);
+
+		this.handle = source.get()[watchWeak](update).poll();
+
+		this.#outerHandle = source[watchWeak](state => {
+			this.handle.end();
+			this.handle = state[watchWeak](update).poll();
+		});
 	}
 }

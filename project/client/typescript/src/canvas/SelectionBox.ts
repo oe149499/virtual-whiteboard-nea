@@ -1,9 +1,9 @@
 import { Logger } from "../Logger.js";
 import { ItemID, Point } from "../gen/Types.js";
-import { MutableState, State, mutableStateOf } from "../util/State.js";
+import { MutableState, State, WatchHandle, mutableStateOf } from "../util/State.js";
 import { asDomMatrix, point, rad2deg } from "../util/Utils.js";
 import { CanvasContext, MatrixHelper, TranslateHelper } from "./CanvasBase.js";
-import { CanvasItem } from "./CanvasItems.js";
+import { CanvasItem } from "./items/CanvasItems.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType } from "./Gesture.js";
 const logger = new Logger("canvas/SelectionBox");
 
@@ -118,11 +118,29 @@ const dirs = [
 	[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1]
 ].map(([x, y]) => point(x / 2, y / 2));
 
+const cornerDirs = [
+	[-1, -1], [-1, 1], [1, 1], [1, -1]
+].map(([x, y]) => point(x / 2, y / 2));
+
 const rotateDir = point(0, -0.75);
 
+function renderPolygon(ctx: CanvasContext, target: SVGPointList, source: State<Point>[]) {
+	const handles = [];
+	target.clear();
+	for (const [idx, point] of source.entries()) {
+		target.appendItem(ctx.createPoint(point.get()));
+		const handle = ctx.createPointBy(point).watch(p =>
+			target.replaceItem(p, idx)
+		);
+		handles.push(handle);
+	}
+	return handles;
+}
+
 class BorderBox {
+	#keepalive = [] as unknown[];
 	public readonly element: SVGPolygonElement;
-	private handles: BorderHandle[];
+	private handles: StretchHandle[];
 	private rotateHandle: RotateHandle;
 
 	public constructor(
@@ -134,7 +152,18 @@ class BorderBox {
 		const element = target.createChild("polygon").addClasses("selection");
 		this.element = element;
 
-		this.handles = dirs.map(offset => new BorderHandle(
+		this.#keepalive.push(renderPolygon(
+			ctx,
+			element.points,
+			cornerDirs.map(p => transform.with(size).derivedT((t, s) =>
+				t.transformPoint({
+					x: p.x * s.x,
+					y: p.y * s.y,
+				})
+			))
+		));
+
+		this.handles = dirs.map(offset => new StretchHandle(
 			ctx,
 			target,
 			transform,
@@ -174,7 +203,7 @@ abstract class HandleBase {
 	}
 }
 
-class BorderHandle extends HandleBase {
+class StretchHandle extends HandleBase {
 	private gestureFilter: FilterHandle;
 
 	public constructor(

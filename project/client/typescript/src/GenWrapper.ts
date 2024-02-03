@@ -8,7 +8,7 @@ import { Channel } from "./util/Channel.js";
 type Id<T> = { [K in keyof T]: T[K] };
 
 export type ItemType = Item["type"];
-export type SpecificItem<T extends ItemType> = Id<Extract<Item, { type: T }>>
+export type SpecificItem<T extends ItemType> = Extract<Item, { type: T }>;
 
 export interface HasTransform { transform: Transform }
 export interface HasStroke { stroke: Stroke }

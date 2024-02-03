@@ -1,13 +1,14 @@
-import { HasFill, HasStroke, HasTransform, ItemType, SpecificItem } from "../GenWrapper.js";
-import { Logger } from "../Logger.js";
-import { ImageItem, Item, LineItem, PathItem, Point, PolygonItem } from "../gen/Types.js";
-import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "./CanvasBase.js";
-import { PathHelper } from "./Path.js";
+import { Logger } from "../../Logger.js";
+import { AnyPropertyMap } from "../../Properties.js";
+import { ImageItem, Item, LineItem, PathItem, Point, PolygonItem } from "../../gen/Types.js";
+import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
+import { PathHelper } from "../Path.js";
 
 const logger = new Logger("canvas-items");
 
 export abstract class CanvasItem {
 	public readonly element: SVGGElement;
+	public readonly properties?: AnyPropertyMap;
 	protected abstract get innerElement(): SVGGraphicsElement;
 
 	public abstract update(value: Item): void;
@@ -24,80 +25,34 @@ export abstract class CanvasItem {
 		});
 	}
 
-	public static create(ctx: CanvasContext, item: Item): CanvasItem {
-		const builder = itemBuilders[item.type];
-		if (builder != undefined) {
-			// Fails type checking but should be fine
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			return new builder(ctx, item as any);
-		} else {
-			return logger.throw(`Unimplemented item type: ${item.type}`);
-		}
+	public static create(_ctx: CanvasContext, _item: Item): CanvasItem {
+		throw new Error("not implemented here due to cyclic dependency");
 	}
 }
 
-abstract class ShapeItem extends CanvasItem {
-	private _transform: TransformHelper;
-	private _stroke: StrokeHelper;
-	private _fill: FillHelper;
+// class ItemProperties<TItem extends CanvasItem> {
+// 	public constructor(
+// 		private type: new (..._: never) => TItem,
+// 		private loader: (item: TItem) => void,
+// 		public readonly properties: AnyPropertyMap,
+// 	) {
+// 	}
 
-	private innerElem: SVGGraphicsElement;
+// 	public load(item: CanvasItem) {
+// 		if (item instanceof this.type) {
+// 			this.loader(item);
+// 		}
+// 	}
+// }
 
-	public get innerElement() { return this.innerElem; }
-
-	protected abstract createElement(ctx: CanvasContext): SVGGraphicsElement;
-
-	public constructor(
-		ctx: CanvasContext,
-		protected item: Extract<Item, HasFill & HasStroke & HasTransform>,
-	) {
-		super(ctx);
-
-		const elem = this.createElement(ctx);
-		this.innerElem = elem;
-
-		this._transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
-		this._stroke = new StrokeHelper(elem.style, item.stroke);
-		this._fill = new FillHelper(elem.style, item.fill);
-	}
-
-	public override update(value: Item): void {
-		if (!(
-			"transform" in value &&
-			"fill" in value &&
-			"stroke" in value
-		)) {
-			logger.error("Recieved invalid item type for update:", value);
-			return;
-		}
-		this.item = value;
-		this._fill.update(value.fill);
-		this._stroke.update(value.stroke);
-		this._transform.update(value.transform);
-	}
-}
-
-export class Rectangle extends ShapeItem {
-	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
-		return ctx.createElement("rect")
-			.setAttrs({
-				x: -0.5,
-				y: -0.5,
-				width: 1,
-				height: 1,
-			});
-	}
-}
-
-export class Ellipse extends ShapeItem {
-	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
-		const elem = ctx.createElement("circle");
-
-		elem.setAttribute("r", "0.5cm");
-
-		return elem;
-	}
-}
+// export function defineProperties<TItem extends CanvasItem, TSchema extends object>(
+// 	type: new (..._: never) => TItem,
+// 	schema: TSchema,
+// 	builder: ($: PropertyBuilder<TSchema>) => void,
+// ) {
+// 	const { store, props } = buildProperties(schema, builder);
+// 	const itemProps = new ItemProperties(type, )
+// }
 
 export class Line extends CanvasItem {
 	private elem: SVGLineElement;
@@ -217,7 +172,7 @@ export class Path extends CanvasItem {
 	}
 }
 
-class Image extends CanvasItem {
+export class Image extends CanvasItem {
 	private elem: SVGImageElement;
 
 	public override get innerElement() { return this.elem; }
@@ -246,12 +201,3 @@ class Image extends CanvasItem {
 		this.transform.update(value.transform);
 	}
 }
-
-const itemBuilders = {
-	Rectangle,
-	Ellipse,
-	Line,
-	Polygon,
-	Path,
-	Image,
-} as { [K in ItemType]?: new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem };

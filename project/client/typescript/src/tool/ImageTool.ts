@@ -18,11 +18,11 @@ export class ImageTool extends ActionToolBase {
 			$.text("description").as("Alternative Text");
 		});
 		this.propStore = store;
-		this.properties = props;
+		this._properties = props;
 	}
 
 	private readonly propStore: PropertyStore<typeof propSchema>;
-	public override readonly properties: PropertyMap<typeof propSchema>;
+	public override readonly _properties: PropertyMap<typeof propSchema>;
 
 	protected override cancel(): void { }
 
