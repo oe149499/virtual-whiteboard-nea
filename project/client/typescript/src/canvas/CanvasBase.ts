@@ -5,9 +5,9 @@ import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
 export const SVGNS = "http://www.w3.org/2000/svg";
 
 export interface CoordinateMapping {
-	screenOrigin: Point,
-	stretch: number,
-	targetOffset: Point,
+	screenOrigin: Point;
+	stretch: number;
+	targetOffset: Point;
 }
 
 export type CanvasContextExecutor = (_: {
@@ -129,8 +129,7 @@ export class TransformHelper {
 		if ("get" in transform) {
 			transform.watch(this.update.bind(this));
 			this.update(transform.get());
-		}
-		else this.update(transform);
+		} else this.update(transform);
 	}
 
 	public update(value: Transform) {

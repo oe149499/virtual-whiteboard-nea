@@ -1,7 +1,7 @@
 import { HasFill, HasStroke, HasTransform } from "../../GenWrapper.js";
 import { Logger } from "../../Logger.js";
-import { buildProperties } from "../../Properties.js";
-import { PropertyTemplates } from "../../PropertyTemplates.js";
+import { PropKey } from "../../Properties.js";
+import { PropertyTemplates, builder } from "../../PropertyTemplates.js";
 import { Item } from "../../gen/Types.js";
 import { point } from "../../util/Utils.js";
 import { TransformHelper, StrokeHelper, FillHelper, CanvasContext } from "../CanvasBase.js";
@@ -9,25 +9,35 @@ import { CanvasItem } from "./CanvasItems.js";
 
 const logger = new Logger("canvas/items/Shape");
 
-const ShapeItemSpec = {
-	transform: {
-		origin: point(),
-		rotation: 0,
-		stretch: point(1),
-		skew: 0,
-	},
-	stroke: {
-		color: "black",
-		width: 0.1,
-	},
-	fill: "black",
-};
+// const ShapeItemSpec = {
+// 	transform: {
+// 		origin: point(),
+// 		rotation: 0,
+// 		stretch: point(1),
+// 		skew: 0,
+// 	},
+// 	stroke: {
+// 		color: "black",
+// 		width: 0.1,
+// 	},
+// 	fill: "black",
+// };
 
-const ShapeItemProperties = buildProperties(ShapeItemSpec, $ => {
-	$.struct("transform", PropertyTemplates.Transform);
-	$.struct("stroke", PropertyTemplates.Stroke);
-	$.color("fill").as("Fill Colour");
-});
+const { keys, schema } = builder()
+	.add(PropertyTemplates.TransformSchema())
+	.add(PropertyTemplates.StrokeSchema())
+	.add("fill", {
+		type: "color",
+		key: new PropKey("color", { defaultValue: "black" }),
+		displayName: "Fill color",
+	})
+	.build();
+
+// const ShapeItemProperties = buildProperties(ShapeItemSpec, $ => {
+// 	$.struct("transform", PropertyTemplates.Transform);
+// 	$.struct("stroke", PropertyTemplates.Stroke);
+// 	$.color("fill").as("Fill Colour");
+// });
 
 abstract class ShapeItem extends CanvasItem {
 	private _transform: TransformHelper;
@@ -54,7 +64,7 @@ abstract class ShapeItem extends CanvasItem {
 		this._fill = new FillHelper(elem.style, item.fill);
 	}
 
-	public override update(value: Item): void {
+	public override updateItem(value: Item): void {
 		if (!(
 			"transform" in value &&
 			"fill" in value &&

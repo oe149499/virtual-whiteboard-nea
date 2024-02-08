@@ -51,7 +51,8 @@ export class Board {
 		const items = this.client.iterate.GetFullItems({ ids });
 
 		for await (const [id, res] of AsyncIter.zip(
-			AsyncIter.of(ids), items.dechunk()
+			AsyncIter.of(ids),
+			items.dechunk(),
 		)) {
 			const { status, value: item } = res;
 			if (status == "Ok") {
@@ -66,7 +67,7 @@ export class Board {
 		if (client == this.client.clientID) return;
 
 		const points = this.client.iterate.GetActivePath({
-			path
+			path,
 		});
 
 		const first = await points.next();

@@ -1,38 +1,37 @@
 import { Logger } from "../Logger.js";
-import { PropertyMap, PropertyStore, SingletonPropertyStore, buildProperties } from "../Properties.js";
+import { SingletonPropertyStore } from "../Properties.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
 import { DragGestureState } from "../canvas/Gesture.js";
 import { ActionToolBase } from "./Tool.js";
 import { Board } from "../Board.js";
-import { State, Stateless, collectStateOf } from "../util/State.js";
 import { None } from "../util/Utils.js";
 import { PropertyTemplates } from "../PropertyTemplates.js";
 const logger = new Logger("tool/Path");
 
 const { schema, keys } = PropertyTemplates.StrokeSchema();
 
-const propSchema = {
-	stroke: {
-		width: 0.1,
-		color: "black",
-	}
-};
+// const propSchema = {
+// 	stroke: {
+// 		width: 0.1,
+// 		color: "black",
+// 	}
+// };
 
 export class PathTool extends ActionToolBase {
 	public constructor(board: Board) {
 		super(board);
-		const { store, props } = buildProperties(propSchema, $ => {
-			$.struct("stroke", PropertyTemplates.Stroke).as("Stroke");
-		});
-		this.propStore = store;
-		this._properties = props;
-		this.props = collectStateOf(this.propStore);
+		// const { store, props } = buildProperties(propSchema, $ => {
+		// 	$.struct("stroke", PropertyTemplates.Stroke).as("Stroke");
+		// });
+		// this.propStore = store;
+		// this._properties = props;
+		// this.props = collectStateOf(this.propStore);
 	}
 
-	private readonly propStore: PropertyStore<typeof propSchema>;
-	private readonly props: State<Stateless<typeof propSchema>>;
-	public override readonly _properties: PropertyMap<typeof propSchema>;
+	// private readonly propStore: PropertyStore<typeof propSchema>;
+	// private readonly props: State<Stateless<typeof propSchema>>;
+	// public override readonly _properties: PropertyMap<typeof propSchema>;
 	public override readonly properties = new SingletonPropertyStore([schema]);
 
 	protected override async onDragGesture(gesture: DragGestureState) {

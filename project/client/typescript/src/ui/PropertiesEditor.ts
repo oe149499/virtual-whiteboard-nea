@@ -1,9 +1,9 @@
 import { Logger } from "../Logger.js";
-import { AnyPropertyMap, ColorProperty, ResourceProperty, NumberProperty, Property, StructProperty, TextProperty, PropertyKeyStore, PropType, ValuePropertyType, PropKey, PropertySchema, key } from "../Properties.js";
+import { PropertyKeyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue } from "../Properties.js";
 import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
-import { None, getObjectID } from "../util/Utils.js";
-import { buildResourcePicker } from "./ResourcePicker.js";
+import { None, Option, getObjectID } from "../util/Utils.js";
+import { ResourcePicker } from "./ResourcePicker.js";
 const logger = new Logger("ui/PropertiesEditor");
 
 class ObjectCacheMap<K extends object, V> {
@@ -42,99 +42,15 @@ export class PropertyEditor {
 
 	public loadProperties(props: PropertySchema[], store: PropertyKeyStore) {
 		logger.debug("loading properties");
-		const current = this.propertyCache.get(props, (props) =>
-			new RootPropertyUI(props, store)
+		const current = this.propertyCache.get(
+			props,
+			props => new RootPropertyUI(props),
 		);
+		queueMicrotask(() => current.reload(store));
 		if (current.element !== this.currentElement) {
 			this.currentElement?.remove();
 			this.container.prepend(current.element);
 			this.currentElement = current.element;
-		}
-	}
-
-	private buildPropertyUI(target: HTMLElement, prop: Property) {
-		logger.debug("%o", prop);
-		if (prop instanceof NumberProperty) return this.buildNumberUI(target, prop);
-		if (prop instanceof ColorProperty) return this.buildColorUI(target, prop);
-		if (prop instanceof TextProperty) return this.buildTextUI(target, prop);
-		if (prop instanceof ResourceProperty) return this.buildFileUI(target, prop);
-		if (prop instanceof StructProperty) return this.buildStructUI(target, prop);
-	}
-
-	private buildNumberUI(target: HTMLElement, prop: NumberProperty) {
-		const propID = getObjectID(prop);
-		target.createChild("label")
-			.setAttrs({ htmlFor: propID })
-			.setContent(prop.displayName);
-		const input = target.createChild("input")
-			.addClasses("property-number")
-			.setAttrs({
-				type: "text",
-				pattern: "[0-9](\\.[0-9]+)",
-				inputMode: "numeric",
-				id: propID,
-				value: prop.state.get(),
-				step: "any",
-			});
-		input.oninput = () => {
-			if (input.checkValidity()) {
-				prop.state.set(Number(input.value));
-			}
-		};
-	}
-
-	private buildColorUI(target: HTMLElement, prop: ColorProperty) {
-		const propID = getObjectID(prop);
-		target.createChild("label")
-			.setAttrs({ htmlFor: propID })
-			.setContent(prop.displayName);
-		const input = target.createChild("input")
-			.addClasses("property-color")
-			.setAttrs({
-				type: "color",
-				id: propID,
-				value: prop.state.get(),
-			});
-		input.oninput = () => {
-			prop.state.set(input.value);
-		};
-	}
-
-	private buildTextUI(target: HTMLElement, prop: TextProperty) {
-		const propID = getObjectID(prop);
-		target.createChild("label")
-			.setAttrs({ htmlFor: propID })
-			.addClasses()
-			.setContent(prop.displayName);
-		const input = target.createChild("input")
-			.addClasses("property-text")
-			.setAttrs({
-				type: "text",
-				id: propID,
-				value: prop.state.get(),
-			});
-		input.oninput = () => {
-			prop.state.set(input.value);
-		};
-	}
-
-	private buildFileUI(target: HTMLElement, prop: ResourceProperty) {
-		const propID = getObjectID(prop);
-		target.createChild("label")
-			.addClasses("property-label-wide")
-			.setContent(prop.displayName);
-		buildResourcePicker(target, prop.state);
-	}
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	private buildStructUI(target: HTMLElement, prop: StructProperty<any>) {
-		const container = target.createChild("div")
-			.addClasses("property-struct");
-		container.createChild("span")
-			.addClasses("struct-header")
-			.setContent(prop.displayName);
-		for (const name in prop.fields) {
-			this.buildPropertyUI(container, prop.fields[name]);
 		}
 	}
 }
@@ -145,20 +61,19 @@ abstract class PropertyUI {
 	public static create(
 		target: HTMLElement,
 		prop: PropertySchema,
-		store: PropertyKeyStore,
 	): PropertyUI {
 		switch (prop.type) {
-			case "number": return new NumberPropertyUI(target, prop, store);
-			case "color": return new ColorPropertyUI(target, prop, store);
+			case "number": return new NumberPropertyUI(target, prop);
+			case "color": return new ColorPropertyUI(target, prop);
 			case "text": {
 				if (prop.display !== "long")
-					return new ShortTextPropertyUI(target, prop, store);
-				else return new LongTextPropertyUI(target, prop, store);
+					return new ShortTextPropertyUI(target, prop);
+				else return new LongTextPropertyUI(target, prop);
 			}
-			case "resource": break;
-			case "struct": break;
+			case "resource": return new ResourcePropertyUI(target, prop);
+			case "struct": return new StructPropertyUI(target, prop);
+			default: return logger.throw("Unimplemented property schema type");
 		}
-		return logger.throw("Unimplemented property schema type");
 	}
 }
 
@@ -168,12 +83,12 @@ class RootPropertyUI extends PropertyUI {
 
 	public constructor(
 		public readonly schema: PropertySchema[],
-		store: PropertyKeyStore,
 	) {
 		super();
-		this.element = document.createElement("div");
+		this.element = document.createElement("div")
+			.addClasses("property-container");
 		for (const item of schema) {
-			this.children.push(PropertyUI.create(this.element, item, store));
+			this.children.push(PropertyUI.create(this.element, item));
 		}
 	}
 
@@ -184,99 +99,164 @@ class RootPropertyUI extends PropertyUI {
 	}
 }
 
-abstract class SimplePropertyUI<N extends PropType> extends PropertyUI {
-	protected readonly input: HTMLInputElement;
+abstract class ValuePropertyUI<N extends PropType> extends PropertyUI {
 	protected readonly key: PropKey<N>;
+	protected store: Option<PropertyKeyStore> = None;
 
 	public constructor(
 		target: HTMLElement,
 		protected readonly prop: ValuePropertyType<N>,
-		store: PropertyKeyStore,
 	) {
 		super();
 		const id = getObjectID(prop);
-		target.createChild("label")
+		const label = target.createChild("label")
 			.setAttrs({ htmlFor: id })
 			.setContent(prop.displayName ?? "");
-		this.input = target.createChild("input")
-			.setAttrs({ id });
+
+		const container = target.createChild("div")
+			.addClasses("passthrough");
 
 		this.key = prop.key;
-		this.init(store);
+		queueMicrotask(() => this.buildUI(container, label, id));
 	}
 
-	protected abstract init(store: PropertyKeyStore): void;
+	protected abstract buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void;
+
+	protected update(value: PropValue<N>) {
+		if (this.store !== None) this.store.store(this.key, value);
+	}
+
+	protected abstract load(value: PropValue<N>): void;
+
+	public override reload(store: PropertyKeyStore): void {
+		this.store = store;
+		this.load(store.read(this.key));
+	}
 }
 
-class NumberPropertyUI extends SimplePropertyUI<"number"> {
-	protected override init(store: PropertyKeyStore): void {
+abstract class ShortPropertyUI<N extends PropType> extends ValuePropertyUI<N> {
+	protected input!: HTMLInputElement;
+
+	protected override buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void {
+		this.input = target.createChild("input")
+			.setAttrs({ id });
+		this.init();
+	}
+
+	protected abstract init(): void;
+}
+
+abstract class WidePropertyUI<N extends PropType> extends ValuePropertyUI<N> {
+	protected override buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void {
+		label.addClasses("property-label-wide");
+		this.build(target, id);
+	}
+
+	protected abstract build(target: HTMLElement, id: number): void;
+}
+
+class NumberPropertyUI extends ShortPropertyUI<"number"> {
+	protected override init(): void {
 		this.input.setAttrs({
 			type: "text",
-			pattern: "[0-9](\\.[0-9]+)",
+			pattern: "[0-9]+(\\.[0-9]+)?",
 			inputMode: "numeric",
-			value: store.read(this.key),
 		});
 		const { key: _1, type: _2, displayName: _3, ...attrs } = this.prop;
 		this.input.setAttrs(attrs);
+		this.input.oninput = () => {
+			logger.debug("validity:", this.input.checkValidity());
+			if (this.input.checkValidity()) {
+				this.update(Number(this.input.value));
+			}
+		};
 	}
 
-	public override reload(store: PropertyKeyStore): void {
-		this.input.setAttrs({
-			value: store.read(this.key)
-		});
+	protected override load(value: number): void {
+		this.input.value = value.toString();
 	}
 }
 
-class ColorPropertyUI extends SimplePropertyUI<"color"> {
-	protected override init(store: PropertyKeyStore): void {
+class ColorPropertyUI extends ShortPropertyUI<"color"> {
+	protected override init(): void {
 		this.input.setAttrs({
 			type: "color",
-			value: store.read(this.key),
 		});
+		this.input.oninput = () => this.update(this.input.value);
 	}
 
-	public override reload(store: PropertyKeyStore): void {
-		this.input.setAttrs({
-			value: store.read(this.key),
-		});
+	protected override load(value: string): void {
+		this.input.value = value;
 	}
 }
 
-class ShortTextPropertyUI extends SimplePropertyUI<"text"> {
-	protected override init(store: PropertyKeyStore): void {
+class ShortTextPropertyUI extends ShortPropertyUI<"text"> {
+	protected override init(): void {
 		this.input.setAttrs({
 			type: "text",
-			value: store.read(this.key),
 		});
 	}
 
-	public override reload(store: PropertyKeyStore): void {
-		this.input.setAttrs({
-			value: store.read(this.key),
-		});
+	protected override load(value: string): void {
+		this.input.value = value;
 	}
 }
 
-class LongTextPropertyUI extends PropertyUI {
-	private area: HTMLTextAreaElement;
-	public constructor(
-		target: HTMLElement,
-		private prop: ValuePropertyType<"text">,
-		store: PropertyKeyStore,
-	) {
-		super();
-		const id = getObjectID(prop);
-		target.createChild("label")
-			.addClasses("property-label-wide")
-			.setAttrs({ htmlFor: id })
-			.setContent(prop.displayName ?? "");
+class LongTextPropertyUI extends WidePropertyUI<"text"> {
+	private area!: HTMLTextAreaElement;
 
+	protected override build(target: HTMLElement, id: number): void {
 		this.area = target.createChild("textarea")
 			.setAttrs({ id });
-		this.area.value = store.read(prop.key);
+	}
+
+	public override load(value: string): void {
+		this.area.value = value;
+	}
+}
+
+class ResourcePropertyUI extends WidePropertyUI<"resource"> {
+	private picker!: ResourcePicker;
+
+	protected override build(target: HTMLElement, _id: number): void {
+		logger.debug("ui built");
+		this.picker = new ResourcePicker(target, url => {
+			logger.debug("Updating with", url);
+			this.update(url);
+		});
+		logger.debug("ui built", this);
+	}
+
+	protected override load(value: Option<URL>): void {
+		logger.debug("", this);
+		this.picker.load(value);
+	}
+}
+
+class StructPropertyUI extends PropertyUI {
+	private children: PropertyUI[] = [];
+
+	public constructor(
+		target: HTMLElement,
+		private prop: StructPropertySchema,
+	) {
+		super();
+		const container = target.createChild("div")
+			.addClasses("property-struct");
+		if (prop.displayName) container
+			.createChild("span")
+			.addClasses("struct-header")
+			.setContent(prop.displayName);
+
+		for (const field of prop.fields) {
+			const ui = PropertyUI.create(container, field);
+			this.children.push(ui);
+		}
 	}
 
 	public override reload(store: PropertyKeyStore): void {
-		this.area.value = store.read(this.prop.key);
+		for (const child of this.children) {
+			child.reload(store);
+		}
 	}
 }

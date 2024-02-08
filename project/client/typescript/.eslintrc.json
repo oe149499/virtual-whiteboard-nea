@@ -13,14 +13,18 @@
         "sourceType": "module"
     },
     "plugins": [
-        "@typescript-eslint"
+        "@typescript-eslint",
+        "@stylistic"
     ],
     "rules": {
-        "indent": [
+        "@stylistic/indent": [
             "error",
             "tab",
             {
-                "SwitchCase": 1
+                "SwitchCase": 1,
+                "ignoredNodes": [
+                    "TSTypeAliasDeclaration *"
+                ]
             }
         ],
         "linebreak-style": [
@@ -48,6 +52,72 @@
         ],
         "@typescript-eslint/ban-ts-comment": [
             "warn"
+        ],
+        "@stylistic/object-curly-spacing": [
+            "error",
+            "always"
+        ],
+        "@stylistic/quote-props": "off",
+        "@stylistic/comma-dangle": [
+            "error",
+            "always-multiline"
+        ],
+        "@stylistic/lines-between-class-members": [
+            "error",
+            "always",
+            {
+                "exceptAfterSingleLine": true
+            }
+        ],
+        "@stylistic/space-before-function-paren": [
+            "error",
+            {
+                "anonymous": "always",
+                "named": "never",
+                "asyncArrow": "always"
+            }
+        ],
+        "@stylistic/brace-style": [
+            "error",
+            "1tbs",
+            {
+                "allowSingleLine": true
+            }
+        ],
+        "@stylistic/padded-blocks": [
+            "error",
+            "never"
+        ],
+        "@stylistic/function-call-argument-newline": "off",
+        "@stylistic/array-element-newline": "off",
+        "@stylistic/dot-location": [
+            "error",
+            "property"
+        ],
+        "@stylistic/member-delimiter-style": [
+            "error",
+            {
+                "multiline": {
+                    "delimiter": "comma",
+                    "requireLast": true
+                },
+                "singleline": {
+                    "delimiter": "comma",
+                    "requireLast": false
+                },
+                "overrides": {
+                    "interface": {
+                        "multiline": {
+                            "delimiter": "semi",
+                            "requireLast": true
+                        }
+                    }
+                }
+            }
+        ],
+        "@stylistic/function-paren-newline": [
+            "error",
+            "multiline-arguments"
         ]
     },
     "ignorePatterns": [

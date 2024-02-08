@@ -43,7 +43,7 @@ export class ToolIcon {
 
 	private _toolState = deferredStateOf(None as ToolState);
 	public readonly active = this._toolState.derived(
-		t => t !== None && t?.tool === this.tool
+		t => t !== None && t?.tool === this.tool,
 	);
 
 	public onselect?: ToolIconCallback;
@@ -64,8 +64,7 @@ export class ToolIcon {
 			logger.debug("tool icon clicked", this.active);
 			if (this.active.get()) {
 				this.ondeselect?.(this.tool);
-			}
-			else {
+			} else {
 				this.onselect?.(this.tool);
 			}
 		};

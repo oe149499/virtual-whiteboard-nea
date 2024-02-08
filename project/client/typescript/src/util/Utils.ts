@@ -10,10 +10,13 @@ export type None = typeof None;
 export type Option<T> = T | None;
 
 export type PromiseHandle<T> = {
-	resolve: (_: T) => void;
+	resolve: (_: T) => void,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	reject: (_: any) => void;
+	reject: (_: any) => void,
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Constructor<T> = abstract new (...args: any) => T;
 
 export function ok<T, TErr>(res: Result<T, TErr>): res is { status: "Ok", value: T } {
 	if (res.status == "Ok") {

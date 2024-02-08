@@ -8,7 +8,7 @@ export const BlockDeepReadonly = Symbol("BlockReadonly");
 export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly | BlockReadonly;
 
 interface BlockReadonly {
-	[BlockDeepReadonly]: unknown,
+	[BlockDeepReadonly]: unknown;
 }
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;
@@ -18,6 +18,7 @@ type StateTuple<T extends any[]> = { [K in keyof T]: State<T[K]> };
 
 export type DeepReadonly<T> = T extends SkipReadonly ? T
 	: T extends (infer U)[] ? ReadonlyArray<DeepReadonly<U>>
+	// eslint-disable-next-line @stylistic/indent
 	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
 export interface WatchHandle {
@@ -29,7 +30,7 @@ export function stateWithSetterOf<T>(value: T) {
 	const state = new _MutableState(value);
 	return {
 		state: state as State<T>,
-		setter: state.set
+		setter: state.set,
 	};
 }
 
@@ -55,11 +56,48 @@ export function deferredStateOf<T>(value: T): DeferredState<T> {
 	return new _DeferredState(value);
 }
 
-export function collectStateOf<T extends object>(value: T): State<Stateless<T>> {
-	return new CollectedState(value);
+// export function collectStateOf<T extends object>(value: T): State<Stateless<T>> {
+// 	return new CollectedState(value);
+// }
+
+export type MaybeState<T> = T | State<T>;
+
+export function valueOf<T>(from: MaybeState<T>): DeepReadonly<T> {
+	return from instanceof State ? from.get() : from as DeepReadonly<T>;
+}
+
+type MaybeStateArray<T> = { [K in keyof T]: MaybeState<T[K]> }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function collectMaybeState<T extends any[]>(...source: MaybeStateArray<T>) {
+	const { setter, state } = stateWithSetterOf([] as unknown as T);
+
+	const handles = [] as unknown[];
+
+	const out = <T>source.map((val, index) => {
+		if (val instanceof State) {
+			const handle = val[watchWeak](value => {
+				out[index] = value;
+				setter(out as DeepReadonly<T>);
+			});
+			handles.push(handle);
+			return val.get();
+		} else {
+			return val;
+		}
+	});
+
+	setter(out as DeepReadonly<T>);
+
+	return state;
 }
 
 const watchWeak = Symbol();
+
+type MaybeParameters<T> = T extends (...args: infer P) => void ? P : never;
+type MaybeReturnType<T> = T extends (...args: infer _) => infer R ? R : never;
+
+type Test = MaybeReturnType<(_: number) => void>
 
 // @ts-expect-error watcher maps will still recieve the type they watched
 export abstract class State<out T> {
@@ -93,7 +131,7 @@ export abstract class State<out T> {
 			end: this.removeWatcher.bind(this, id),
 			poll: () => (
 				f(this.get()), handle
-			)
+			),
 		};
 		return handle;
 	}
@@ -106,7 +144,7 @@ export abstract class State<out T> {
 			end: this.removeWeak.bind(this, id),
 			poll: () => (
 				f(this.get()), handle
-			)
+			),
 		};
 		return handle;
 	}
@@ -125,9 +163,9 @@ export abstract class State<out T> {
 		return new DerivedState(this, f);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public derivedI<U, P extends any[]>(f: (this: DeepReadonly<T>, ...args: P) => U, ...args: P): State<U> {
-		return this.derived(v => f.call(v, ...args));
+	public derivedI<T extends object, N extends keyof T>(this: State<T>, name: N, ...args: MaybeParameters<T[N]>): State<MaybeReturnType<T[N]>> {
+		// @ts-expect-error this is deep fuckery
+		return this.derived(v => v[name](...args));
 	}
 
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -192,10 +230,10 @@ class InverseTransformer<T, U> extends MutableTransformer<U, T> {
 	public override forwards(src: DeepReadonly<U>): T {
 		return this.inner.backwards(src);
 	}
+
 	public override backwards(src: DeepReadonly<T>): U {
 		return this.inner.forwards(src);
 	}
-
 }
 
 export abstract class MutableExtractor<T, U> {
@@ -305,41 +343,40 @@ export abstract class DeferredState<T> extends State<T> {
 }
 class _DeferredState<T> extends DeferredState<T> { }
 
-export type Stateless<T> = T extends State<infer S> ? S
-	: T extends SkipReadonly ? T
-	: T extends object ? {
-		readonly [K in keyof T]: Stateless<T[K]>
-	}
-	: T;
+// export type Stateless<T> = T extends State<infer S> ? S
+// 	: T extends SkipReadonly ? T
+// 	: T extends object ? {
+// 		readonly [K in keyof T]: Stateless<T[K]>
+// 	} : T;
 
-function eliminateState<T extends object>(value: T, onChange: () => void): Stateless<T> {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	const out = {} as any;
-	for (const name of Object.getOwnPropertyNames(value)) {
-		// @ts-expect-error why
-		const val = value[name];
-		if (val instanceof State) {
-			val.watch(v => {
-				out[name] = v;
-				onChange();
-			});
-			out[name] = val.get();
-		} else if (typeof val == "object") {
-			out[name] = eliminateState(val, onChange);
-		} else {
-			out[name] = val;
-		}
-	}
-	return out;
-}
+// function eliminateState<T extends object>(value: T, onChange: () => void): Stateless<T> {
+// 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// 	const out = {} as any;
+// 	for (const name of Object.getOwnPropertyNames(value)) {
+// 		// @ts-expect-error why
+// 		const val = value[name];
+// 		if (val instanceof State) {
+// 			val.watch(v => {
+// 				out[name] = v;
+// 				onChange();
+// 			});
+// 			out[name] = val.get();
+// 		} else if (typeof val == "object") {
+// 			out[name] = eliminateState(val, onChange);
+// 		} else {
+// 			out[name] = val;
+// 		}
+// 	}
+// 	return out;
+// }
 
-class CollectedState<T extends object> extends State<Stateless<T>> {
-	public constructor(value: T) {
-		super(
-			eliminateState(value, () => this.update(this.get()))
-		);
-	}
-}
+// class CollectedState<T extends object> extends State<Stateless<T>> {
+// 	public constructor(value: T) {
+// 		super(
+// 			eliminateState(value, () => this.update(this.get()))
+// 		);
+// 	}
+// }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 class CombinedState<T extends any[]> extends MutableState<T> {

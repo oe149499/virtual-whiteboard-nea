@@ -1,6 +1,5 @@
 import { Board } from "./Board.js";
 import { SpecificItem } from "./GenWrapper.js";
-import { Property, buildProperties } from "./Properties.js";
 import type { Item, Point, RectangleItem } from "./gen/Types.js";
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // Test file
@@ -16,7 +15,7 @@ export const basic_item: Item = {
 	"stroke": {
 		width: 10,
 		color: "red",
-	}
+	},
 };
 
 export const rect: SpecificItem<"Rectangle"> = {
@@ -28,9 +27,9 @@ export const rect: SpecificItem<"Rectangle"> = {
 	},
 	stroke: {
 		color: "red",
-		width: 1
+		width: 1,
 	},
-	fill: "blue"
+	fill: "blue",
 };
 
 export const triangle: SpecificItem<"Polygon"> = {
@@ -65,7 +64,7 @@ export async function createTestUI() {
 
 const acc = {
 	get<T>() { return null as T; },
-	set<T>(val: T) { return val; }
+	set<T>(val: T) { return val; },
 };
 
 type Test = { [K in keyof RectangleItem]: 1 };

@@ -1,4 +1,5 @@
-import { Point, Result } from "../gen/Types";
+import { Point, Result } from "../gen/Types.js";
+import { MutableState, mutableStateOf } from "./State.js";
 
 const timeoutVal = Symbol();
 
@@ -76,17 +77,17 @@ Object.defineProperties(SVGRect.prototype, {
 	top: {
 		get() {
 			return this.y;
-		}
+		},
 	},
 	right: {
 		get() {
 			return this.x + this.width;
-		}
+		},
 	},
 	bottom: {
 		get() {
 			return this.y + this.height;
-		}
+		},
 	},
 });
 
@@ -100,4 +101,29 @@ SVGGraphicsElement.prototype.getFinalTransform = function (current?) {
 	} else {
 		return current;
 	}
+};
+
+const bboxStateTable = new WeakMap<SVGGraphicsElement, WeakRef<MutableState<DOMRect>>>();
+
+const bboxStateObserver = new ResizeObserver((entries, observer) => {
+	for (const entry of entries) {
+		const el = entry.target;
+		if (bboxStateTable.has(el)) {
+			const bbox = el.getBBox();
+			const ref = bboxStateTable.get(el)!;
+			const state = ref.deref();
+			if (state) state.set(bbox);
+			else {
+				bboxStateTable.delete(el);
+				observer.unobserve(el);
+			}
+		}
+	}
+});
+
+SVGGraphicsElement.prototype.getBBoxState = function () {
+	const state = mutableStateOf(this.getBBox());
+	bboxStateTable.set(this, new WeakRef(state));
+	bboxStateObserver.observe(this);
+	return state;
 };

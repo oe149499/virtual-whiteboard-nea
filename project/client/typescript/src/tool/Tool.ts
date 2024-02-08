@@ -1,5 +1,5 @@
 import type { Board } from "../Board.js";
-import { AnyPropertyMap, PropertySchema, SingletonPropertyStore } from "../Properties.js";
+import { SingletonPropertyStore } from "../Properties.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
 import { None } from "../util/Utils.js";
 
@@ -17,7 +17,7 @@ export enum ToolType {
 }
 
 interface _Tool {
-	_properties?: AnyPropertyMap;
+	// _properties?: AnyPropertyMap;
 	properties?: SingletonPropertyStore;
 }
 
@@ -51,7 +51,7 @@ export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 interface ToolBase {
-	readonly _properties?: AnyPropertyMap;
+	// readonly _properties?: AnyPropertyMap;
 	readonly properties?: SingletonPropertyStore;
 }
 
@@ -118,6 +118,7 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 			}),
 		});
 	}
+
 	protected end() {
 		this.gestureFilter.pause();
 		this.completionResolve?.();

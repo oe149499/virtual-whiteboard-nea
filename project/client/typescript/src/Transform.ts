@@ -38,7 +38,7 @@ export class UserTransformConverter extends MutableTransformer<Transform, UserTr
 		const rotation = Math.atan2(basisX.y, basisX.x);
 
 		const stretchX = Math.sqrt(
-			basisX.x * basisX.x + basisX.y * basisX.y
+			basisX.x * basisX.x + basisX.y * basisX.y,
 		);
 
 		const ct = Math.cos(rotation);

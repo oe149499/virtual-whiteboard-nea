@@ -1,25 +1,54 @@
 import { Logger } from "../Logger.js";
 import { API } from "../client/HttpApi.js";
-import { MutableState, State, mutableStateOfNone } from "../util/State.js";
+import { State, mutableStateOfNone } from "../util/State.js";
 import { None, Option, getObjectID } from "../util/Utils.js";
 const logger = new Logger("ui/ResourcePicker");
 
-export function buildResourcePicker(
-	target: HTMLElement,
-	state: MutableState<Option<URL>>,
-) {
-	const urlInput = buildUrlDisplay(target);
+export class ResourcePicker {
+	private input: HTMLInputElement;
 
-	urlInput.onchange = () => {
-		if (urlInput.value) state.set(new URL(urlInput.value));
-	};
+	constructor(
+		target: HTMLElement,
+		private callback: (_: Option<URL>) => void,
+	) {
+		const urlInput = buildUrlDisplay(target);
+		this.input = urlInput;
 
-	const fileState = buildFileArea(target);
-	buildUploadArea(target, fileState, state);
-	state.watch(url => {
-		if (url !== None) urlInput.value = url.toString();
-	});
+		urlInput.onchange = () => {
+			if (urlInput.value) this.callback(new URL(urlInput.value));
+			else this.callback(None);
+		};
+
+		const fileState = buildFileArea(target);
+
+		buildUploadArea(target, fileState, (url) => {
+			urlInput.value = url.toString();
+			this.callback(url);
+		});
+	}
+
+	public load(value: Option<URL>) {
+		if (value === None) this.input.value = "";
+		else this.input.value = value.toString();
+	}
 }
+
+// export function buildResourcePicker(
+// 	target: HTMLElement,
+// 	state: MutableState<Option<URL>>,
+// ) {
+// 	const urlInput = buildUrlDisplay(target);
+
+// 	urlInput.onchange = () => {
+// 		if (urlInput.value) state.set(new URL(urlInput.value));
+// 	};
+
+// 	const fileState = buildFileArea(target);
+// 	buildUploadArea(target, fileState, state);
+// 	state.watch(url => {
+// 		if (url !== None) urlInput.value = url.toString();
+// 	});
+// }
 
 function buildUrlDisplay(target: HTMLElement): HTMLInputElement {
 	const id = getObjectID();
@@ -55,22 +84,22 @@ function buildFileArea(target: HTMLElement): State<Option<File>> {
 	return state;
 }
 
-function buildUploadArea(target: HTMLElement, fileState: State<Option<File>>, urlState: MutableState<Option<URL>>) {
+function buildUploadArea(target: HTMLElement, fileState: State<Option<File>>, cb: (url: URL) => void) {
 	const btn = target.createChild("button")
 		.addClasses("property-file-upload-button")
 		.setContent("Upload");
 
 	btn.classList.setBy(
 		"file-present",
-		fileState.derived(o => o !== None)
+		fileState.derived(o => o !== None),
 	);
 
 	btn.onclick = async () => {
 		const file = fileState.get();
 		if (file === None) return;
-		logger.debug("Uploading file");
+		logger.info("Uploading file");
 		const url = await API.uploadFile(file);
-		urlState.set(url);
-		logger.debug("Uploaded file", url);
+		cb(url);
+		logger.info("Uploaded file", url);
 	};
 }

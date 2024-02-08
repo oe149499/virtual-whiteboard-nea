@@ -7,8 +7,8 @@ import { IterateReceiver, createReceiver } from "./IterateReceiver.js";
 const logger = new Logger("ws-client");
 
 type CallRecord = {
-	resolve: (_: MRet) => void;
-	reject: (_: unknown) => void;
+	resolve: (_: MRet) => void,
+	reject: (_: unknown) => void,
 }
 
 export class RawClient {

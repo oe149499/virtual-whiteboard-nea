@@ -17,7 +17,7 @@ export class SelectionBox {
 	private selectionSize = mutableStateOf(point(1, 1));
 
 	//private selectionMatrix = asDomMatrix(this.selectionTransform);
-	private reverseMatrix = this.selectionTransform.derivedI(DOMMatrix.prototype.inverse);
+	private reverseMatrix = this.selectionTransform.derivedI("inverse");
 
 	private containerTransform: MatrixHelper;
 
@@ -115,11 +115,11 @@ export class SelectionBox {
 }
 
 const dirs = [
-	[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1]
+	[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1],
 ].map(([x, y]) => point(x / 2, y / 2));
 
 const cornerDirs = [
-	[-1, -1], [-1, 1], [1, 1], [1, -1]
+	[-1, -1], [-1, 1], [1, 1], [1, -1],
 ].map(([x, y]) => point(x / 2, y / 2));
 
 const rotateDir = point(0, -0.75);
@@ -129,8 +129,8 @@ function renderPolygon(ctx: CanvasContext, target: SVGPointList, source: State<P
 	target.clear();
 	for (const [idx, point] of source.entries()) {
 		target.appendItem(ctx.createPoint(point.get()));
-		const handle = ctx.createPointBy(point).watch(p =>
-			target.replaceItem(p, idx)
+		const handle = ctx.createPointBy(point).watch(
+			p => target.replaceItem(p, idx),
 		);
 		handles.push(handle);
 	}
@@ -155,12 +155,14 @@ class BorderBox {
 		this.#keepalive.push(renderPolygon(
 			ctx,
 			element.points,
-			cornerDirs.map(p => transform.with(size).derivedT((t, s) =>
-				t.transformPoint({
-					x: p.x * s.x,
-					y: p.y * s.y,
-				})
-			))
+			cornerDirs.map(
+				p => transform.with(size).derivedT(
+					(t, s) => t.transformPoint({
+						x: p.x * s.x,
+						y: p.y * s.y,
+					}),
+				),
+			),
 		));
 
 		this.handles = dirs.map(offset => new StretchHandle(

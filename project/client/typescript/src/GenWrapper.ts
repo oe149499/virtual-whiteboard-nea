@@ -97,7 +97,7 @@ export function createIteratePayload<I extends IName>(name: I, id: number, args:
 		protocol: "Iterate",
 		name,
 		id,
-		...args
+		...args,
 	};
 }
 

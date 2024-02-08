@@ -96,12 +96,13 @@ export class UIManager {
 		if (tool.type === ToolType.Action) {
 			this.cancelTool();
 			tool.bind(async (action) => {
-				this._toolState.updateBy(s => {
-					if (s !== None && s.tool === tool) return {
-						tool: s.tool,
-						action
-					}; else return s;
-				}
+				this._toolState.updateBy(
+					s => {
+						if (s !== None && s.tool === tool) return {
+							tool: s.tool,
+							action,
+						}; else return s;
+					},
 				);
 				await action.completion;
 				this._toolState.set(None);

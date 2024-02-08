@@ -1,5 +1,5 @@
 type ExportList = {
-	[prefix: string]: string[]
+	[prefix: string]: string[],
 }
 
 function dumpModule(path: string) {

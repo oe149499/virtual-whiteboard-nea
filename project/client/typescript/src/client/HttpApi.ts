@@ -13,11 +13,11 @@ export const API = Object.freeze({
 			method: "POST",
 			body: JSON.stringify(info),
 			headers: {
-				"Content-Type": "application/json"
-			}
+				"Content-Type": "application/json",
+			},
 		});
 		return response.then(
-			response => response.json() as Promise<Result<ConnectionInfo>>
+			response => response.json() as Promise<Result<ConnectionInfo>>,
 		);
 	},
 
@@ -29,5 +29,5 @@ export const API = Object.freeze({
 			body: formData,
 		}).then(response => response.text())
 			.then(name => new URL(name, MEDIA_ROOT));
-	}
+	},
 });

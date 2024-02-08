@@ -23,7 +23,7 @@ export class PanelController {
 		} else {
 			return logger.throw(
 				"Panel contents found not an instance of HTMLELement: %o",
-				contentsElem
+				contentsElem,
 			);
 		}
 	}
@@ -33,7 +33,7 @@ export class PanelController {
 	) {
 		this.visibility = new VisibilityButton("panel-icon");
 		this.containerElement.prepend(
-			this.visibility.element
+			this.visibility.element,
 		);
 
 		this.visibility.onopen = () => {
@@ -46,7 +46,6 @@ export class PanelController {
 
 		this.contents = this.getContents();
 	}
-
 }
 
 class VisibilityButton {

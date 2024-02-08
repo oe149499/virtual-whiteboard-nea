@@ -34,7 +34,7 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 				done: false,
 				value: n,
 			};
-		}
+		},
 	};
 
 	private peekCache: Option<T | End> = None;
@@ -67,6 +67,14 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return new Zipped(this, other);
 	}
 
+	public async collect(): Promise<T[]> {
+		const output = [];
+		for await (const item of this) {
+			output.push(item);
+		}
+		return output;
+	}
+
 	public static of<T>(source: AsyncIterable<T> | Iterable<T> | AsyncIterator<T>): AsyncIter<T> {
 		return new Wrapped(source);
 	}
@@ -87,7 +95,7 @@ class Wrapped<T> extends AsyncIter<T> {
 	}
 
 	public constructor(
-		source: AsyncIterable<T> | Iterable<T> | AsyncIterator<T>
+		source: AsyncIterable<T> | Iterable<T> | AsyncIterator<T>,
 	) {
 		super();
 		if (Symbol.asyncIterator in source) {
@@ -95,7 +103,7 @@ class Wrapped<T> extends AsyncIter<T> {
 		} else if (Symbol.iterator in source) {
 			const iter = source[Symbol.iterator]();
 			this.inner = {
-				next() { return Promise.resolve(iter.next()); }
+				next() { return Promise.resolve(iter.next()); },
 			};
 		} else {
 			this.inner = source;

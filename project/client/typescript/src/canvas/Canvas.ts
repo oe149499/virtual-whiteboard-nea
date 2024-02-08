@@ -41,7 +41,7 @@ export class CanvasController {
 		this.coordMapping = mutableStateOf({
 			screenOrigin: { x: 0, y: 0 },
 			stretch: PX_PER_CM,
-			targetOffset: { x: 0, y: 0 }
+			targetOffset: { x: 0, y: 0 },
 		});
 
 		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, ({ gestures }) => {
@@ -53,8 +53,9 @@ export class CanvasController {
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
 
-		this.elementBounds = stateBy(new DOMRect(),
-			set => new ResizeObserver((e) => set(e[0].contentRect)).observe(svgElement)
+		this.elementBounds = stateBy(
+			new DOMRect(),
+			set => new ResizeObserver((e) => set(e[0].contentRect)).observe(svgElement),
 		);
 
 		this.elementBounds.watch(({ x, y, width, height }) => {
@@ -104,9 +105,10 @@ export class CanvasController {
 		this.targetRect.x = x;
 		this.targetRect.y = y;
 		//logger.debug("Current target: %o", this.targetRect);
-		this.coordMapping.updateBy(m =>
-			(m.targetOffset = { x, y }, m)
-		);
+		this.coordMapping.updateBy(m => {
+			m.targetOffset = { x, y };
+			return m;
+		});
 	}
 
 	private pointerDown(e: PointerEvent): void {

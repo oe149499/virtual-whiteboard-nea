@@ -1,3 +1,4 @@
+import { BoundsTester } from "../Bounds";
 import { Point, Result } from "../gen/Types";
 import { State } from "./State";
 
@@ -10,9 +11,7 @@ declare global {
 		setBy(name: string, source: State<boolean>): void;
 	}
 
-	interface DOMRectReadOnly {
-		testIntersection(target: Point): boolean;
-	}
+	interface DOMRectReadOnly extends BoundsTester { }
 
 	interface HTMLElement {
 
@@ -25,6 +24,8 @@ declare global {
 
 	interface SVGGraphicsElement {
 		getFinalTransform(current?: DOMMatrix): DOMMatrix;
+
+		getBBoxState(): State<SVGRect>;
 	}
 
 	interface Element {
@@ -37,5 +38,9 @@ declare global {
 
 	interface Promise<T> {
 		maxTimeout(time: number): Promise<Result<T, number>>;
+	}
+
+	interface WeakMap<K extends object, V> {
+		has(value: unknown): value is K;
 	}
 }

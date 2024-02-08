@@ -1,58 +1,57 @@
-import { CompositeKey, PropKey, PropertyBuilder, PropertySchema, key } from "./Properties.js";
-import { UserTransform, UserTransformConverter } from "./Transform.js";
-import { Point, Stroke, Transform } from "./gen/Types.js";
-import { DeepReadonly, MutableState } from "./util/State.js";
+import { CompositeKey, PropKey, PropType, PropertySchema, ValuePropertyType } from "./Properties.js";
+import { Stroke } from "./gen/Types.js";
+import { point } from "./util/Utils.js";
 
 
-function Stroke($: PropertyBuilder<Stroke>) {
-	$.color("color").as("Colour");
-	$.number("width").as("Width");
-}
+// function Stroke($: PropertyBuilder<Stroke>) {
+// 	$.color("color").as("Colour");
+// 	$.number("width").as("Width");
+// }
 
-function Point($: PropertyBuilder<Point>) {
-	$.number("x").as("X");
-	$.number("y").as("Y");
-}
+// function Point($: PropertyBuilder<Point>) {
+// 	$.number("x").as("X");
+// 	$.number("y").as("Y");
+// }
 
-function PointSchema() {
+function PointSchema(defaultVal = point()) {
 	const keys = {
-		x: key("number"),
-		y: key("number"),
+		x: new PropKey("number", { defaultValue: defaultVal.x }),
+		y: new PropKey("number", { defaultValue: defaultVal.y }),
 	};
 
 	const schema: PropertySchema[] = [
 		{
 			type: "number",
 			key: keys.x,
-			displayName: "X"
+			displayName: "X",
 		},
 		{
 			type: "number",
 			key: keys.y,
 			displayName: "Y",
-		}
+		},
 	];
 
 	return { keys, schema };
 }
 
-function Transform($: PropertyBuilder<UserTransform>) {
-	$.struct("origin", Point).as("Position");
-	$.number("rotation").as("Angle");
-	$.struct("stretch", Point).as("Scale");
-	$.number("skew").as("Shear");
-}
+// function Transform($: PropertyBuilder<UserTransform>) {
+// 	$.struct("origin", Point).as("Position");
+// 	$.number("rotation").as("Angle");
+// 	$.struct("stretch", Point).as("Scale");
+// 	$.number("skew").as("Shear");
+// }
 
 function TransformSchema() {
 	const origin = PointSchema();
 
-	const stretch = PointSchema();
+	const stretch = PointSchema(point(1, 1));
 
 	const keys = {
 		origin: origin.keys,
-		rotation: key("number"),
+		rotation: new PropKey("number", { defaultValue: 0 }),
 		stretch: stretch.keys,
-		skew: key("number"),
+		skew: new PropKey("number", { defaultValue: 0 }),
 	};
 
 	const schema: PropertySchema = {
@@ -87,9 +86,9 @@ function TransformSchema() {
 	return { keys, schema };
 }
 
-function StrokeSchema() {
-	const color = key("color");
-	const width = key("number");
+function StrokeSchema(defaultVal = { color: "black", width: 0.1 }) {
+	const color = new PropKey("color", { defaultValue: defaultVal.color });
+	const width = new PropKey("number", { defaultValue: defaultVal.width });
 
 	const stroke = new CompositeKey<Stroke>(get => ({
 		color: get(color),
@@ -116,11 +115,67 @@ function StrokeSchema() {
 				key: width,
 				displayName: "Width",
 				min: 0,
-			}
-		]
+			},
+		],
 	};
 
 	return { keys, schema };
+}
+
+type Template<TKeys> = {
+	keys: TKeys,
+	schema: PropertySchema,
+}
+
+type TemplateArray<TKeys> = {
+	keys: TKeys,
+	schema: PropertySchema[],
+}
+
+class Builder<TKeys extends object> {
+	private constructor(private keys: TKeys, private schemas: PropertySchema[]) {
+
+	}
+
+	public static empty(): Builder<object> {
+		return new this({}, []);
+	}
+
+	add<TAdd>(prop: Template<TAdd>): Builder<TKeys & TAdd>;
+	add<Name extends string, N extends PropType>(name: Name, prop: ValuePropertyType<N>): Builder<TKeys & Record<Name, PropKey<N>>>;
+	public add<Name extends string, N extends PropType, TAdd = Record<Name, PropKey<N>>>(templOrName: Template<TAdd> | Name, prop?: ValuePropertyType<N>) {
+		if (typeof templOrName == "object") {
+			const { schema, keys } = templOrName;
+			this.schemas.push(schema);
+			return new Builder(
+				{
+					...this.keys,
+					...keys,
+				},
+				[...this.schemas, schema],
+			);
+		} else {
+			return new Builder<TKeys & Record<Name, PropKey<N>>>(
+				// @ts-ignore
+				{
+					...this.keys,
+					[templOrName as Name]: prop!.key,
+				},
+				[...this.schemas, prop!],
+			);
+		}
+	}
+
+	build(): TemplateArray<TKeys> {
+		return {
+			keys: this.keys,
+			schema: this.schemas,
+		};
+	}
+}
+
+export function builder() {
+	return Builder.empty();
 }
 
 type Merged<A, T> = T extends [infer First, ...infer Rest] ? Merged<A & First, Rest> : A;
@@ -130,5 +185,5 @@ export function merge<Ts extends object[]>(...objs: Ts): Merged<object, Ts> {
 }
 
 export const PropertyTemplates = Object.freeze({
-	Point, PointSchema, Transform, TransformSchema, Stroke, StrokeSchema
+	PointSchema, TransformSchema, StrokeSchema,
 });

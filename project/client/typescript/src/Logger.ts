@@ -101,6 +101,5 @@ export class Logger {
 		const error = new Error(message, { cause: objs });
 		rejector(error);
 		this.log(LogLevel.Error, message, ...objs);
-
 	}
 }

@@ -2,7 +2,7 @@
 
 declare global {
 	interface Object {
-		[ClonerSym]?: Cloner<this>
+		[ClonerSym]?: Cloner<this>;
 	}
 }
 

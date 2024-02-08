@@ -39,7 +39,7 @@ export class SessionClient {
 
 	public get iterate(): IterateDispatcher {
 		this.iterateDispatcher ??= createIterateReciever(
-			(name, args) => this.rawClient.callIterate(name, args)
+			(name, args) => this.rawClient.callIterate(name, args),
 		);
 
 		return this.iterateDispatcher;

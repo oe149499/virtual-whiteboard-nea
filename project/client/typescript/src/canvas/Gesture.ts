@@ -48,9 +48,15 @@ export enum GestureLayer {
 
 export const GestureLayers: GestureLayer[] = [...rangeInclusive(GestureLayer.Lowest, GestureLayer.Highest)].reverse();
 
+export enum FilterMode {
+	Capture,
+	Passthrough,
+}
+
 export interface GestureFilter {
 	layer: GestureLayer;
 	types: GestureType;
+	mode: FilterMode;
 	check(canvasLocation: Point): boolean;
 	handle(gesture: Gesture): void;
 }
@@ -59,15 +65,17 @@ export interface FilterHandle {
 	pause(): this;
 	resume(): this;
 	setTest(f: (_: Point) => boolean): this;
+	setMode(mode: FilterMode): this;
 	addHandler<T extends GestureType>(type: T, handler: (_: Gesture<T>) => void): this;
 	removeHandler(type: GestureType): this;
 }
 
-class FilterHandleImpl implements FilterHandle {
-	public constructor(public readonly layer: GestureLayer, private updateActive: (_: FilterHandleImpl) => void) { }
+class FilterImpl implements FilterHandle, GestureFilter {
+	public constructor(public readonly layer: GestureLayer, private updateActive: (_: FilterImpl) => void) { }
 
 	public active = true;
 	public types = 0 as GestureType;
+	public mode = FilterMode.Capture;
 	public check = (_: Point) => true;
 	public handlers: { [K in GestureType]?: (_: Gesture<K>) => void } = {};
 
@@ -93,12 +101,18 @@ class FilterHandleImpl implements FilterHandle {
 		return this;
 	}
 
+	setMode(mode: FilterMode): this {
+		this.mode = mode;
+		return this;
+	}
+
 	addHandler<T extends GestureType>(type: T, handler: (_: Gesture<T>) => void): this {
 		this.types |= type;
 		// @ts-ignore i want enum generics
 		this.handlers[type] = handler;
 		return this;
 	}
+
 	removeHandler(type: GestureType): this {
 		this.types &= ~type;
 		return this;
@@ -106,8 +120,8 @@ class FilterHandleImpl implements FilterHandle {
 }
 
 type FilterLayer = {
-	active: Set<FilterHandleImpl>,
-	inactive: WeakSet<FilterHandleImpl>,
+	active: Set<GestureFilter>,
+	inactive: WeakSet<GestureFilter>,
 }
 
 type FilterLayers = Record<GestureLayer, FilterLayer>;
@@ -163,6 +177,7 @@ export class GestureHandler {
 
 	private handleGesture(gesture: Gesture) {
 		//logger.debug("", GestureLayers);
+		logger.debug("Handling gesture: ", gesture);
 		for (const layer of GestureLayers) {
 			const filters = this.filterLayers[layer];
 			//logger.debug("Layer: %o, filters: %o", layer, filters);
@@ -171,14 +186,14 @@ export class GestureHandler {
 				if (gesture.type & filter.types) {
 					if (filter.check(gesture.location)) {
 						filter.handle(gesture);
-						return;
+						if (filter.mode == FilterMode.Capture) return;
 					}
 				}
 			}
 		}
 	}
 
-	private updateActive = (handle: FilterHandleImpl) => {
+	private updateActive = (handle: FilterImpl) => {
 		const layer = this.filterLayers[handle.layer];
 		if (handle.active) {
 			layer.inactive.delete(handle);
@@ -190,7 +205,7 @@ export class GestureHandler {
 	};
 
 	public makeFilter(layer: GestureLayer): FilterHandle {
-		const handle = new FilterHandleImpl(layer, this.updateActive);
+		const handle = new FilterImpl(layer, this.updateActive);
 		this.filterLayers[layer].active.add(handle);
 		return handle;
 	}

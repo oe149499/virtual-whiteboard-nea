@@ -45,7 +45,7 @@ export class Channel<T> {
 		return {
 			next: () => this.pop().then(
 				value => ({ done: false as const, value }),
-				() => ({ done: true as const, value: 0 })
+				() => ({ done: true as const, value: 0 }),
 			),
 		};
 	}
