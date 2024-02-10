@@ -27,6 +27,7 @@ macro_rules! resource_types {
 resource_types! {
     crate::message::ItemID: "Item"
     crate::message::PathID: "Path"
+    crate::message::ClientID: "Client"
 }
 
 /// Shorthand for creating a [`RejectReason::ResourceNotOwned`]

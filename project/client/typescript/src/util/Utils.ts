@@ -9,6 +9,11 @@ export type None = typeof None;
 
 export type Option<T> = T | None;
 
+export type Some<T> = T extends Option<infer U> ? U : T;
+export function Some<T>(x: Option<T>): x is T {
+	return x !== None;
+}
+
 export type PromiseHandle<T> = {
 	resolve: (_: T) => void,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -122,6 +122,18 @@ pub struct ClientInfo {
     pub name: String,
 }
 
+/// Full representation of a client's status
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct ClientState {
+    pub info: ClientInfo,
+    pub paths: Vec<PathID>,
+    pub selected_items: Vec<(ItemID, Transform)>,
+    pub selection_transform: Transform,
+}
+
 /// Identification provided to clients
 #[derive(Serialize, Deserialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]

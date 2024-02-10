@@ -1,5 +1,5 @@
 import { Logger } from "../Logger.js";
-import { PropertyKeyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue } from "../Properties.js";
+import { PropertyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue } from "../Properties.js";
 import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
 import { None, Option, getObjectID } from "../util/Utils.js";
@@ -40,7 +40,7 @@ export class PropertyEditor {
 		});
 	}
 
-	public loadProperties(props: PropertySchema[], store: PropertyKeyStore) {
+	public loadProperties(props: PropertySchema[], store: PropertyStore) {
 		logger.debug("loading properties");
 		const current = this.propertyCache.get(
 			props,
@@ -56,7 +56,7 @@ export class PropertyEditor {
 }
 
 abstract class PropertyUI {
-	public abstract reload(store: PropertyKeyStore): void;
+	public abstract reload(store: PropertyStore): void;
 
 	public static create(
 		target: HTMLElement,
@@ -92,7 +92,7 @@ class RootPropertyUI extends PropertyUI {
 		}
 	}
 
-	public override reload(store: PropertyKeyStore) {
+	public override reload(store: PropertyStore) {
 		for (const child of this.children) {
 			child.reload(store);
 		}
@@ -101,7 +101,7 @@ class RootPropertyUI extends PropertyUI {
 
 abstract class ValuePropertyUI<N extends PropType> extends PropertyUI {
 	protected readonly key: PropKey<N>;
-	protected store: Option<PropertyKeyStore> = None;
+	protected store: Option<PropertyStore> = None;
 
 	public constructor(
 		target: HTMLElement,
@@ -128,7 +128,7 @@ abstract class ValuePropertyUI<N extends PropType> extends PropertyUI {
 
 	protected abstract load(value: PropValue<N>): void;
 
-	public override reload(store: PropertyKeyStore): void {
+	public override reload(store: PropertyStore): void {
 		this.store = store;
 		this.load(store.read(this.key));
 	}
@@ -254,7 +254,7 @@ class StructPropertyUI extends PropertyUI {
 		}
 	}
 
-	public override reload(store: PropertyKeyStore): void {
+	public override reload(store: PropertyStore): void {
 		for (const child of this.children) {
 			child.reload(store);
 		}

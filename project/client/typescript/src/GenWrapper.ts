@@ -5,7 +5,7 @@ import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
 import { AsyncIter } from "./util/AsyncIter.js";
 import { Channel } from "./util/Channel.js";
 
-type Id<T> = { [K in keyof T]: T[K] };
+export type Id<T> = { [K in keyof T]: T[K] };
 
 export type ItemType = Item["type"];
 export type SpecificItem<T extends ItemType> = Extract<Item, { type: T }>;

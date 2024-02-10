@@ -10,7 +10,7 @@ use scc::{hash_map::OccupiedEntry, HashMap as AsyncHashMap};
 use tokio::{sync::RwLock, time::Instant};
 
 use crate::{
-    canvas::{ActiveCanvas, SplineNode, Stroke},
+    canvas::{ActiveCanvas, SplineNode, Stroke, Transform},
     client::{ClientHandle, MessagePayload},
     message::{
         iterate::{GetActivePath, IterateHandle},
@@ -32,11 +32,18 @@ struct ActivePath {
     last_flush: Instant,
 }
 
+#[derive(Debug, Default)]
+struct SelectionState {
+    items: std::collections::BTreeMap<ItemID, Transform>,
+    own_transform: Transform,
+}
+
 #[derive(Debug)]
 struct ClientState {
     info: ClientInfo,
     handle: Option<ClientHandle>,
-    selection: std::collections::BTreeSet<ItemID>,
+    active_paths: Vec<PathID>,
+    selection: SelectionState,
 }
 
 impl ClientState {
@@ -120,6 +127,7 @@ impl Board {
                 let client = ClientState {
                     info: info.clone(),
                     handle: None,
+                    active_paths: Default::default(),
                     selection: Default::default(),
                 };
                 self.clients

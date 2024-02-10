@@ -1,58 +1,65 @@
 import { Logger } from "../Logger.js";
-import { ItemID, Point } from "../gen/Types.js";
+import { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
 import { MutableState, State, WatchHandle, mutableStateOf } from "../util/State.js";
-import { asDomMatrix, point, rad2deg } from "../util/Utils.js";
+import { None, asDomMatrix, point, rad2deg } from "../util/Utils.js";
 import { CanvasContext, MatrixHelper, TranslateHelper } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType } from "./Gesture.js";
+import { ItemTable } from "./ItemTable.js";
+import { fromMatrix, updateMatrix } from "../Transform.js";
 const logger = new Logger("canvas/SelectionBox");
 
-export class SelectionBox {
-	private container: SVGGElement;
+export class SelectionBoxBase {
+	protected container: SVGGElement;
 
-	private selectionTransform = mutableStateOf(new DOMMatrix());
+	protected selectionTransform = mutableStateOf(new DOMMatrix());
+	protected reverseMatrix = this.selectionTransform.derivedI("inverse");
 
-	private gestureFilter: FilterHandle;
+	protected selectionSize = mutableStateOf(point(1, 1));
 
-	private selectionSize = mutableStateOf(point(1, 1));
+	protected itemContainer: SVGGElement;
 
-	//private selectionMatrix = asDomMatrix(this.selectionTransform);
-	private reverseMatrix = this.selectionTransform.derivedI("inverse");
+	protected heldItems = new Set<ItemID>();
 
 	private containerTransform: MatrixHelper;
+	private outline: BorderOutline;
 
-	private items = new Map<ItemID, CanvasItem>();
-
-	private border: BorderBox;
-	private itemContainer: SVGGElement;
-
-	constructor(private ctx: CanvasContext) {
+	public constructor(
+		protected ctx: CanvasContext,
+		protected items: ItemTable,
+		protected id: ClientID,
+	) {
 		this.container = ctx.createRootElement("g");
-
-		this.border = new BorderBox(ctx, this.container, this.selectionTransform, this.selectionSize);
 
 		this.itemContainer = this.container.createChild("g");
 
 		this.containerTransform = new MatrixHelper(this.itemContainer.transform.baseVal, this.selectionTransform);
 
-		this.gestureFilter = ctx.createGestureFilter(GestureLayer.AboveItems)
-			.addHandler(GestureType.Drag, this.handleGesture.bind(this))
-			.setTest((p) => {
-				const { x, y } = this.reverseMatrix.get().transformPoint(p);
-				const s = this.selectionSize.get();
-				return Math.abs(x) < s.x / 2 && Math.abs(y) < s.y / 2;
-			});
+		this.outline = new BorderOutline(
+			ctx,
+			this.container,
+			this.selectionTransform,
+			this.selectionSize,
+		);
 
-		//this.selectionOrigin.watch(({ x, y }) => this.outerBorder.setAttrs({ x, y })).poll();
-		//this.selectionSize.watch(({ x, y }) => this.outerBorder.setAttrs({ width: x, height: y })).poll();
+		items.events.selection.register(id, {
+			add: entries => {
+				for (const { id } of entries) this.addItem(id);
+			},
+			move: transform => this.updateTransform(transform),
+		});
 	}
 
-	public addItem(id: ItemID, item: CanvasItem) {
+	public addItem(id: ItemID) {
 		const newItemHolder = this.container.createChild("g");
 		newItemHolder.style.visibility = "hidden";
-		this.items.set(id, item);
+		this.heldItems.add(id);
 
-		for (const item of this.items.values()) {
+
+
+		for (const entry of this.items.get(this.heldItems)) {
+			if (entry === None) continue;
+			const { canvasItem: item } = entry;
 			const matrix = item.element.getFinalTransform();
 			const cont = newItemHolder.createChild("g");
 			const transform = this.ctx.createTransform(matrix);
@@ -85,16 +92,39 @@ export class SelectionBox {
 		newItemHolder.style.visibility = "initial";
 	}
 
+	public updateTransform(newTransform: Transform) {
+		this.selectionTransform.updateBy(t => updateMatrix(t, newTransform));
+	}
+}
+
+export class UserSelection extends SelectionBoxBase {
+	private gestureFilter: FilterHandle;
+
+	private border: BorderHandles;
+
+	constructor(ctx: CanvasContext, items: ItemTable) {
+		super(ctx, items, items.ownID);
+
+		this.border = new BorderHandles(ctx, this.container, this.selectionTransform, this.selectionSize);
+
+		this.gestureFilter = ctx.createGestureFilter(GestureLayer.AboveItems)
+			.addHandler(GestureType.Drag, this.handleGesture.bind(this))
+			.setTest((p) => {
+				const { x, y } = this.reverseMatrix.get().transformPoint(p);
+				const s = this.selectionSize.get();
+				return Math.abs(x) < s.x / 2 && Math.abs(y) < s.y / 2;
+			});
+
+		this.selectionTransform.watch(m => {
+			items.moveOwnSelection(fromMatrix(m));
+		});
+	}
+
 	public testIntersection(p: Point): boolean {
 		logger.debug("Testing for point: ", p);
 		const val = this.container.getBBox().testIntersection(p);
 		logger.debug("result: ", val);
 		return val;
-		// const origin = this.selectionOrigin.get();
-		// if (x < origin.x || y < origin.y) return false;
-		// const size = this.selectionSize.get();
-		// if (x - origin.x > size.x || y - origin.y > size.y) return false;
-		// return true;
 	}
 
 	public async handleGesture(gesture: DragGestureState) {
@@ -112,6 +142,10 @@ export class SelectionBox {
 			//logger.debug("", this.selectionTransform.get());
 		}
 	}
+}
+
+export class RemoteSelection extends SelectionBoxBase {
+
 }
 
 const dirs = [
@@ -137,9 +171,43 @@ function renderPolygon(ctx: CanvasContext, target: SVGPointList, source: State<P
 	return handles;
 }
 
-class BorderBox {
-	#keepalive = [] as unknown[];
+class BorderOutline {
+	#keepalive: unknown[] = [];
+
 	public readonly element: SVGPolygonElement;
+	public constructor(
+		ctx: CanvasContext,
+		target: SVGElement,
+		transform: State<DOMMatrix>,
+		size: State<Point>,
+	) {
+		const element = target.createChild("polygon").addClasses("selection");
+		this.element = element;
+
+		const list = element.points;
+
+		const points = cornerDirs.map(p => (size
+			.derived(s => ({
+				x: s.x * p.x,
+				y: s.y * p.y,
+			}))
+			.with(transform)
+			.derivedT((s, t) => t.transformPoint(s))
+		));
+
+		for (const [idx, point] of points.entries()) {
+			list.appendItem(ctx.createPoint(point.get()));
+			const handle = ctx.createPointBy(point).watch(
+				p => list.replaceItem(p, idx),
+			);
+			this.#keepalive.push(handle);
+		}
+	}
+}
+
+class BorderHandles {
+	#keepalive = [] as unknown[];
+	// public readonly element: SVGPolygonElement;
 	private handles: StretchHandle[];
 	private rotateHandle: RotateHandle;
 
@@ -149,22 +217,6 @@ class BorderBox {
 		transform: MutableState<DOMMatrix>,
 		size: MutableState<Point>,
 	) {
-		const element = target.createChild("polygon").addClasses("selection");
-		this.element = element;
-
-		this.#keepalive.push(renderPolygon(
-			ctx,
-			element.points,
-			cornerDirs.map(
-				p => transform.with(size).derivedT(
-					(t, s) => t.transformPoint({
-						x: p.x * s.x,
-						y: p.y * s.y,
-					}),
-				),
-			),
-		));
-
 		this.handles = dirs.map(offset => new StretchHandle(
 			ctx,
 			target,

@@ -4,16 +4,19 @@ use tokio::time::Instant;
 
 use crate::{
     canvas::{item::PathItem, Spline, Transform},
+    client,
     message::{
         self,
         method::*,
-        notify_c::{ItemCreated, PathStarted, SelectionItemsAdded, SingleItemEdited},
+        notify_c::{
+            ItemCreated, PathStarted, SelectionItemsAdded, SelectionMoved, SingleItemEdited,
+        },
         reject::helpers::{non_existent_id, resource_not_owned},
         ClientID, ErrorCode, PathID,
     },
 };
 
-use super::{ActivePath, Board};
+use super::{ActivePath, Board, SelectionState};
 
 impl Board {
     pub async fn handle_method(&self, id: ClientID, method: Methods) {
@@ -22,6 +25,7 @@ impl Board {
             Methods::SelectionRemoveItems(call) => {
                 self.handle_selection_remove_items(id, call).await
             }
+            Methods::SelectionMove(call) => self.handle_selection_move(id, call).await,
             Methods::EditBatchItems(call) => self.handle_edit_batch_items(id, call).await,
             Methods::EditSingleItem(call) => self.handle_edit_single_item(id, call).await,
             Methods::DeleteItems(call) => self.handle_delete_items(id, call).await,
@@ -30,15 +34,16 @@ impl Board {
             Methods::ContinuePath(call) => self.handle_continue_path(id, call).await,
             Methods::EndPath(call) => self.handle_end_path(id, call).await,
             Methods::GetAllItemIDs(call) => self.handle_get_all_item_ids(id, call).await,
-            Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
+            // Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
+            Methods::GetClientState(call) => self.handle_get_client_state(id, call).await,
         }
     }
 
     async fn handle_selection_add_items(&self, id: ClientID, call: Call<SelectionAddItems>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
-        let mut result = Vec::with_capacity(params.items.len());
+        let mut result = Vec::with_capacity(params.new_items.len());
         let mut successful_ids = collections::BTreeSet::new();
-        for item_id in params.items {
+        for &item_id in params.new_items.keys() {
             let item = self.selected_items.entry_async(item_id).await;
             match item {
                 scc::hash_map::Entry::Occupied(mut entry) => {
@@ -59,12 +64,26 @@ impl Board {
             }
         }
 
+        for item_id in params.existing_items.keys() {
+            let Some(item) = self.selected_items.get_async(item_id).await else {
+                return handle.error(non_existent_id(*item_id));
+            };
+            if *item.get() != Some(id) {
+                return handle.error(resource_not_owned(*item_id));
+            }
+        }
+
+        let mut new_items = params.existing_items;
+        new_items.extend(params.new_items);
+
         handle.respond(result);
-        self.get_client(&id)
-            .await
-            .get_mut()
-            .selection
-            .extend(successful_ids.iter());
+        {
+            let mut client = self.get_client(&id).await;
+            client.get_mut().selection = SelectionState {
+                own_transform: params.selection_transform,
+                items: new_items.clone(),
+            };
+        }
 
         self.send_notify_c(SelectionItemsAdded {
             id,
@@ -110,7 +129,7 @@ impl Board {
         }
 
         for id in out.keys() {
-            client.get_mut().selection.remove(id);
+            client.get_mut().selection.items.remove(id);
         }
 
         if ok {
@@ -118,6 +137,18 @@ impl Board {
         } else {
             handle.err(ErrorCode::BadData.into())
         }
+    }
+
+    async fn handle_selection_move(&self, id: ClientID, call: Call<SelectionMove>) {
+        let (params, handle) = call.create_handle(self.get_handle(&id).await);
+
+        self.send_notify_c(SelectionMoved {
+            id,
+            transform: params.transform,
+        })
+        .await;
+
+        handle.respond(());
     }
 
     async fn handle_edit_batch_items(&self, id: ClientID, call: Call<EditBatchItems>) {}
@@ -279,14 +310,39 @@ impl Board {
         handle.respond(ids);
     }
 
-    async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
-        let (_, handle) = call.create_handle(self.get_handle(&id).await);
-        let mut out = std::collections::BTreeMap::new();
-        let client_ids = self.client_ids.read().await;
-        for id in client_ids.iter() {
-            let info = self.get_client(id).await.get().info.clone();
-            out.insert(*id, info);
-        }
-        handle.respond(out);
+    // async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
+    //     let (_, handle) = call.create_handle(self.get_handle(&id).await);
+    //     let mut out = std::collections::BTreeMap::new();
+    //     let client_ids = self.client_ids.read().await;
+    //     for id in client_ids.iter() {
+    //         let info = self.get_client(id).await.get().info.clone();
+    //         out.insert(*id, info);
+    //     }
+    //     handle.respond(out);
+    // }
+    async fn handle_get_client_state(&self, id: ClientID, call: Call<GetClientState>) {
+        let (params, handle) = call.create_handle(self.get_handle(&id).await);
+
+        let target = self.clients.get_async(&params.client_id).await;
+
+        let Some(target) = target else {
+            return handle.error(non_existent_id(params.client_id));
+        };
+
+        let target = target.get();
+
+        let result = message::ClientState {
+            info: target.info.clone(),
+            paths: target.active_paths.clone(),
+            selected_items: target
+                .selection
+                .items
+                .iter()
+                .map(|(&a, b)| (a, b.clone()))
+                .collect(),
+            selection_transform: target.selection.own_transform.clone(),
+        };
+
+        handle.respond(result);
     }
 }

@@ -9,25 +9,33 @@ export type UserTransform = {
 	skew: number,
 }
 
+export function updateMatrix(matrix: DOMMatrix, src: DeepReadonly<Transform>) {
+	matrix.a = src.basisX.x;
+	matrix.b = src.basisX.y;
+	matrix.c = src.basisY.x;
+	matrix.d = src.basisY.y;
+	matrix.e = src.origin.x;
+	matrix.f = src.origin.y;
+	return matrix;
+}
+
+export function fromMatrix(src: DOMMatrixReadOnly): Transform {
+	return {
+		origin: point(src.e, src.f),
+		basisX: point(src.a, src.b),
+		basisY: point(src.c, src.d),
+	};
+}
+
 export class TransformMatrixConverter extends MutableTransformer<Transform, DOMMatrix> {
 	private matrix = new DOMMatrix();
 
 	public override forwards(src: DeepReadonly<Transform>): DOMMatrix {
-		this.matrix.a = src.basisX.x;
-		this.matrix.b = src.basisX.y;
-		this.matrix.c = src.basisY.x;
-		this.matrix.d = src.basisY.y;
-		this.matrix.e = src.origin.x;
-		this.matrix.f = src.origin.y;
-		return this.matrix;
+		return updateMatrix(this.matrix, src);
 	}
 
 	public override backwards(src: DOMMatrixReadOnly): Transform {
-		return {
-			origin: point(src.e, src.f),
-			basisX: point(src.a, src.b),
-			basisY: point(src.c, src.d),
-		};
+		return fromMatrix(src);
 	}
 }
 

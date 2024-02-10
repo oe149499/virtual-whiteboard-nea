@@ -1,6 +1,7 @@
 import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
+import { ItemTable } from "./canvas/ItemTable.js";
 import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
@@ -12,13 +13,20 @@ import { None } from "./util/Utils.js";
 
 const logger = new Logger("board");
 
+type BoardInfo = ClientInfo & {
+	boardName: string,
+	clientID: number,
+}
+
 export class Board {
 	public static async new(name: string, info: ClientInfo): Promise<Board> {
-		const canvas = new CanvasController();
-		const ui = new UIManager(canvas);
 		const client = await SessionClient.new(name, info);
+		const items = new ItemTable(client);
+		const canvas = new CanvasController(items);
+		const ui = new UIManager(canvas);
+		const boardInfo = { ...info, boardName: name, clientID: client.clientID };
 
-		const board = new this(ui, client, canvas);
+		const board = new this(ui, client, canvas, items, boardInfo);
 
 		queueMicrotask(() => board.init());
 
@@ -29,6 +37,8 @@ export class Board {
 		public readonly ui: UIManager,
 		public readonly client: SessionClient,
 		public readonly canvas: CanvasController,
+		public readonly items: ItemTable,
+		public readonly info: BoardInfo,
 	) { }
 
 	private async init() {

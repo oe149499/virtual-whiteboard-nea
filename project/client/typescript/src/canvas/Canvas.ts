@@ -1,12 +1,13 @@
 import { Logger } from "../Logger.js";
-import { Item, ItemID, Point } from "../gen/Types.js";
+import { ClientID, Item, ItemID, Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
 import { DragGestureState, Gesture, GestureHandler, GestureType, LongPressGesture, PressGesture } from "./Gesture.js";
-import { SelectionBox } from "./SelectionBox.js";
+import { RemoteSelection, UserSelection } from "./SelectionBox.js";
+import { ItemTable } from "./ItemTable.js";
 
 
 const PX_PER_CM = 37.8;
@@ -15,9 +16,10 @@ const logger = new Logger("canvas/CanvasController");
 export class CanvasController {
 	public readonly svgElement: SVGSVGElement;
 	public readonly ctx: CanvasContext;
-	public readonly selection: SelectionBox;
+	public readonly selection = new Map<ClientID, UserSelection>();
 
 	private items = new Map<ItemID, CanvasItem>();
+	// public readonly itemTable: ItemTable;
 
 	private targetRect: DOMRect;
 
@@ -34,7 +36,7 @@ export class CanvasController {
 	public onpressgesture: Handler<PressGesture> = null;
 	public onlongpressgesture: Handler<LongPressGesture> = null;
 
-	constructor() {
+	constructor(public readonly itemTable: ItemTable) {
 		const svgElement = document.createElementNS(SVGNS, "svg");
 		this.svgElement = svgElement;
 
@@ -44,11 +46,30 @@ export class CanvasController {
 			targetOffset: { x: 0, y: 0 },
 		});
 
-		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, ({ gestures }) => {
+		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, itemTable, ({ gestures }) => {
 			this.gestures = gestures;
 		});
 
-		this.selection = new SelectionBox(this.ctx);
+		itemTable.events.items.connect("insert", ({ canvasItem }) => {
+			svgElement.appendChild(canvasItem.element);
+		});
+
+		itemTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
+		itemTable.events.selectionCreate.bind(id => {
+			if (id === itemTable.ownID) return new UserSelection(this.ctx, itemTable);
+			else return new RemoteSelection(this.ctx, itemTable, id);
+		});
+
+		// this.itemTable = new ItemTable(
+		// 	CanvasItem.create.bind(null, this.ctx),
+		// 	{
+		// 		onInsert: ({ canvasItem }) => {
+		// 			svgElement.appendChild(canvasItem.element);
+		// 		},
+		// 	},
+		// );
+
+		// this.selection = new SelectionBox(this.ctx, this.itemTable);
 
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
@@ -72,8 +93,9 @@ export class CanvasController {
 	}
 
 	public * probePoint(target: Point) {
-		for (const [id, item] of this.items.entries()) {
-			if (item.testIntersection(target)) yield { item, id };
+		for (const { id, canvasItem: item } of this.itemTable.entries()) {
+			if (item.bounds.testIntersection(target)) yield { item, id };
+			// logger.debug("Bounds: ", item.bounds);
 		}
 	}
 
@@ -88,9 +110,10 @@ export class CanvasController {
 	// }
 
 	public addItem(id: ItemID, item: Item) {
-		const canvasItem = CanvasItem.create(this.ctx, item);
-		this.items.set(id, canvasItem);
-		this.svgElement.appendChild(canvasItem.element);
+		this.itemTable.insert(id, item);
+		// const canvasItem = CanvasItem.create(this.ctx, item);
+		// this.items.set(id, canvasItem);
+		// this.svgElement.appendChild(canvasItem.element);
 	}
 
 	public addRawElement(elem: SVGElement) {

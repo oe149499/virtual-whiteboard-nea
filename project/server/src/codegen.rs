@@ -107,6 +107,7 @@ fn main() {
             m::Error,
             m::Result,
             m::ClientInfo,
+            m::ClientState,
             m::ConnectionInfo,
             m::SessionID,
             m::ClientID,
@@ -157,6 +158,7 @@ fn main() {
         export_str! {[
             SelectionAddItems,
             SelectionRemoveItems,
+            SelectionMove,
             EditBatchItems,
             EditSingleItem,
             DeleteItems,
@@ -165,7 +167,7 @@ fn main() {
             ContinuePath,
             EndPath,
             GetAllItemIDs,
-            GetAllClientInfo,
+            GetClientState,
         ] with T : TS => {
             T::decl()
         }}

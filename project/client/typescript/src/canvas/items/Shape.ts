@@ -3,9 +3,8 @@ import { Logger } from "../../Logger.js";
 import { PropKey } from "../../Properties.js";
 import { PropertyTemplates, builder } from "../../PropertyTemplates.js";
 import { Item } from "../../gen/Types.js";
-import { point } from "../../util/Utils.js";
-import { TransformHelper, StrokeHelper, FillHelper, CanvasContext } from "../CanvasBase.js";
-import { CanvasItem } from "./CanvasItems.js";
+import { CanvasContext } from "../CanvasBase.js";
+import { CanvasItem, FillMixin, StrokeMixin, TransformMixin } from "./CanvasItems.js";
 
 const logger = new Logger("canvas/items/Shape");
 
@@ -39,10 +38,10 @@ const { keys, schema } = builder()
 // 	$.color("fill").as("Fill Colour");
 // });
 
-abstract class ShapeItem extends CanvasItem {
-	private _transform: TransformHelper;
-	private _stroke: StrokeHelper;
-	private _fill: FillHelper;
+abstract class ShapeItem extends FillMixin(StrokeMixin(TransformMixin(CanvasItem))) {
+	// private _transform: TransformHelper;
+	// private _stroke: StrokeHelper;
+	// private _fill: FillHelper;
 
 	private innerElem: SVGGraphicsElement;
 
@@ -59,9 +58,11 @@ abstract class ShapeItem extends CanvasItem {
 		const elem = this.createElement(ctx);
 		this.innerElem = elem;
 
-		this._transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
-		this._stroke = new StrokeHelper(elem.style, item.stroke);
-		this._fill = new FillHelper(elem.style, item.fill);
+		// this._transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
+		// this._stroke = new StrokeHelper(elem.style, item.stroke);
+		// this._fill = new FillHelper(elem.style, item.fill);
+
+		// this.init?.(ctx);
 	}
 
 	public override updateItem(value: Item): void {
@@ -74,9 +75,11 @@ abstract class ShapeItem extends CanvasItem {
 			return;
 		}
 		this.item = value;
-		this._fill.update(value.fill);
-		this._stroke.update(value.stroke);
-		this._transform.update(value.transform);
+		// this._fill.update(value.fill);
+		// this._stroke.update(value.stroke);
+		// this._transform.update(value.transform);
+
+		// this.update?.();
 	}
 }
 

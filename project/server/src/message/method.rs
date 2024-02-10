@@ -201,19 +201,28 @@ mod _methods {
 
     use super::*;
     use crate::{
-        canvas::{Item, SplineNode, Stroke},
-        message::{self as m, BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, PathID},
+        canvas::{Item, SplineNode, Stroke, Transform},
+        message::{
+            self as m, BatchChanges, ClientID, ClientInfo, ClientState, ItemID, LocationUpdate,
+            PathID,
+        },
     };
 
     method_declarations! {
         enum Methods => Responses;
         spec MethodSpec;
         /// Attempt to add a set of items to the client's selection
-        fn SelectionAddItems(items: Vec<ItemID>,) => Vec<m::Result>
+        fn SelectionAddItems(
+            selection_transform: Transform,
+            existing_items: BTreeMap<ItemID, Transform>,
+            new_items: BTreeMap<ItemID, Transform>,
+        ) => Vec<m::Result>
 
         /// Remove a set of items from the client's selection.
         /// This operation should be either fully successful or fully unsuccessful
         fn SelectionRemoveItems(items: BTreeMap<ItemID, LocationUpdate>,) => m::Result
+
+        fn SelectionMove(transform: Transform,) => ()
 
         /// Apply a [`BatchChanges`] to the set of items
         fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
@@ -239,7 +248,7 @@ mod _methods {
         /// Get a list of every ID on the board
         fn GetAllItemIDs() => Vec<ItemID>
 
-        /// Get a list of all clients and their associated information
-        fn GetAllClientInfo() => BTreeMap<ClientID, ClientInfo>
+        /// Get the state of a client
+        fn GetClientState(client_id: ClientID,) => ClientState
     }
 }

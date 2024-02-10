@@ -1,6 +1,7 @@
 import { ItemType, SpecificItem } from "../../GenWrapper.js";
 import { CanvasContext } from "../CanvasBase.js";
-import { Line, Polygon, Path, Image, CanvasItem } from "./CanvasItems.js";
+import { Image, CanvasItem } from "./CanvasItems.js";
+import { Line, Polygon, Path } from "./Line.js";
 import { Rectangle, Ellipse } from "./Shape.js";
 
 const ItemBuilders = {
