@@ -7,6 +7,7 @@ import { CanvasItem } from "./items/CanvasItems.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType } from "./Gesture.js";
 import { ItemTable } from "./ItemTable.js";
 import { fromMatrix, updateMatrix } from "../Transform.js";
+import { MArgs } from "../GenWrapper.js";
 const logger = new Logger("canvas/SelectionBox");
 
 export class SelectionBoxBase {
@@ -41,29 +42,30 @@ export class SelectionBoxBase {
 			this.selectionTransform,
 			this.selectionSize,
 		);
-
-		items.events.selection.register(id, {
-			add: entries => {
-				for (const { id } of entries) this.addItem(id);
-			},
-			move: transform => this.updateTransform(transform),
-		});
 	}
 
-	public addItem(id: ItemID) {
+	private addItem(ids: ItemID[], collect: false): void;
+	private addItem(ids: ItemID[], collect: true): MArgs<"SelectionAddItems">;
+	private addItem(ids: ItemID[], collect: boolean) {
 		const newItemHolder = this.container.createChild("g");
-		newItemHolder.style.visibility = "hidden";
-		this.heldItems.add(id);
+		//newItemHolder.style.visibility = "hidden";
 
+		const newIds = new Set(ids);
+		this.heldItems.addFrom(newIds);
 
+		const matrices = new Map<ItemID, DOMMatrix>();
 
 		for (const entry of this.items.get(this.heldItems)) {
 			if (entry === None) continue;
-			const { canvasItem: item } = entry;
+			const { canvasItem: item, id } = entry;
+
 			const matrix = item.element.getFinalTransform();
 			const cont = newItemHolder.createChild("g");
+
 			const transform = this.ctx.createTransform(matrix);
 			cont.transform.baseVal.appendItem(transform);
+			matrices.set(id, transform.matrix);
+
 			cont.appendChild(item.element);
 		}
 
@@ -76,20 +78,46 @@ export class SelectionBoxBase {
 			y: (bounds.top + bounds.bottom) / 2,
 		};
 
-		const holderTransform = this.ctx.createTransform();
-		holderTransform.setTranslate(-center.x, -center.y);
-		newItemHolder.transform.baseVal.appendItem(holderTransform);
+		const newTransforms = {} as Record<ItemID, Transform>;
+		const oldTransforms = {} as Record<ItemID, Transform>;
+
+		for (const [id, matrix] of matrices.entries()) {
+			matrix.e -= center.x;
+			matrix.f -= center.y;
+			if (collect) {
+				const transform = fromMatrix(matrix);
+				if (newIds.has(id)) newTransforms[id] = transform;
+				else oldTransforms[id] = transform;
+			}
+		}
+
+		// const holderTransform = this.ctx.createTransform();
+		// holderTransform.setTranslate(-center.x, -center.y);
+		// newItemHolder.transform.baseVal.appendItem(holderTransform);
 
 		this.itemContainer.appendChild(newItemHolder);
 
 		this.selectionSize.set({ x: bounds.width, y: bounds.height });
 
-		this.selectionTransform.set(asDomMatrix({
+		const transform = {
 			origin: center,
 			basisX: point(1, 0),
 			basisY: point(0, 1),
-		}));
+		};
+
+		this.selectionTransform.set(asDomMatrix(transform));
 		newItemHolder.style.visibility = "initial";
+
+		if (collect) {
+			const payload: MArgs<"SelectionAddItems"> = {
+				selectionTransform: transform,
+				newItems: newTransforms,
+				existingItems: oldTransforms,
+			};
+			return payload;
+		}
+
+		return undefined;
 	}
 
 	public updateTransform(newTransform: Transform) {

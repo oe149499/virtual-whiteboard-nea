@@ -1,6 +1,10 @@
 import { Point, Result } from "../gen/Types.js";
 import { MutableState, mutableStateOf } from "./State.js";
 
+Set.prototype.addFrom = function <T>(this: Set<T>, src: Iterable<T>) {
+	for (const item of src) this.add(item);
+};
+
 const timeoutVal = Symbol();
 
 async function maxTimeout<T>(this: Promise<T>, time: number): Promise<Result<T, number>> {

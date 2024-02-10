@@ -1,4 +1,4 @@
-import { ItemType, SpecificItem } from "../GenWrapper.js";
+import { ItemType, MArgs, SpecificItem } from "../GenWrapper.js";
 import { ClientID, Item, ItemID, Transform } from "../gen/Types.js";
 import { CanvasContext } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
@@ -37,11 +37,6 @@ type ItemHandlers = {
 	insert(entry: ItemEntry): void,
 }
 
-interface ItemTableInit {
-	onInsert?(entry: ItemEntry): void;
-	selection?: Partial<SelectionHandlers>;
-}
-
 function* map<T, U>(src: Iterable<T>, fn: (_: T) => U) {
 	for (const item of src) {
 		yield fn(item);
@@ -65,11 +60,22 @@ export class ItemTable {
 		});
 	}
 
+	private async bootstrap() {
+		// Load client information and begin listening for client changes
+
+		// Load all items and begin listening for client changes
+
+		// Load all selections and listen
+
+		// Profit
+	}
+
 	private _events = {
 		selection: keyedProvider<ClientID, SelectionHandlersT>(),
 		items: multiTargetProvider<ItemHandlers>(),
 		itemCreate: exclusiveProvider<[Item], CanvasItem>(),
 		selectionCreate: exclusiveProvider<[id: ClientID], SelectionBoxBase>(),
+		ownSelectionAdd: exclusiveProvider<[items: ItemID[]], MArgs<"SelectionAddItems">>(),
 	};
 
 	public readonly events = Object.freeze({
@@ -77,6 +83,7 @@ export class ItemTable {
 		items: this._events.items.dispatcher,
 		itemCreate: this._events.itemCreate.dispatcher,
 		selectionCreate: this._events.selectionCreate.dispatcher,
+		ownSelectionAdd: this._events.ownSelectionAdd.dispatcher,
 	});
 
 	public insert(id: ItemID, item: Item) {
@@ -100,7 +107,7 @@ export class ItemTable {
 		return this.table.values();
 	}
 
-	private addSelection(selection: ClientID, items: ItemID[]) {
+	private ensureSelection(selection: ClientID) {
 		let selectionEntry = this.selection.get(selection);
 		if (!selectionEntry) {
 			selectionEntry = {
@@ -110,14 +117,31 @@ export class ItemTable {
 			};
 			this.selection.set(selection, selectionEntry);
 		}
+		return selectionEntry;
+	}
+
+	private addSelection(selection: ClientID, items: ItemID[]) {
+		const selectionEntry = this.ensureSelection(selection);
+
+		for (const item of items) {
+			if (this.table.get(item)?.selection !== None) continue;
+			selectionEntry.items.add(item);
+		}
+
 		const itemEntries = Array.from(this.get(items)).filter(Some);
 
 		this._events.selection.emit("add", selection, itemEntries);
 	}
 
 	public addOwnSelection(items: ItemID[]) {
-		this.addSelection(this.ownID, items);
-		this.client.method.SelectionAddItems({ items });
+		const selectionEntry = this.ensureSelection(this.ownID);
+
+		const freeItems = items.filter(id => this.table.get(id)?.selection === None);
+		selectionEntry.items.addFrom(freeItems);
+
+		const payload = this._events.ownSelectionAdd.call(freeItems);
+
+		this.client.method.SelectionAddItems(payload);
 	}
 
 	public moveOwnSelection(transform: Transform) {

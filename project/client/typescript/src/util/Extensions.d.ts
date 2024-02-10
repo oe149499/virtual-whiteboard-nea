@@ -5,6 +5,10 @@ import { State } from "./State";
 declare global {
 	type Handler<T> = ((_: T) => void) | null;
 
+	interface Set<T> {
+		addFrom(src: Iterable<T>): void;
+	}
+
 	interface DOMTokenList {
 		set(name: string, value: boolean): void;
 
