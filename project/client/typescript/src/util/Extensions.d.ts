@@ -1,5 +1,5 @@
 import { BoundsTester } from "../Bounds";
-import { Point, Result } from "../gen/Types";
+import { Result } from "../gen/Types";
 import { State } from "./State";
 
 declare global {
@@ -44,6 +44,7 @@ declare global {
 		maxTimeout(time: number): Promise<Result<T, number>>;
 	}
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface WeakMap<K extends object, V> {
 		has(value: unknown): value is K;
 	}

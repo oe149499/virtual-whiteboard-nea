@@ -17,7 +17,6 @@ export enum ToolType {
 }
 
 interface _Tool {
-	// _properties?: AnyPropertyMap;
 	properties?: SingletonPropertyStore;
 }
 
@@ -51,7 +50,6 @@ export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
 interface ToolBase {
-	// readonly _properties?: AnyPropertyMap;
 	readonly properties?: SingletonPropertyStore;
 }
 
@@ -76,7 +74,7 @@ abstract class ToolBase implements _Tool {
 }
 
 abstract class InteractiveToolBase extends ToolBase {
-	#filterHandle: FilterHandle | null = null;
+	#filterHandle?: FilterHandle;
 
 	protected get gestureFilter(): FilterHandle {
 		if (!this.#filterHandle) {
@@ -93,17 +91,15 @@ abstract class InteractiveToolBase extends ToolBase {
 	}
 
 	protected onDragGesture?(gesture: DragGestureState): void;
-
 	protected onPressGesture?(gesture: PressGesture): void;
-
 	protected onLongPressGesture?(gesture: LongPressGesture): void;
 }
 
 export abstract class ActionToolBase extends InteractiveToolBase implements ActionTool {
 	public override get type(): ToolType.Action { return ToolType.Action; }
 	protected singleGesture = true;
-	private onBegin: OnBegin | null = null;
-	private completionResolve: (() => void) | null = null;
+	private onBegin?: OnBegin;
+	private completionResolve?: (() => void);
 
 	public bind(onBegin: OnBegin) {
 		this.onBegin = onBegin;
@@ -112,7 +108,7 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 
 	protected start() {
 		this.onBegin?.({
-			cancel: () => this.cancel(),
+			cancel: this.cancel.bind(this),
 			completion: new Promise((resolve) => {
 				this.completionResolve = resolve;
 			}),

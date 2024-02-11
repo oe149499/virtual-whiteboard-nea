@@ -1,4 +1,4 @@
-import { None, Option } from "../util/Utils.js";
+import { None, Option } from "./Utils.js";
 
 export class AutoMap<K, V> extends Map<K, V> {
 	public constructor(

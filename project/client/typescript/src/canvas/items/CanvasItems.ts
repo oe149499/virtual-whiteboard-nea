@@ -1,11 +1,11 @@
 import { Bounds } from "../../Bounds.js";
-import { Id, ItemType, SpecificItem } from "../../GenWrapper.js";
+import { ItemType, SpecificItem } from "../../GenWrapper.js";
 import { Logger } from "../../Logger.js";
 import { PropertySchema, PropertyStore, PropKey, PropType, PropValue } from "../../Properties.js";
 import { PropertyTemplates } from "../../PropertyTemplates.js";
 // import { AnyPropertyMap } from "../../Properties.js";
-import { Color, ImageItem, Item, ItemID, Point, Stroke, Transform } from "../../gen/Types.js";
-import { AutoMap, HookMap } from "../../ui/Maps.js";
+import { Color, Item, ItemID, Point, Stroke, Transform } from "../../gen/Types.js";
+import { AutoMap, HookMap } from "../../util/Maps.js";
 import { Constructor, None, Option } from "../../util/Utils.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
 import { ItemEntry, ItemTable } from "../ItemTable.js";
@@ -18,7 +18,6 @@ export abstract class CanvasItem {
 	static readonly PropertiesHook = new HookMap<CanvasItem, void, PropertySchema>();
 
 	public readonly element: SVGGElement;
-	// public readonly properties?: AnyPropertyMap;
 	protected abstract get innerElement(): SVGGraphicsElement;
 
 	public _update(value: Item) {
@@ -68,11 +67,6 @@ export abstract class CanvasItem {
 		if (item.type !== type) logger.throw("Tried to update `%o` item with type `%o`: %o", type, item.type, item);
 	}
 
-	/** @deprecated */
-	protected init?(ctx: CanvasContext): void;
-	/** @deprecated */
-	protected update?(): void;
-
 	public static create(_ctx: CanvasContext, _item: Item): CanvasItem {
 		throw new Error("not implemented here due to cyclic dependency");
 	}
@@ -100,7 +94,7 @@ export class ItemPropertyStore extends PropertyStore {
 		let map: AccMap<T> | undefined = this.accessorTable[type];
 		if (!map) {
 			map = new AutoMap(_ => ({}));
-			// @ts-ignore
+			// @ts-expect-error I'm putting it back where I got it from
 			this.accessorTable[type] = map;
 		}
 
@@ -152,16 +146,6 @@ export function TransformMixin<TBase extends Constructor<CanvasItem>>(Base: TBas
 				this.transform.update(this.item.transform);
 			});
 		}
-
-		// protected override init?(ctx: CanvasContext): void {
-		// 	this.transform = new TransformHelper(ctx, this.innerElement.transform.baseVal, this.item.transform);
-		// 	super.init?.(ctx);
-		// }
-
-		// protected override update(): void {
-		// 	this.transform.update(this.item.transform);
-		// 	super.update?.();
-		// }
 	}
 
 	return Derived;
@@ -184,16 +168,6 @@ export function StrokeMixin<TBase extends Constructor<CanvasItem>>(Base: TBase) 
 				this.#stroke?.update(this.item.stroke);
 			});
 		}
-
-		// protected override init?(ctx: CanvasContext): void {
-		// 	this.#stroke = new StrokeHelper(this.innerElement.style, this.item.stroke);
-		// 	super.init?.(ctx);
-		// }
-
-		// protected override update(): void {
-		// 	this.#stroke?.update(this.item.stroke);
-		// 	super.update?.();
-		// }
 	}
 
 	return Derived;
@@ -214,16 +188,6 @@ export function FillMixin<TBase extends Constructor<CanvasItem>>(Base: TBase) {
 				this.#fill?.update(this.item.fill);
 			});
 		}
-
-		// protected override init?(ctx: CanvasContext): void {
-		// 	this.#fill = new FillHelper(this.innerElement.style, this.item.fill);
-		// 	super.init?.(ctx);
-		// }
-
-		// protected override update?(): void {
-		// 	this.#fill?.update(this.item.fill);
-		// 	super.update?.();
-		// }
 	}
 
 	return Derived;
@@ -233,9 +197,6 @@ export class Image extends TransformMixin(CanvasItem) {
 	private elem: SVGImageElement;
 
 	public override get innerElement() { return this.elem; }
-
-	// private transform: TransformHelper;
-
 	public constructor(
 		ctx: CanvasContext,
 		protected item: SpecificItem<"Image">,
@@ -247,11 +208,6 @@ export class Image extends TransformMixin(CanvasItem) {
 				href: item.url,
 			});
 		this.elem = elem;
-
-		//this.init?.(ctx);
-
-		// this.transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
-		//this.transform.createExtra().setScale(1 / 37.8, 1 / 37.8);
 	}
 
 	static {
@@ -263,9 +219,5 @@ export class Image extends TransformMixin(CanvasItem) {
 	public override updateItem(value: Item): void {
 		this.checkType(value, "Image");
 		this.item = value;
-
-		// this.update?.();
-
-		// this.transform.update(value.transform);
 	}
 }

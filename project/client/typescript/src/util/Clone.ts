@@ -10,7 +10,7 @@ type Cloner<T> = (old: T) => T;
 
 const ClonerSym = Symbol("Cloner");
 
-function register<T extends object>({ prototype }: { prototype: T }, fn: Cloner<T>) {
+function register<T extends object>({ prototype }: abstract new (..._: any[]) => T, fn: Cloner<T>) {
 	prototype[ClonerSym] = fn as any;
 }
 

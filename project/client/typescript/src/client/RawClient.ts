@@ -1,4 +1,4 @@
-import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, MethodHandler, IName, IArgs, IItem, createIteratePayload } from "../GenWrapper.js";
+import { MArgs, MName, MRet, MsgRecv, createMethodPayload, NCName, NCArgs, IName, IArgs, IItem, createIteratePayload } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
 import { AsyncIter } from "../util/AsyncIter.js";
 import { Channel, makeChannel } from "../util/Channel.js";
@@ -51,14 +51,9 @@ export class RawClient {
 
 		this.sendPayload(JSON.stringify(payload));
 
-		const promise = new Promise<MRet<M>>((res, rej) => {
-			this.calls[id] = {
-				resolve: res,
-				reject: rej,
-			};
+		return new Promise<MRet<M>>((resolve, reject) => {
+			this.calls[id] = { resolve, reject };
 		});
-
-		return promise;
 	}
 
 	public callIterate<I extends IName>(name: I, args: IArgs<I>): AsyncIter<IItem<I>[]> {
@@ -76,15 +71,11 @@ export class RawClient {
 		return iter;
 	}
 
-	public getMethodHandler(): MethodHandler {
-		return this.callMethod.bind(this);
-	}
-
 	public setNotifyHandler<N extends NCName>(
 		name: N,
 		handler: (_: NCArgs<N>) => void,
 	) {
-		// @ts-expect-error trust me bro
+		// @ts-expect-error enum generics
 		this.notifyCHandlers[name] = handler;
 	}
 
@@ -115,8 +106,7 @@ export class RawClient {
 				}
 			} break;
 			default: {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				logger.error(`Unknown message type: ${(msg as any).protocol}`);
+				logger.error(`Unknown message type: ${msg}`);
 			}
 		}
 	}
@@ -149,14 +139,8 @@ export class RawClient {
 	}
 
 	private handleNotifyC<N extends NCName>(name: N, args: NCArgs<N>) {
-		const handler = this.notifyCHandlers[name];
-		if (handler !== undefined) {
-			// meta-lint hell
-			// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-			// @ts-ignore it can't work it out
-			handler(args);
-		} else {
-			logger.error(`No handler set for Notify-C type ${name}`);
-		}
+		const handler: ((_: NCArgs<N>) => void) | undefined = this.notifyCHandlers[name];
+		if (handler) handler(args);
+		else logger.error(`No handler set for Notify-C type ${name}`);
 	}
 }

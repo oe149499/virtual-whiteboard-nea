@@ -15,7 +15,7 @@ export class PanelController {
 			.getElementsByClassName("panel-contents");
 
 		if (contents.length == 0)
-			logger.throw("Failed to find a suitable `.panel`");
+			logger.throw("Failed to find a suitable `.panel-contents`");
 		const contentsElem = contents[0];
 
 		if (contentsElem instanceof HTMLElement) {

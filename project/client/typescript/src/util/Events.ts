@@ -7,10 +7,10 @@ interface EventSchema {
 	[x: string]: (..._: any) => void;
 }
 
-export enum DispatchMode {
-	SingleTarget,
-	MultiTarget,
-}
+// export enum DispatchMode {
+// 	SingleTarget,
+// 	MultiTarget,
+// }
 
 export function singleTargetProvider<T extends EventSchema>() {
 	return new EventProvider<T, SingleTargetDispatcher<T>>(new SingleTargetDispatcher());
@@ -23,11 +23,6 @@ export function multiTargetProvider<T extends EventSchema>() {
 export function keyedProvider<TKey, T extends EventSchema>() {
 	return new EventProvider<KeyedSchema<T, TKey>, KeyedDispatcher<T, TKey>>(new KeyedDispatcher());
 }
-
-export const eventProvider = <M extends DispatchMode>(mode: M) => <T extends EventSchema>() => {
-	const dispatcher = new Dispatchers[mode]<T>() as DispatcherType<T, M>;
-	return new EventProvider<T, DispatcherType<T, M>>(dispatcher);
-};
 
 export function exclusiveProvider<Params extends unknown[], Return>() {
 	return new ExclusiveProvider<Params, Return>();
@@ -100,15 +95,15 @@ class KeyedDispatcher<T extends EventSchema, TKey> extends EventDispatcherBase<K
 	}
 }
 
-type DispatcherType<T extends EventSchema, M extends DispatchMode> = {
-	[DispatchMode.SingleTarget]: SingleTargetDispatcher<T>,
-	[DispatchMode.MultiTarget]: MultiTargetDispatcher<T>,
-}[M];
+// type DispatcherType<T extends EventSchema, M extends DispatchMode> = {
+// 	[DispatchMode.SingleTarget]: SingleTargetDispatcher<T>,
+// 	[DispatchMode.MultiTarget]: MultiTargetDispatcher<T>,
+// }[M];
 
-const Dispatchers = {
-	[DispatchMode.SingleTarget]: SingleTargetDispatcher,
-	[DispatchMode.MultiTarget]: MultiTargetDispatcher,
-} as const;
+// const Dispatchers = {
+// 	[DispatchMode.SingleTarget]: SingleTargetDispatcher,
+// 	[DispatchMode.MultiTarget]: MultiTargetDispatcher,
+// } as const;
 const NoHandler = Symbol("NoHandler");
 
 class ExclusiveProvider<Params extends unknown[], Return> {

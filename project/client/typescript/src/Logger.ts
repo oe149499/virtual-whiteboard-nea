@@ -44,7 +44,7 @@ export class Logger {
 			const displayString = LogOptions.logFormat(new Date(), level, this.module, message);
 			switch (level) {
 				case LogLevel.Trace:
-					console.trace(displayString, ...objs);
+					console.info(displayString, ...objs);
 					break;
 				case LogLevel.Info:
 					console.info(displayString, ...objs);

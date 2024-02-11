@@ -3,7 +3,6 @@ import { MethodNames, MethodSpec } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
 import { AsyncIter } from "./util/AsyncIter.js";
-import { Channel } from "./util/Channel.js";
 
 export type Id<T> = { [K in keyof T]: T[K] };
 

@@ -1,11 +1,9 @@
 import { ItemType, MArgs, SpecificItem } from "../GenWrapper.js";
 import { ClientID, Item, ItemID, Transform } from "../gen/Types.js";
-import { CanvasContext } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
 import { None, Option, Some } from "../util/Utils.js";
-import { State } from "../util/State.js";
-import { DispatchMode, eventProvider, exclusiveProvider, keyedProvider, multiTargetProvider, singleTargetProvider } from "../util/Events.js";
-import { SelectionBoxBase, UserSelection } from "./SelectionBox.js";
+import { exclusiveProvider, keyedProvider, multiTargetProvider } from "../util/Events.js";
+import { SelectionBoxBase } from "./SelectionBox.js";
 import { SessionClient } from "../client/Client.js";
 
 export interface ItemEntry<T extends ItemType = ItemType> {

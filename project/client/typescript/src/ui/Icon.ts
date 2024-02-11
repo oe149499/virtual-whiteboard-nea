@@ -41,8 +41,8 @@ export class ToolIcon {
 	private icon: SvgIcon;
 	public readonly element: HTMLElement;
 
-	private _toolState = deferredStateOf(None as ToolState);
-	public readonly active = this._toolState.derived(
+	private toolState = deferredStateOf(None as ToolState);
+	public readonly active = this.toolState.derived(
 		t => t !== None && t?.tool === this.tool,
 	);
 
@@ -58,7 +58,7 @@ export class ToolIcon {
 		this.element.appendChild(this.icon.objectElement);
 
 		this.active.watch(active => this.element.classList.set("selected", active));
-		this._toolState.watch(t => logger.debug("Tool state changed: %o", t));
+		this.toolState.watch(t => logger.debug("Tool state changed: %o", t));
 
 		this.element.onclick = () => {
 			logger.debug("tool icon clicked", this.active);
@@ -71,8 +71,6 @@ export class ToolIcon {
 	}
 
 	public bind(toolState: State<ToolState>) {
-		logger.debug("Binding to current state %o", toolState.get());
-		toolState.watch(t => logger.debug("Source tool state changed: %o", t));
-		this._toolState.bind(toolState);
+		this.toolState.bind(toolState);
 	}
 }

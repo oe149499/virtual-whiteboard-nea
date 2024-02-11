@@ -2,6 +2,7 @@ import { Logger } from "../Logger.js";
 import { Point, Result, Transform } from "../gen/Types.js";
 import { State } from "./State.js";
 import "./ExtensionsImpl.js";
+import { updateMatrix } from "../Transform.js";
 const logger = new Logger("util/Utils");
 
 export const None = Symbol("None");
@@ -16,8 +17,7 @@ export function Some<T>(x: Option<T>): x is T {
 
 export type PromiseHandle<T> = {
 	resolve: (_: T) => void,
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	reject: (_: any) => void,
+	reject: (_: unknown) => void,
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -59,18 +59,6 @@ export function point(x?: number, y?: number): Point {
 	y ??= x;
 	return { x, y };
 }
-// export function clone<T>(value: T): T {
-// 	if (typeof value == "object") {
-// 		const out = {};
-// 		for (const name of Object.getOwnPropertyNames(value)) {
-// 			// @ts-expect-error assigning nonexistent properties
-// 			out[name] = clone(value[name]);
-// 		}
-// 		Object.setPrototypeOf(out, Object.getPrototypeOf(value));
-// 		return out as T;
-// 	}
-// 	return value;
-// }
 
 export function deg2rad(val: number) {
 	return (val / 180) * Math.PI;
@@ -92,20 +80,6 @@ function createObjectID(o: object) {
 	const id = ++nextObjID;
 	objectIDs.set(o, id);
 	return id;
-}
-export function applyTransform(t: Transform, p: Point): Point {
-	return {
-		x: p.x + t.origin.x,
-		y: p.y + t.origin.y,
-	};
-}
-
-function updateMatrix(m: DOMMatrix, t: Transform) {
-	const { x: a, y: b } = t.basisX;
-	const { x: c, y: d } = t.basisY;
-	const { x: e, y: f } = t.origin;
-
-	Object.assign(m, { a, b, c, d, e, f });
 }
 
 export function asDomMatrix(t: Transform): DOMMatrix;

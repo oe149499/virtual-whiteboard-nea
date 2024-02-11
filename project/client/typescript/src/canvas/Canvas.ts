@@ -5,9 +5,10 @@ import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
-import { DragGestureState, Gesture, GestureHandler, GestureType, LongPressGesture, PressGesture } from "./Gesture.js";
+import { DragGestureState, GestureHandler, LongPressGesture, PressGesture } from "./Gesture.js";
 import { RemoteSelection, UserSelection } from "./SelectionBox.js";
 import { ItemTable } from "./ItemTable.js";
+import { TimeoutMap } from "../util/TimeoutMap.js";
 
 
 const PX_PER_CM = 37.8;
@@ -18,9 +19,6 @@ export class CanvasController {
 	public readonly ctx: CanvasContext;
 	public readonly selection = new Map<ClientID, UserSelection>();
 
-	private items = new Map<ItemID, CanvasItem>();
-	// public readonly itemTable: ItemTable;
-
 	private targetRect: DOMRect;
 
 	public readonly elementBounds: State<DOMRectReadOnly>;
@@ -29,8 +27,12 @@ export class CanvasController {
 	private gestures!: GestureHandler;
 	private coordMapping: MutableState<CoordinateMapping>;
 
-	private gestureCount = mutableStateOf(0);
-	public readonly isGesture = this.gestureCount.derived(c => c !== 0);
+	private cursorTimeouts = new TimeoutMap(1000, (id: number) => {
+		this.currentCursors.mutate(c => c.delete(id));
+	});
+
+	private currentCursors = mutableStateOf(new Set());
+	public readonly isGesture = this.currentCursors.derived(s => s.size !== 0);
 
 	public ondraggesture: Handler<DragGestureState> = null;
 	public onpressgesture: Handler<PressGesture> = null;
@@ -60,23 +62,12 @@ export class CanvasController {
 			else return new RemoteSelection(this.ctx, itemTable, id);
 		});
 
-		// this.itemTable = new ItemTable(
-		// 	CanvasItem.create.bind(null, this.ctx),
-		// 	{
-		// 		onInsert: ({ canvasItem }) => {
-		// 			svgElement.appendChild(canvasItem.element);
-		// 		},
-		// 	},
-		// );
-
-		// this.selection = new SelectionBox(this.ctx, this.itemTable);
-
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
 
 		this.elementBounds = stateBy(
 			new DOMRect(),
-			set => new ResizeObserver((e) => set(e[0].contentRect)).observe(svgElement),
+			set => new ResizeObserver(([{ contentRect }]) => set(contentRect)).observe(svgElement),
 		);
 
 		this.elementBounds.watch(({ x, y, width, height }) => {
@@ -95,25 +86,12 @@ export class CanvasController {
 	public * probePoint(target: Point) {
 		for (const { id, canvasItem: item } of this.itemTable.entries()) {
 			if (item.bounds.testIntersection(target)) yield { item, id };
-			// logger.debug("Bounds: ", item.bounds);
 		}
 	}
 
-	// private onGesture(gesture: Gesture): void {
-	// 	if (this.selection.testIntersection(gesture.location)) {
-	// 		this.selection.handleGesture(gesture);
-	// 	} else switch (gesture.type) {
-	// 		case GestureType.Drag: return this.ondraggesture?.(gesture);
-	// 		case GestureType.Click: return this.onpressgesture?.(gesture);
-	// 		case GestureType.LongClick: return this.onlongpressgesture?.(gesture);
-	// 	}
-	// }
-
+	/** @deprecated */
 	public addItem(id: ItemID, item: Item) {
 		this.itemTable.insert(id, item);
-		// const canvasItem = CanvasItem.create(this.ctx, item);
-		// this.items.set(id, canvasItem);
-		// this.svgElement.appendChild(canvasItem.element);
 	}
 
 	public addRawElement(elem: SVGElement) {
@@ -127,7 +105,6 @@ export class CanvasController {
 	public setOrigin({ x, y }: { x: number, y: number }) {
 		this.targetRect.x = x;
 		this.targetRect.y = y;
-		//logger.debug("Current target: %o", this.targetRect);
 		this.coordMapping.updateBy(m => {
 			m.targetOffset = { x, y };
 			return m;
@@ -135,10 +112,8 @@ export class CanvasController {
 	}
 
 	private pointerDown(e: PointerEvent): void {
-		logger.debug("Mouse down: %o", e);
-		logger.debug("Gestures: %o", this.activeGestures);
-
-		this.gestureCount.updateBy(c => c + 1);
+		this.currentCursors.mutate(s => s.add(e.pointerId));
+		this.cursorTimeouts.add(e.pointerId);
 
 		const [channel, receiver] = makeChannel<PointerEvent>();
 
@@ -163,7 +138,8 @@ export class CanvasController {
 	private pointerUp(e: PointerEvent): void {
 		if (!(e.pointerId in this.activeGestures)) return;
 
-		this.gestureCount.updateBy(c => c - 1);
+		this.currentCursors.mutate(c => c.delete(e.pointerId));
+		this.cursorTimeouts.clear(e.pointerId);
 
 		this.activeGestures[e.pointerId].move.close();
 		this.activeGestures[e.pointerId].end(e);
@@ -173,6 +149,9 @@ export class CanvasController {
 	private pointerMove(e: PointerEvent): void {
 		if (!(e.pointerId in this.activeGestures)) return;
 		const id = e.pointerId;
+
+		this.cursorTimeouts.push(id);
+
 		const gesture = this.activeGestures[id];
 		if (!gesture) return;
 

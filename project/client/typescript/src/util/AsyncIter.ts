@@ -79,8 +79,7 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return new Wrapped(source);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public static zip<T extends any[]>(...source: TupleIter<T>): AsyncIter<T> {
+	public static zip<T extends unknown[]>(...source: TupleIter<T>): AsyncIter<T> {
 		return new Zipped<T>(...source);
 	}
 }
@@ -144,10 +143,10 @@ class Dechunked<T> extends AsyncIter<T> {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TupleIter<T extends any[]> = { [K in keyof T]: AsyncIter<T[K]> };
+type TupleIter<T extends unknown[]> = { [K in keyof T]: AsyncIter<T[K]> };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-class Zipped<T extends any[]> extends AsyncIter<T> {
+class Zipped<T extends unknown[]> extends AsyncIter<T> {
 	private source: TupleIter<T>;
 	public constructor(
 		...source: TupleIter<T>

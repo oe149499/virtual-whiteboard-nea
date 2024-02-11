@@ -33,23 +33,6 @@ export class ResourcePicker {
 	}
 }
 
-// export function buildResourcePicker(
-// 	target: HTMLElement,
-// 	state: MutableState<Option<URL>>,
-// ) {
-// 	const urlInput = buildUrlDisplay(target);
-
-// 	urlInput.onchange = () => {
-// 		if (urlInput.value) state.set(new URL(urlInput.value));
-// 	};
-
-// 	const fileState = buildFileArea(target);
-// 	buildUploadArea(target, fileState, state);
-// 	state.watch(url => {
-// 		if (url !== None) urlInput.value = url.toString();
-// 	});
-// }
-
 function buildUrlDisplay(target: HTMLElement): HTMLInputElement {
 	const id = getObjectID();
 	target.createChild("label")

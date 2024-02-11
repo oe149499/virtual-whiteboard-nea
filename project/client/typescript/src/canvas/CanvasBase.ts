@@ -1,3 +1,4 @@
+import { updateMatrix } from "../Transform.js";
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
 import { State } from "../util/State.js";
 import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
@@ -135,11 +136,7 @@ export class TransformHelper {
 	}
 
 	public update(value: Transform) {
-		const { x: a, y: b } = value.basisX;
-		const { x: c, y: d } = value.basisY;
-		const { x: e, y: f } = value.origin;
-
-		Object.assign(this.matrix, { a, b, c, d, e, f });
+		updateMatrix(this.matrix, value);
 	}
 
 	public updateOrigin({ x, y }: Point) {

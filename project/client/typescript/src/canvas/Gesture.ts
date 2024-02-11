@@ -176,13 +176,10 @@ export class GestureHandler {
 	}
 
 	private handleGesture(gesture: Gesture) {
-		//logger.debug("", GestureLayers);
 		logger.debug("Handling gesture: ", gesture);
 		for (const layer of GestureLayers) {
 			const filters = this.filterLayers[layer];
-			//logger.debug("Layer: %o, filters: %o", layer, filters);
 			for (const filter of filters.active) {
-				//logger.debug("Testing filter: ", filter);
 				if (gesture.type & filter.types) {
 					if (filter.check(gesture.location)) {
 						filter.handle(gesture);
@@ -209,7 +206,4 @@ export class GestureHandler {
 		this.filterLayers[layer].active.add(handle);
 		return handle;
 	}
-
-	/** @deprecated */
-	public ongesture?: (_: Gesture) => void;
 }

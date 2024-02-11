@@ -2,17 +2,6 @@ import { CompositeKey, PropKey, PropType, PropertySchema, ValuePropertyType } fr
 import { Stroke } from "./gen/Types.js";
 import { point } from "./util/Utils.js";
 
-
-// function Stroke($: PropertyBuilder<Stroke>) {
-// 	$.color("color").as("Colour");
-// 	$.number("width").as("Width");
-// }
-
-// function Point($: PropertyBuilder<Point>) {
-// 	$.number("x").as("X");
-// 	$.number("y").as("Y");
-// }
-
 function PointSchema(defaultVal = point()) {
 	const keys = {
 		x: new PropKey("number", { defaultValue: defaultVal.x }),
@@ -34,13 +23,6 @@ function PointSchema(defaultVal = point()) {
 
 	return { keys, schema };
 }
-
-// function Transform($: PropertyBuilder<UserTransform>) {
-// 	$.struct("origin", Point).as("Position");
-// 	$.number("rotation").as("Angle");
-// 	$.struct("stretch", Point).as("Scale");
-// 	$.number("skew").as("Shear");
-// }
 
 function TransformSchema() {
 	const origin = PointSchema();

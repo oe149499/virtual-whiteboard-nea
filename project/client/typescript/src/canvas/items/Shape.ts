@@ -8,20 +8,6 @@ import { CanvasItem, FillMixin, StrokeMixin, TransformMixin } from "./CanvasItem
 
 const logger = new Logger("canvas/items/Shape");
 
-// const ShapeItemSpec = {
-// 	transform: {
-// 		origin: point(),
-// 		rotation: 0,
-// 		stretch: point(1),
-// 		skew: 0,
-// 	},
-// 	stroke: {
-// 		color: "black",
-// 		width: 0.1,
-// 	},
-// 	fill: "black",
-// };
-
 const { keys, schema } = builder()
 	.add(PropertyTemplates.TransformSchema())
 	.add(PropertyTemplates.StrokeSchema())
@@ -32,17 +18,8 @@ const { keys, schema } = builder()
 	})
 	.build();
 
-// const ShapeItemProperties = buildProperties(ShapeItemSpec, $ => {
-// 	$.struct("transform", PropertyTemplates.Transform);
-// 	$.struct("stroke", PropertyTemplates.Stroke);
-// 	$.color("fill").as("Fill Colour");
-// });
 
 abstract class ShapeItem extends FillMixin(StrokeMixin(TransformMixin(CanvasItem))) {
-	// private _transform: TransformHelper;
-	// private _stroke: StrokeHelper;
-	// private _fill: FillHelper;
-
 	private innerElem: SVGGraphicsElement;
 
 	public get innerElement() { return this.innerElem; }
@@ -57,12 +34,6 @@ abstract class ShapeItem extends FillMixin(StrokeMixin(TransformMixin(CanvasItem
 
 		const elem = this.createElement(ctx);
 		this.innerElem = elem;
-
-		// this._transform = new TransformHelper(ctx, elem.transform.baseVal, item.transform);
-		// this._stroke = new StrokeHelper(elem.style, item.stroke);
-		// this._fill = new FillHelper(elem.style, item.fill);
-
-		// this.init?.(ctx);
 	}
 
 	public override updateItem(value: Item): void {
@@ -75,11 +46,6 @@ abstract class ShapeItem extends FillMixin(StrokeMixin(TransformMixin(CanvasItem
 			return;
 		}
 		this.item = value;
-		// this._fill.update(value.fill);
-		// this._stroke.update(value.stroke);
-		// this._transform.update(value.transform);
-
-		// this.update?.();
 	}
 }
 

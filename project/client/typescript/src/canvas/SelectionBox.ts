@@ -1,9 +1,8 @@
 import { Logger } from "../Logger.js";
 import { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
-import { MutableState, State, WatchHandle, mutableStateOf } from "../util/State.js";
+import { MutableState, State, mutableStateOf } from "../util/State.js";
 import { None, asDomMatrix, point, rad2deg } from "../util/Utils.js";
 import { CanvasContext, MatrixHelper, TranslateHelper } from "./CanvasBase.js";
-import { CanvasItem } from "./items/CanvasItems.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType } from "./Gesture.js";
 import { ItemTable } from "./ItemTable.js";
 import { fromMatrix, updateMatrix } from "../Transform.js";
@@ -185,19 +184,6 @@ const cornerDirs = [
 ].map(([x, y]) => point(x / 2, y / 2));
 
 const rotateDir = point(0, -0.75);
-
-function renderPolygon(ctx: CanvasContext, target: SVGPointList, source: State<Point>[]) {
-	const handles = [];
-	target.clear();
-	for (const [idx, point] of source.entries()) {
-		target.appendItem(ctx.createPoint(point.get()));
-		const handle = ctx.createPointBy(point).watch(
-			p => target.replaceItem(p, idx),
-		);
-		handles.push(handle);
-	}
-	return handles;
-}
 
 class BorderOutline {
 	#keepalive: unknown[] = [];

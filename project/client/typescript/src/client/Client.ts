@@ -2,7 +2,7 @@ import { IterateDispatcher, MethodDispatcher, NCArgs, NCName, createIterateRecie
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "../util/Utils.js";
-import { ClientInfo, ConnectionInfo, Result } from "../gen/Types.js";
+import { ClientInfo } from "../gen/Types.js";
 import { API } from "./HttpApi.js";
 
 const logger = new Logger("session-client");
@@ -28,12 +28,12 @@ export class SessionClient {
 	}
 
 	private rawClient: RawClient;
-	private methodDispatcher: MethodDispatcher | null = null;
-	private iterateDispatcher: IterateDispatcher | null = null;
+	private methodDispatcher?: MethodDispatcher;
+	private iterateDispatcher?: IterateDispatcher;
 	readonly socketUrl: URL;
 
 	public get method(): MethodDispatcher {
-		this.methodDispatcher ??= createMethodReciever(this.rawClient.getMethodHandler());
+		this.methodDispatcher ??= createMethodReciever(this.rawClient.callMethod.bind(this.rawClient));
 		return this.methodDispatcher;
 	}
 
