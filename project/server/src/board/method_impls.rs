@@ -1,12 +1,14 @@
 use std::collections::{self, BTreeMap};
 
+use itertools::Itertools;
+use log::debug;
 use tokio::time::Instant;
 
 use crate::{
     canvas::{item::PathItem, Spline, Transform},
     client,
     message::{
-        self,
+        self as m,
         method::*,
         notify_c::{
             ItemCreated, PathStarted, SelectionItemsAdded, SelectionMoved, SingleItemEdited,
@@ -34,62 +36,69 @@ impl Board {
             Methods::ContinuePath(call) => self.handle_continue_path(id, call).await,
             Methods::EndPath(call) => self.handle_end_path(id, call).await,
             Methods::GetAllItemIDs(call) => self.handle_get_all_item_ids(id, call).await,
-            // Methods::GetAllClientInfo(call) => self.handle_get_all_client_info(id, call).await,
+            Methods::GetAllClientIDs(call) => self.handle_get_all_client_ids(id, call).await,
             Methods::GetClientState(call) => self.handle_get_client_state(id, call).await,
         }
     }
 
     async fn handle_selection_add_items(&self, id: ClientID, call: Call<SelectionAddItems>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
-        let mut result = Vec::with_capacity(params.new_items.len());
-        let mut successful_ids = collections::BTreeSet::new();
-        for &item_id in params.new_items.keys() {
-            let item = self.selected_items.entry_async(item_id).await;
-            match item {
-                scc::hash_map::Entry::Occupied(mut entry) => {
-                    let value = entry.get_mut();
-                    if value == &None {
-                        *value = Some(id);
-                        result.push(message::Ok(()));
-                        successful_ids.insert(item_id);
-                    } else {
-                        result.push(message::Err(ErrorCode::NotAvailable.into()));
-                    }
+
+        let mut old_sits_checked = Vec::with_capacity(params.old_sits.len());
+
+        for entry in params.old_sits {
+            if self.check_owned(&id, &handle, entry.0).await {
+                old_sits_checked.push(entry);
+            }
+        }
+
+        let mut new_sits_checked = Vec::with_capacity(params.new_sits.len());
+
+        let mut return_results = Vec::with_capacity(params.new_sits.len());
+
+        for entry in params.new_sits {
+            use super::active_helpers::TakeResult::*;
+            match self.take_item(&id, &handle, entry.0).await {
+                Successful => {
+                    return_results.push(m::Ok(()));
+                    new_sits_checked.push(entry);
                 }
-                scc::hash_map::Entry::Vacant(entry) => {
-                    entry.insert_entry(Some(id));
-                    result.push(message::Ok(()));
-                    successful_ids.insert(item_id);
+                NonExistent => {
+                    return_results.push(m::Err(ErrorCode::NotFound.into()));
+                }
+                Occupied => {
+                    return_results.push(m::Err(ErrorCode::NotAvailable.into()));
+                }
+                AlreadyOwned => {
+                    return_results.push(m::Ok(()));
+                    new_sits_checked.push(entry);
                 }
             }
         }
 
-        for item_id in params.existing_items.keys() {
-            let Some(item) = self.selected_items.get_async(item_id).await else {
-                return handle.error(non_existent_id(*item_id));
-            };
-            if *item.get() != Some(id) {
-                return handle.error(resource_not_owned(*item_id));
-            }
+        let new_ids = new_sits_checked.iter().map(|&(i, _)| i).collect();
+
+        let sits = old_sits_checked.iter().chain(old_sits_checked.iter());
+
+        let mut client = self.get_client(&id).await;
+        let selection = &mut client.get_mut().selection;
+
+        selection.own_transform = params.new_srt.clone();
+
+        for (item_id, transform) in sits.cloned() {
+            selection.items.insert(item_id, transform);
         }
 
-        let mut new_items = params.existing_items;
-        new_items.extend(params.new_items);
+        drop(client);
 
-        handle.respond(result);
-        {
-            let mut client = self.get_client(&id).await;
-            client.get_mut().selection = SelectionState {
-                own_transform: params.selection_transform,
-                items: new_items.clone(),
-            };
-        }
+        handle.respond(return_results);
 
         self.send_notify_c(SelectionItemsAdded {
             id,
-            items: successful_ids.into_iter().collect(),
+            items: new_ids,
+            new_srt: params.new_srt,
         })
-        .await;
+        .await
     }
 
     async fn handle_selection_remove_items(
@@ -142,9 +151,37 @@ impl Board {
     async fn handle_selection_move(&self, id: ClientID, call: Call<SelectionMove>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
 
+        let new_sits;
+
+        if let Some(sits) = params.new_sits {
+            let mut new_sits_checked = Vec::with_capacity(sits.len());
+
+            for entry in sits {
+                if self.check_owned(&id, &handle, entry.0).await {
+                    new_sits_checked.push(entry);
+                }
+            }
+
+            new_sits = Some(new_sits_checked);
+        } else {
+            new_sits = None;
+        }
+
+        {
+            let mut client = self.get_client(&id).await;
+            let selection = &mut client.get_mut().selection;
+
+            selection.own_transform = params.new_srt.clone();
+
+            for (item_id, transform) in new_sits.iter().flatten() {
+                selection.items.insert(*item_id, transform.clone());
+            }
+        }
+
         self.send_notify_c(SelectionMoved {
             id,
-            transform: params.transform,
+            transform: params.new_srt,
+            new_sits,
         })
         .await;
 
@@ -291,6 +328,11 @@ impl Board {
                 .add_item(crate::canvas::Item::Path(item.clone()))
                 .await;
 
+            self.selected_items
+                .insert_async(item_id, None)
+                .await
+                .expect("Item ID should be unique");
+
             self.send_notify_c(ItemCreated {
                 client: id,
                 id: item_id,
@@ -307,6 +349,12 @@ impl Board {
     async fn handle_get_all_item_ids(&self, id: ClientID, call: Call<GetAllItemIDs>) {
         let (_, handle) = call.create_handle(self.get_handle(&id).await);
         let ids = self.canvas.get_item_ids().await;
+        handle.respond(ids);
+    }
+
+    async fn handle_get_all_client_ids(&self, id: ClientID, call: Call<GetAllClientIDs>) {
+        let (_, handle) = call.create_handle(self.get_handle(&id).await);
+        let ids = self.client_ids.read().await.iter().cloned().collect();
         handle.respond(ids);
     }
 
@@ -331,7 +379,7 @@ impl Board {
 
         let target = target.get();
 
-        let result = message::ClientState {
+        let result = m::ClientState {
             info: target.info.clone(),
             paths: target.active_paths.clone(),
             selected_items: target

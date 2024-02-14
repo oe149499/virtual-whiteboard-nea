@@ -167,6 +167,7 @@ fn main() {
             ContinuePath,
             EndPath,
             GetAllItemIDs,
+            GetAllClientIDs,
             GetClientState,
         ] with T : TS => {
             T::decl()

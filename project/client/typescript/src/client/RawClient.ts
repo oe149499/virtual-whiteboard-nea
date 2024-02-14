@@ -105,8 +105,11 @@ export class RawClient {
 					logger.error("Got Iterate response with no registered receiver");
 				}
 			} break;
+			case "Reject": {
+				logger.error("Received Reject message: ", msg);
+			} break;
 			default: {
-				logger.error(`Unknown message type: ${msg}`);
+				logger.error("Unknown message type: ", msg);
 			}
 		}
 	}
@@ -140,7 +143,7 @@ export class RawClient {
 
 	private handleNotifyC<N extends NCName>(name: N, args: NCArgs<N>) {
 		const handler: ((_: NCArgs<N>) => void) | undefined = this.notifyCHandlers[name];
-		if (handler) handler(args);
+		if (handler) queueMicrotask(handler.bind(null, args));
 		else logger.error(`No handler set for Notify-C type ${name}`);
 	}
 }

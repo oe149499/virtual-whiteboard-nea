@@ -41,6 +41,7 @@ pub enum RejectLevel {
 #[derive(Serialize, Debug)]
 #[cfg_attr(feature = "codegen", derive(TS))]
 #[allow(missing_docs)]
+#[serde(tag = "type")]
 pub enum RejectReason {
     NonExistentID {
         id_type: &'static str,

@@ -8,7 +8,7 @@ import { Color, Item, ItemID, Point, Stroke, Transform } from "../../gen/Types.j
 import { AutoMap, HookMap } from "../../util/Maps.js";
 import { Constructor, None, Option } from "../../util/Utils.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
-import { ItemEntry, ItemTable } from "../ItemTable.js";
+import { ItemEntry, BoardTable } from "../ItemTable.js";
 
 const logger = new Logger("canvas-items");
 
@@ -56,7 +56,7 @@ export abstract class CanvasItem {
 	}
 
 	constructor(ctx: CanvasContext) {
-		this.element = ctx.createElement("g");
+		this.element = ctx.createElement("g").addClasses("item-outer");
 		queueMicrotask(() => {
 			CanvasItem.InitHook.trigger(this, ctx);
 			this.element.appendChild(this.innerElement);
@@ -83,7 +83,7 @@ interface ItemAcc<T extends ItemType, N extends PropType> {
 type AccMap<T extends ItemType> = AutoMap<PropKey<any>, ItemAcc<T, any>>;
 
 export class ItemPropertyStore extends PropertyStore {
-	public constructor(private items: ItemTable) { super(); }
+	public constructor(private items: BoardTable) { super(); }
 
 	private currentItem: Option<ItemEntry> = None;
 	private accessorTable: {

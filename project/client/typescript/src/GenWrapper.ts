@@ -1,7 +1,7 @@
 import { IterateNames, IterateSpec } from "./gen/Iterate.js";
 import { MethodNames, MethodSpec } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
-import type { Color, Item, Stroke, Transform } from "./gen/Types.js";
+import type { Color, Item, RejectMessage, Stroke, Transform } from "./gen/Types.js";
 import { AsyncIter } from "./util/AsyncIter.js";
 
 export type Id<T> = { [K in keyof T]: T[K] };
@@ -118,6 +118,8 @@ export function createIterateReciever(handler: IterateHandler): IterateDispatche
 	return result;
 }
 
+export type RejectPayload = { protocol: "Reject" } & RejectMessage
+
 //type Test = Id<IItem<"GetActivePath">>;
 
 export type MethodCall = MPayload<MName>;
@@ -132,4 +134,4 @@ export type IterateResponse = IResponse<IName>;
 
 export type MsgSend = MethodCall | IterateCall;
 
-export type MsgRecv = MethodResponse | NotifyC | IterateResponse;
+export type MsgRecv = MethodResponse | NotifyC | IterateResponse | RejectPayload;

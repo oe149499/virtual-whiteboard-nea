@@ -1,7 +1,7 @@
 import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
-import { ItemTable } from "./canvas/ItemTable.js";
+import { BoardTable } from "./canvas/ItemTable.js";
 import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
@@ -21,7 +21,7 @@ type BoardInfo = ClientInfo & {
 export class Board {
 	public static async new(name: string, info: ClientInfo): Promise<Board> {
 		const client = await SessionClient.new(name, info);
-		const items = new ItemTable(client);
+		const items = new BoardTable(client);
 		const canvas = new CanvasController(items);
 		const ui = new UIManager(canvas);
 		const boardInfo = { ...info, boardName: name, clientID: client.clientID };
@@ -37,7 +37,7 @@ export class Board {
 		public readonly ui: UIManager,
 		public readonly client: SessionClient,
 		public readonly canvas: CanvasController,
-		public readonly items: ItemTable,
+		public readonly items: BoardTable,
 		public readonly info: BoardInfo,
 	) { }
 
@@ -49,28 +49,9 @@ export class Board {
 
 		this.ui.containerElement.classList.setBy("gesture-active", this.canvas.isGesture);
 
-		this.client.bindNotify("ItemCreated", ({ id, item }) => {
-			this.canvas.addItem(id, item);
-		});
-
 		this.client.bindNotify("PathStarted", ({ path, stroke, client }) => {
 			this.handlePath(client, stroke, path);
 		});
-
-		const ids = await this.client.method.GetAllItemIDs({});
-		const items = this.client.iterate.GetFullItems({ ids });
-
-		for await (const [id, res] of AsyncIter.zip(
-			AsyncIter.of(ids),
-			items.dechunk(),
-		)) {
-			const { status, value: item } = res;
-			if (status == "Ok") {
-				this.canvas.addItem(id, item);
-			} else {
-				logger.error("Recieved error code fetching item %o: %o", id, item);
-			}
-		}
 	}
 
 	private async handlePath(client: ClientID, stroke: Stroke, path: PathID) {

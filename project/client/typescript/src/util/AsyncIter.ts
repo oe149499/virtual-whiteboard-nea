@@ -6,6 +6,8 @@ type End = typeof End;
 const Next = Symbol("Next");
 const getNext = Symbol("getNext");
 
+export type AsyncIterInit<T> = AsyncIterable<T> | AsyncIterator<T> | Iterable<T> | AsyncIter<T>;
+
 export abstract class AsyncIter<T> implements AsyncIterable<T> {
 	protected abstract [Next](): Promise<T | End>;
 
@@ -63,8 +65,8 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return new Dechunked(this);
 	}
 
-	public zipWith<U>(other: AsyncIter<U>): AsyncIter<[T, U]> {
-		return new Zipped(this, other);
+	public zipWith<U>(other: AsyncIterInit<U>): AsyncIter<[T, U]> {
+		return new Zipped(this, AsyncIter.of(other));
 	}
 
 	public async collect(): Promise<T[]> {
@@ -75,7 +77,8 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return output;
 	}
 
-	public static of<T>(source: AsyncIterable<T> | Iterable<T> | AsyncIterator<T>): AsyncIter<T> {
+	public static of<T>(source: AsyncIterInit<T>): AsyncIter<T> {
+		if (source instanceof this) return source;
 		return new Wrapped(source);
 	}
 

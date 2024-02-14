@@ -1,5 +1,5 @@
 import { Point, Transform } from "./gen/Types.js";
-import { DeepReadonly, MutableTransformer } from "./util/State.js";
+import { DeepReadonly, MutableTransformer, type State } from "./util/State.js";
 import { deg2rad, point, rad2deg } from "./util/Utils.js";
 
 export type UserTransform = {
@@ -7,6 +7,14 @@ export type UserTransform = {
 	rotation: number,
 	stretch: Point,
 	skew: number,
+}
+
+export function unitTransform(): Transform {
+	return {
+		origin: point(),
+		basisX: point(1, 0),
+		basisY: point(0, 1),
+	};
 }
 
 export function updateMatrix(matrix: DOMMatrix, src: DeepReadonly<Transform>) {
@@ -25,6 +33,14 @@ export function fromMatrix(src: DOMMatrixReadOnly): Transform {
 		basisX: point(src.a, src.b),
 		basisY: point(src.c, src.d),
 	};
+}
+
+const tempMatrix = new DOMMatrix();
+
+export function invertTransform(src: Transform) {
+	updateMatrix(tempMatrix, src);
+	tempMatrix.invertSelf();
+	return fromMatrix(tempMatrix);
 }
 
 export class TransformMatrixConverter extends MutableTransformer<Transform, DOMMatrix> {
@@ -87,5 +103,21 @@ export class UserTransformConverter extends MutableTransformer<Transform, UserTr
 		);
 
 		return { origin: point(origin.x, origin.y), basisX: rx, basisY: ry };
+	}
+}
+
+export function asDomMatrix(t: Transform): DOMMatrix;
+export function asDomMatrix(t: State<Transform>): State<DOMMatrixReadOnly>;
+export function asDomMatrix(t: Transform | State<Transform>): DOMMatrix | State<DOMMatrixReadOnly> {
+	const matrix = new DOMMatrix();
+
+	if ("get" in t) {
+		return t.derived(t => {
+			updateMatrix(matrix, t);
+			return matrix as DOMMatrixReadOnly;
+		});
+	} else {
+		updateMatrix(matrix, t);
+		return matrix;
 	}
 }

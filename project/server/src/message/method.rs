@@ -213,16 +213,21 @@ mod _methods {
         spec MethodSpec;
         /// Attempt to add a set of items to the client's selection
         fn SelectionAddItems(
-            selection_transform: Transform,
-            existing_items: BTreeMap<ItemID, Transform>,
-            new_items: BTreeMap<ItemID, Transform>,
+            new_srt: Transform,
+            old_sits: Vec<(ItemID, Transform)>,
+            new_sits: Vec<(ItemID, Transform)>,
         ) => Vec<m::Result>
 
         /// Remove a set of items from the client's selection.
         /// This operation should be either fully successful or fully unsuccessful
-        fn SelectionRemoveItems(items: BTreeMap<ItemID, LocationUpdate>,) => m::Result
+        fn SelectionRemoveItems(items: Vec<(ItemID, LocationUpdate)>,) => m::Result
 
-        fn SelectionMove(transform: Transform,) => ()
+        fn SelectionMove(
+            new_srt: Transform,
+            #[serde(default)]
+            #[cfg_attr(feature = "codegen", ts(optional))]
+            new_sits: Option<Vec<(ItemID, Transform)>>,
+        ) => ()
 
         /// Apply a [`BatchChanges`] to the set of items
         fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
@@ -247,6 +252,9 @@ mod _methods {
 
         /// Get a list of every ID on the board
         fn GetAllItemIDs() => Vec<ItemID>
+
+        /// Get a list of every client ID
+        fn GetAllClientIDs() => Vec<ClientID>
 
         /// Get the state of a client
         fn GetClientState(client_id: ClientID,) => ClientState

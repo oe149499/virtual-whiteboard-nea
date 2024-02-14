@@ -5,6 +5,12 @@ Set.prototype.addFrom = function <T>(this: Set<T>, src: Iterable<T>) {
 	for (const item of src) this.add(item);
 };
 
+Map.prototype.assume = function <K, V>(this: Map<K, V>, key: K) {
+	const val = this.get(key);
+	if (val === undefined) throw new Error("Incorrectly assumed a key to be in a map");
+	return val;
+};
+
 const timeoutVal = Symbol();
 
 async function maxTimeout<T>(this: Promise<T>, time: number): Promise<Result<T, number>> {
@@ -94,6 +100,42 @@ Object.defineProperties(SVGRect.prototype, {
 		},
 	},
 });
+
+const simpleNames = ["multiply", "rotate", "rotateAxisAngle", "rotateFromVector", "scale3d", "scale", "skewX", "skewY", "translate"] as const;
+
+const matrixMethods = [["inverse", "invertSelf"], ...simpleNames.map(n => [n, n + "Self"])];
+
+
+
+for (const [name, selfName] of matrixMethods) {
+	// @ts-expect-error
+	SVGMatrix.prototype[selfName] = function (...args) {
+		// @ts-expect-error
+		const newVal = this[name](...args);
+		this.a = newVal.a;
+		this.b = newVal.b;
+		this.c = newVal.c;
+		this.d = newVal.d;
+		this.e = newVal.e;
+		this.f = newVal.f;
+		return this;
+	};
+}
+
+SVGMatrix.prototype.preMultiplySelf = function (other) {
+	if (other instanceof SVGMatrix || other instanceof DOMMatrix) {
+		const newVal = other.multiply(this);
+		this.a = newVal.a;
+		this.b = newVal.b;
+		this.c = newVal.c;
+		this.d = newVal.d;
+		this.e = newVal.e;
+		this.f = newVal.f;
+		return this;
+	}
+
+	throw new Error("preMultiplySelf not implemented for DOMMatrixInit values");
+};
 
 SVGGraphicsElement.prototype.getFinalTransform = function (current?) {
 	current ??= new DOMMatrix([1, 0, 0, 1, 0, 0]);

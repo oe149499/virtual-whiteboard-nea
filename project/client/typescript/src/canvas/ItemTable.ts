@@ -1,10 +1,14 @@
 import { ItemType, MArgs, SpecificItem } from "../GenWrapper.js";
-import { ClientID, Item, ItemID, Transform } from "../gen/Types.js";
+import { ClientID, Item, ItemID, Transform, type ClientInfo } from "../gen/Types.js";
 import { CanvasItem } from "./items/CanvasItems.js";
-import { None, Option, Some } from "../util/Utils.js";
+import { None, Option, Some, ok, todo, unwrapOption } from "../util/Utils.js";
 import { exclusiveProvider, keyedProvider, multiTargetProvider } from "../util/Events.js";
-import { SelectionBoxBase } from "./SelectionBox.js";
 import { SessionClient } from "../client/Client.js";
+import { Logger } from "../Logger.js";
+import { invertTransform, unitTransform } from "../Transform.js";
+import { LocalSelection, RemoteSelection, RemoteSelectionInit, TransformRecord } from "./Selection.js";
+
+const logger = new Logger("ItemTable");
 
 export interface ItemEntry<T extends ItemType = ItemType> {
 	id: ItemID;
@@ -13,15 +17,33 @@ export interface ItemEntry<T extends ItemType = ItemType> {
 	selection: Option<ClientID>;
 }
 
-export interface SelectionEntry {
-	readonly id: ClientID;
-	readonly items: ReadonlySet<ItemID>;
+export enum ConnectionState {
+	Unknown,
+	Disconnected,
+	Connected,
+	Exited,
 }
 
-interface SelectionEntryMut extends SelectionEntry {
+export interface ClientEntry {
+	readonly id: ClientID;
+	readonly items: ReadonlySet<ItemID>;
+	readonly info: Readonly<ClientInfo>;
+	readonly connection: ConnectionState;
+}
+
+interface ClientEntryMut extends ClientEntry {
 	id: ClientID;
 	items: Set<ItemID>;
-	box: SelectionBoxBase;
+	info: ClientInfo;
+	connection: ConnectionState;
+}
+
+interface RemoteEntry extends ClientEntryMut {
+	box: Option<RemoteSelection>;
+}
+
+interface SelfEntry extends ClientEntryMut {
+	box: Option<LocalSelection>;
 }
 
 interface SelectionHandlers {
@@ -41,108 +63,206 @@ function* map<T, U>(src: Iterable<T>, fn: (_: T) => U) {
 	}
 }
 
-export class ItemTable {
-	private table = new Map<ItemID, ItemEntry>();
-	private selection = new Map<ClientID, SelectionEntryMut>();
+function* mapFilter<T, U, V extends U>(src: Iterable<T>, fn: (_: T) => U, filter: (_: U) => _ is V) {
+	for (const t of src) {
+		const u = fn(t);
+		if (filter(u)) yield u;
+	}
+}
+
+export class BoardTable {
+	private items = new Map<ItemID, ItemEntry>();
+	private clients = new Map<ClientID, RemoteEntry>();
+	private self: SelfEntry;
 	public readonly ownID: ClientID;
 
 	public constructor(private client: SessionClient) {
 		this.ownID = client.clientID;
 
-		client.bindNotify("SelectionItemsAdded", ({ id, items }) => {
-			if (id !== this.ownID) this.addSelection(id, items);
-		});
+		this.self = {
+			id: this.ownID,
+			items: new Set(),
+			info: client.info,
+			connection: ConnectionState.Connected,
+			box: None,
+		};
 
-		client.bindNotify("SelectionMoved", ({ id, transform }) => {
-			if (id !== this.ownID) this._events.selection.emit("move", id, transform);
-		});
+		this.bootstrap();
 	}
 
 	private async bootstrap() {
-		// Load client information and begin listening for client changes
+		const items = await this.client.method.GetAllItemIDs({});
 
-		// Load all items and begin listening for client changes
+		this.client.bindNotify("ItemCreated", ({ id, item }) => {
+			if (this.items.has(id)) return;
+			this.addItem(id, item);
+		});
 
-		// Load all selections and listen
+		for await (const [item, id] of this.client.iterate.GetFullItems({ ids: items }).dechunk().zipWith(items)) {
+			if (ok(item)) {
+				this.addItem(id, item.value);
+			}
+		}
 
-		// Profit
+		const clients = await this.client.method.GetAllClientIDs({});
+
+		this.bindClientEvents();
+
+		await Promise.all(clients.map(id => this.addClient(id)));
+
+		this.bindSelectionEvents();
+	}
+
+	private bindClientEvents() {
+		this.client.bindNotify("ClientJoined", ({ id }) => {
+			this.addClient(id);
+		});
+
+		this.client.bindNotify("ClientConnected", ({ id }) => {
+			this.clients.get(id)!.connection = ConnectionState.Connected;
+		});
+
+		this.client.bindNotify("ClientDisconnected", ({ id }) => {
+			this.clients.get(id)!.connection = ConnectionState.Disconnected;
+		});
+
+		this.client.bindNotify("ClientExited", ({ id }) => {
+			this.clients.get(id)!.connection = ConnectionState.Exited;
+		});
+	}
+
+	private bindSelectionEvents() {
+		this.client.bindNotify("SelectionItemsAdded", ({ id, items, new_srt }) => {
+			const entry = this.clients.assume(id);
+
+			const sit = invertTransform(new_srt);
+			const item_entries: TransformRecord[] = items.map(id => [id, sit]);
+
+			entry.items.addFrom(items);
+			if (entry.box === None) {
+				const box = this._events.remoteSelectionCreate.call({
+					id,
+					items: item_entries,
+					srt: new_srt,
+				});
+				entry.box = box;
+			} else {
+				entry.box.addItems(item_entries, new_srt);
+			}
+		});
+
+		this.client.bindNotify("SelectionItemsRemoved", ({ id, items }) => {
+			todo(id, items);
+		});
+
+		this.client.bindNotify("SelectionMoved", ({ id, transform }) => {
+			this._events.selection.emit("move", id, transform);
+		});
+	}
+
+	private async addClient(id: ClientID) {
+		const { info, paths, selectedItems, selectionTransform } = await this.client.method.GetClientState({ clientId: id });
+
+		const entry: RemoteEntry = {
+			id,
+			info,
+			items: new Set(selectedItems.map(([id]) => id)),
+			connection: ConnectionState.Unknown,
+			box: None,
+		};
+
+		this.clients.set(id, entry);
+	}
+
+	public addItem(id: ItemID, item: Item) {
+		const canvasItem = this._events.itemCreate.call(item);
+		const entry: ItemEntry = { id, item, canvasItem, selection: None };
+		this.items.set(id, entry);
+		this._events.items.emit("insert", entry);
+		return canvasItem;
 	}
 
 	private _events = {
 		selection: keyedProvider<ClientID, SelectionHandlersT>(),
 		items: multiTargetProvider<ItemHandlers>(),
 		itemCreate: exclusiveProvider<[Item], CanvasItem>(),
-		selectionCreate: exclusiveProvider<[id: ClientID], SelectionBoxBase>(),
-		ownSelectionAdd: exclusiveProvider<[items: ItemID[]], MArgs<"SelectionAddItems">>(),
+		remoteSelectionCreate: exclusiveProvider<[_: RemoteSelectionInit], RemoteSelection>(),
+		ownSelectionCreate: exclusiveProvider<[], LocalSelection>(),
 	};
 
 	public readonly events = Object.freeze({
 		selection: this._events.selection.dispatcher,
 		items: this._events.items.dispatcher,
 		itemCreate: this._events.itemCreate.dispatcher,
-		selectionCreate: this._events.selectionCreate.dispatcher,
-		ownSelectionAdd: this._events.ownSelectionAdd.dispatcher,
+		remoteSelectionCreate: this._events.remoteSelectionCreate.dispatcher,
+		ownSelectionCreate: this._events.ownSelectionCreate.dispatcher,
 	});
 
-	public insert(id: ItemID, item: Item) {
-		const canvasItem = this._events.itemCreate.call(item);
-		const entry: ItemEntry = { id, item, canvasItem, selection: None };
-		this.table.set(id, entry);
-		this._events.items.emit("insert", entry);
-		return canvasItem;
-	}
-
 	public get(ids: Iterable<ItemID>): Iterable<Option<ItemEntry>>;
+	public get(ids: Iterable<ItemID>, filter: true): Iterable<ItemEntry>
 	public get(id: ItemID): Option<ItemEntry>;
-	public get(idOrIds: ItemID | Iterable<ItemID>): Option<ItemEntry> | Iterable<Option<ItemEntry>> {
+	public get(idOrIds: ItemID | Iterable<ItemID>, filter?: true): Option<ItemEntry> | Iterable<Option<ItemEntry>> {
 		if (typeof idOrIds === "object") {
-			return map(idOrIds, id => this.table.get(id) ?? None);
+			return map(idOrIds, id => this.items.get(id) ?? None);
 		}
-		return this.table.get(idOrIds) ?? None;
+		return this.items.get(idOrIds) ?? None;
 	}
 
 	public entries() {
-		return this.table.values();
+		return this.items.values();
 	}
 
-	private ensureSelection(selection: ClientID) {
-		let selectionEntry = this.selection.get(selection);
-		if (!selectionEntry) {
-			selectionEntry = {
-				id: selection,
-				items: new Set(),
-				box: this._events.selectionCreate.call(selection),
-			};
-			this.selection.set(selection, selectionEntry);
+	private ensureLocalBox(): SelfEntry & { box: LocalSelection } {
+		const self = this.self;
+		if (self.box === None) {
+			self.box = this._events.ownSelectionCreate.call();
 		}
-		return selectionEntry;
+		// @ts-ignore not enough narrowing
+		return self;
 	}
 
-	private addSelection(selection: ClientID, items: ItemID[]) {
-		const selectionEntry = this.ensureSelection(selection);
+	// private ensureSelection(client: ClientID) {
+	// 	const clientEntry = this.clients.get(client);
+	// 	if (!clientEntry) return logger.throw("Missing client ID: ", client);
+	// 	if (clientEntry.box === None)
+	// 		clientEntry.box = this._events.remoteSelectionCreate.call({
+	// 			id: client,
+	// 			items: {},
+	// 			transform: unitTransform(),
+	// 		});
+	// 	return clientEntry as ClientEntryMut & { box: SelectionBoxBase };
+	// }
 
-		for (const item of items) {
-			if (this.table.get(item)?.selection !== None) continue;
-			selectionEntry.items.add(item);
-		}
+	// private addSelection(selection: ClientID, items: ItemID[]) {
+	// 	const selectionEntry = this.ensureSelection(selection);
 
-		const itemEntries = Array.from(this.get(items)).filter(Some);
+	// 	for (const item of items) {
+	// 		if (this.items.get(item)?.selection !== None) continue;
+	// 		selectionEntry.items.add(item);
+	// 	}
 
-		this._events.selection.emit("add", selection, itemEntries);
-	}
+	// 	const itemEntries = Array.from(this.get(items)).filter(Some);
+
+	// 	this._events.selection.emit("add", selection, itemEntries);
+	// }
 
 	public addOwnSelection(items: ItemID[]) {
-		const selectionEntry = this.ensureSelection(this.ownID);
+		const self = this.ensureLocalBox();
+		const entries = [];
+		for (const item of this.get(items, true)) {
+			if (item.selection !== None) continue;
+			item.selection = self.id;
+			entries.push(item);
+		}
 
-		const freeItems = items.filter(id => this.table.get(id)?.selection === None);
-		selectionEntry.items.addFrom(freeItems);
+		self.items.addFrom(items);
 
-		const payload = this._events.ownSelectionAdd.call(freeItems);
+		const payload = self.box.createAddPayload(entries);
 
 		this.client.method.SelectionAddItems(payload);
 	}
 
 	public moveOwnSelection(transform: Transform) {
-		this.client.method.SelectionMove({ transform });
+		this.client.method.SelectionMove({ newSrt: transform });
 	}
 }

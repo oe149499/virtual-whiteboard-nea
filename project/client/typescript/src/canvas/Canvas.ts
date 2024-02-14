@@ -6,9 +6,9 @@ import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
 import { CanvasItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
 import { DragGestureState, GestureHandler, LongPressGesture, PressGesture } from "./Gesture.js";
-import { RemoteSelection, UserSelection } from "./SelectionBox.js";
-import { ItemTable } from "./ItemTable.js";
+import { BoardTable } from "./ItemTable.js";
 import { TimeoutMap } from "../util/TimeoutMap.js";
+import { LocalSelection, RemoteSelection } from "./Selection.js";
 
 
 const PX_PER_CM = 37.8;
@@ -17,7 +17,7 @@ const logger = new Logger("canvas/CanvasController");
 export class CanvasController {
 	public readonly svgElement: SVGSVGElement;
 	public readonly ctx: CanvasContext;
-	public readonly selection = new Map<ClientID, UserSelection>();
+	// public readonly selection = new Map<ClientID, UserSelection>();
 
 	private targetRect: DOMRect;
 
@@ -38,7 +38,7 @@ export class CanvasController {
 	public onpressgesture: Handler<PressGesture> = null;
 	public onlongpressgesture: Handler<LongPressGesture> = null;
 
-	constructor(public readonly itemTable: ItemTable) {
+	constructor(public readonly itemTable: BoardTable) {
 		const svgElement = document.createElementNS(SVGNS, "svg");
 		this.svgElement = svgElement;
 
@@ -57,10 +57,11 @@ export class CanvasController {
 		});
 
 		itemTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
-		itemTable.events.selectionCreate.bind(id => {
-			if (id === itemTable.ownID) return new UserSelection(this.ctx, itemTable);
-			else return new RemoteSelection(this.ctx, itemTable, id);
+		itemTable.events.remoteSelectionCreate.bind(init => {
+			return new RemoteSelection(this.ctx, itemTable, init);
+			// return null as unknown as never;
 		});
+		itemTable.events.ownSelectionCreate.bind(() => new LocalSelection(this.ctx, itemTable));
 
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;
@@ -91,7 +92,7 @@ export class CanvasController {
 
 	/** @deprecated */
 	public addItem(id: ItemID, item: Item) {
-		this.itemTable.insert(id, item);
+		this.itemTable.addItem(id, item);
 	}
 
 	public addRawElement(elem: SVGElement) {

@@ -9,6 +9,10 @@ declare global {
 		addFrom(src: Iterable<T>): void;
 	}
 
+	interface Map<K, V> {
+		assume(key: K): V;
+	}
+
 	interface DOMTokenList {
 		set(name: string, value: boolean): void;
 

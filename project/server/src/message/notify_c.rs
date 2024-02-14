@@ -1,8 +1,6 @@
 #![allow(missing_docs)] // API is documented in design section
 //! Types associated with server-to-client notification messages
 
-use std::collections::BTreeMap;
-
 use crate::canvas::{Item, Stroke, Transform};
 
 use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend, PathID};
@@ -115,16 +113,20 @@ notify_c_declarations! {
     SelectionItemsAdded (
         id: ClientID,
         items: Vec<ItemID>,
+        new_srt: Transform,
     )
 
     SelectionItemsRemoved (
         id: ClientID,
-        items: BTreeMap<ItemID, LocationUpdate>,
+        items: Vec<(ItemID, LocationUpdate)>,
     )
 
     SelectionMoved (
         id: ClientID,
         transform: Transform,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        #[cfg_attr(feature = "codegen", ts(optional))]
+        new_sits: Option<Vec<(ItemID, Transform)>>,
     )
 
     BatchItemsEdited (
