@@ -61,7 +61,12 @@ export class CanvasController {
 			return new RemoteSelection(this.ctx, itemTable, init);
 			// return null as unknown as never;
 		});
-		itemTable.events.ownSelectionCreate.bind(() => new LocalSelection(this.ctx, itemTable));
+		itemTable.events.ownSelectionCreate.bind((...args) => {
+			if (args.length) {
+				const [srt, items] = args;
+				return new LocalSelection(this.ctx, itemTable, { srt, items });
+			} else return new LocalSelection(this.ctx, itemTable);
+		});
 
 		svgElement.setAttribute("viewBox", "0 0 0 0");
 		this.targetRect = svgElement.viewBox.baseVal;

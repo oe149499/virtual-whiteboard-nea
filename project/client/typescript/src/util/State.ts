@@ -97,6 +97,7 @@ export abstract class State<out T> {
 	[BlockDeepReadonly]() { }
 	private watchers = new Map<number, ROAction<T>>();
 	private weakWatchers = new Map<number, WeakRef<ROAction<T>>>();
+	public updateDerived = true;
 
 	protected constructor(protected value: T) { }
 	public get() {
@@ -109,7 +110,7 @@ export abstract class State<out T> {
 
 	protected update(value: DeepReadonly<T>) {
 		this.value = value as T;
-		for (const f of this.weakWatchers.values()) {
+		if (this.updateDerived) for (const f of this.weakWatchers.values()) {
 			f.deref()?.(value);
 		}
 		for (const f of this.watchers.values()) {
@@ -127,6 +128,15 @@ export abstract class State<out T> {
 			),
 		};
 		return handle;
+	}
+
+	private static WatchOnMap = new WeakMap<object, unknown[]>();
+
+	public watchOn(o: object, f: ROAction<T>) {
+		const handle = this[watchWeak](f);
+		const entry = State.WatchOnMap.get(o);
+		if (entry === undefined) State.WatchOnMap.set(o, [handle]);
+		else entry.push(handle);
 	}
 
 	public [watchWeak](f: ROAction<T>): WatchHandle {
@@ -187,10 +197,6 @@ export abstract class State<out T> {
 	}
 }
 
-function compose<T, U, V>(f1: (_: T) => U, f2: (_: U) => V): (_: T) => V {
-	return t => f2(f1(t));
-}
-
 class DerivedState<T, U> extends State<U> {
 	#_c: unknown;
 	public constructor(
@@ -203,9 +209,9 @@ class DerivedState<T, U> extends State<U> {
 		this.#_c = callback;
 	}
 
-	public override derived<V>(f: ROMap<U, V>): State<V> {
-		return new DerivedState(this.source, compose(this.map as (_: DeepReadonly<T>) => DeepReadonly<U>, f));
-	}
+	// public override derived<V>(f: ROMap<U, V>): State<V> {
+	// 	return new DerivedState(this.source, compose(this.map as (_: DeepReadonly<T>) => DeepReadonly<U>, f));
+	// }
 }
 
 export abstract class MutableTransformer<T, U> {

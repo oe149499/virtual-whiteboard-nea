@@ -4,6 +4,7 @@ const API_ROOT = new URL("/api/", window.location.href);
 const MEDIA_ROOT = new URL("/media/", window.location.href);
 
 const FILE_URL = new URL("upload", API_ROOT);
+const START_TIME_URL = new URL("start_time", API_ROOT);
 
 
 export const API = Object.freeze({
@@ -30,4 +31,8 @@ export const API = Object.freeze({
 		}).then(response => response.text())
 			.then(name => new URL(name, MEDIA_ROOT));
 	},
+
+	startTime: fetch(START_TIME_URL)
+		.then(response => response.text())
+		.then(Number),
 });

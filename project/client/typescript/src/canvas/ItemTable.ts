@@ -108,6 +108,10 @@ export class BoardTable {
 
 		this.bindClientEvents();
 
+		const ownInfo = await this.client.method.GetClientState({ clientId: this.ownID });
+		logger.debug("own info: ", ownInfo);
+		this.self.box = this._events.ownSelectionCreate.call(ownInfo.selectionTransform, ownInfo.selectedItems);
+
 		await Promise.all(clients.map(id => this.addClient(id)));
 
 		this.bindSelectionEvents();
@@ -115,6 +119,7 @@ export class BoardTable {
 
 	private bindClientEvents() {
 		this.client.bindNotify("ClientJoined", ({ id }) => {
+			if (id === this.ownID) return;
 			this.addClient(id);
 		});
 
@@ -133,6 +138,7 @@ export class BoardTable {
 
 	private bindSelectionEvents() {
 		this.client.bindNotify("SelectionItemsAdded", ({ id, items, new_srt }) => {
+			if (id === this.ownID) return;
 			const entry = this.clients.assume(id);
 
 			const sit = invertTransform(new_srt);
@@ -161,6 +167,7 @@ export class BoardTable {
 	}
 
 	private async addClient(id: ClientID) {
+		if (id === this.ownID) return;
 		const { info, paths, selectedItems, selectionTransform } = await this.client.method.GetClientState({ clientId: id });
 
 		const entry: RemoteEntry = {
@@ -168,7 +175,7 @@ export class BoardTable {
 			info,
 			items: new Set(selectedItems.map(([id]) => id)),
 			connection: ConnectionState.Unknown,
-			box: None,
+			box: this._events.remoteSelectionCreate.call({ srt: selectionTransform, items: selectedItems, id }),
 		};
 
 		this.clients.set(id, entry);
@@ -187,7 +194,7 @@ export class BoardTable {
 		items: multiTargetProvider<ItemHandlers>(),
 		itemCreate: exclusiveProvider<[Item], CanvasItem>(),
 		remoteSelectionCreate: exclusiveProvider<[_: RemoteSelectionInit], RemoteSelection>(),
-		ownSelectionCreate: exclusiveProvider<[], LocalSelection>(),
+		ownSelectionCreate: exclusiveProvider<[] | [srt: Transform, items: [ItemID, Transform][]], LocalSelection>(),
 	};
 
 	public readonly events = Object.freeze({
@@ -259,7 +266,9 @@ export class BoardTable {
 
 		const payload = self.box.createAddPayload(entries);
 
-		this.client.method.SelectionAddItems(payload);
+		logger.debug("Sending payload: ", payload);
+
+		this.client.method.SelectionAddItems(payload).then(res => logger.debug("Add items result: ", res));
 	}
 
 	public moveOwnSelection(transform: Transform) {

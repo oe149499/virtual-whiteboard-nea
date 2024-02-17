@@ -1,9 +1,11 @@
 //! Interfacing with clients
 //! The main interface of this module is [`create_client_filter`], which builds a filter to forward WebSocket requests to a board
 
+use std::time::SystemTime;
+
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
-use tokio::sync::mpsc;
+use tokio::{sync::mpsc, time::Instant};
 use warp::{
     filters::{
         ws::{Message, WebSocket, Ws},
@@ -101,6 +103,16 @@ pub type SessionRegistry = tokio::sync::RwLock<std::collections::HashMap<Session
 
 /// Create the board route as a [`Filter`]
 pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+    let time = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .to_string()
+        .leak::<'static>();
+    let time = &*time;
+
+    let start_time = warp::path("start_time").map(move || time);
+
     let session: _ = warp::path!("session" / SessionID).and(warp::ws()).and_then(
         move |id: SessionID, ws: Ws| async move {
             let sessions = res.sessions.read().await;
@@ -140,7 +152,7 @@ pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
                 Err(warp::reject())
             }
         });
-    session.or(session_create).boxed()
+    session.or(session_create).or(start_time).boxed()
 }
 
 async fn handle_session(session: Session, ws: WebSocket) {

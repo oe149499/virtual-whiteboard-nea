@@ -1,6 +1,7 @@
 import { Logger } from "../Logger.js";
 import { Point, Result } from "../gen/Types.js";
 import "./ExtensionsImpl.js";
+import "./FirefoxPatch.js";
 const logger = new Logger("util/Utils");
 
 export const None = Symbol("None");
@@ -89,4 +90,19 @@ function createObjectID(o: object) {
 
 export function* rangeInclusive(min: number, max: number): Iterable<number> {
 	for (let v = min; v <= max; v++) yield v;
+}
+
+export class OwnedInterval {
+	public constructor(
+		private fn: () => void,
+		timeout: number,
+	) {
+		const fnWeak = new WeakRef(fn);
+
+		const id = setInterval(() => {
+			const fn = fnWeak.deref();
+			if (!fn) clearInterval(id);
+			else fn();
+		}, timeout);
+	}
 }

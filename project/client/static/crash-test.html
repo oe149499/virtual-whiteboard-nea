@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<title>Browser crash test</title>
+	</head>
+
+	<body>
+		<svg>
+			<polygon id="error"></polygon>
+		</svg>
+		<script type="module">
+			import "/script/util/FirefoxPatch.js";
+			const watchMap = new WeakMap();
+			class State {
+				value;
+				callback;
+				constructor (value) {
+					this.value = value;
+				}
+				get() {
+					return this.value;
+				}
+				update(value) {
+					this.value = value;
+					this.callback?.deref()?.(value);
+				}
+				// static WatchOnMap = new WeakMap();
+				watchOn(o, f) {
+					const handle = this.watch(f);
+					watchMap.set(o, handle);
+				}
+				watch(f) {
+					this.callback = new WeakRef(f);
+					return [this, f];
+				}
+				derived(f) {
+					return new DerivedState(this, f);
+				}
+			}
+			class DerivedState extends State {
+				source;
+				map;
+				#_c;
+				constructor (source, map) {
+					super(map(source.get()));
+					this.source = source;
+					this.map = map;
+					const callback = (v) => {
+						console.log("updating inner");
+						this.update(map(v));
+						console.log(this.#_c);
+					};
+					source.watch(callback);
+					this.#_c = callback;
+				}
+			}
+			function createPointBy(svg, p) {
+				const point = svg.createSVGPoint();
+				p.watchOn(point, ({ x, y }) => {
+					console.log("Updating point");
+					console.log(point.x);
+					point.x = x;
+					point.y = y;
+					console.log("Updated point");
+				});
+				return point;
+			}
+			export function crashTest(el) {
+				const svg = el.ownerSVGElement;
+				const pointState = new State({ x: 0, y: 0 });
+				const derived = pointState.derived(p => ({ x: p.x * 300, y: p.y * 150 }));
+				el.points.appendItem(createPointBy(svg, derived));
+				setInterval(() => {
+					console.log("Updating");
+					pointState.update({
+						x: Math.random(),
+						y: Math.random(),
+					});
+				}, 1000);
+			}
+
+			crashTest(document.getElementById("error"))
+		</script>
+	</body>
+
+</html>

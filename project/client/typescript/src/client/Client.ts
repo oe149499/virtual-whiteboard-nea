@@ -2,21 +2,53 @@ import { IterateDispatcher, MethodDispatcher, NCArgs, NCName, createIterateRecie
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
 import { unwrap } from "../util/Utils.js";
-import { ClientInfo } from "../gen/Types.js";
+import { ClientInfo, type ConnectionInfo } from "../gen/Types.js";
 import { API } from "./HttpApi.js";
 
 const logger = new Logger("session-client");
+
+const SESSION_STORAGE_KEY = "SESSION_INFO_";
+
+interface SessionCache {
+	startTime: number;
+	info: ClientInfo;
+	connnection: ConnectionInfo;
+}
 
 export class SessionClient {
 	static async new(
 		boardName: string,
 		info: ClientInfo,
 	): Promise<SessionClient> {
+		const storageKey = SESSION_STORAGE_KEY + boardName;
+		const cache = sessionStorage.getItem(storageKey);
+
+		if (cache) {
+			const data = <SessionCache>JSON.parse(cache);
+			if (data.startTime === await API.startTime) {
+				return new SessionClient(
+					boardName,
+					data.connnection.sessionId,
+					data.connnection.clientId,
+					data.info,
+				);
+			}
+		}
+
 		const data = await API.openSession(boardName, info);
 
 		logger.info("Recieved connection information:", data);
 
 		const conn = unwrap(data);
+
+		const newCache: SessionCache = {
+			startTime: await API.startTime,
+			info,
+			connnection: conn,
+		};
+
+		sessionStorage.setItem(storageKey, JSON.stringify(newCache));
+
 
 		const client = new SessionClient(
 			boardName,

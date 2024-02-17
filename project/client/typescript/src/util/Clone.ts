@@ -1,25 +1,21 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-declare global {
-	interface Object {
-		[ClonerSym]?: Cloner<this>;
-	}
-}
+import { PrototypeMap } from "./Maps.js";
+
+
+const ClonerTable = new PrototypeMap<any, any>();
 
 type Cloner<T> = (old: T) => T;
 
-const ClonerSym = Symbol("Cloner");
-
-function register<T extends object>({ prototype }: abstract new (..._: any[]) => T, fn: Cloner<T>) {
-	prototype[ClonerSym] = fn as any;
+function register<T extends object>(cls: abstract new (..._: any[]) => T, fn: Cloner<T>) {
+	ClonerTable.setClass(cls, fn);
 }
 
 export function clone<T>(value: T): T {
 	if (typeof value == "object") {
 		if (value === null) return value;
-		if (ClonerSym in value) {
-			const cloner = value[ClonerSym];
-			return cloner(value) as T;
+		for (const cloner of ClonerTable.get(value)) {
+			return cloner(value);
 		}
 
 		const proto = Object.getPrototypeOf(value);
@@ -31,4 +27,5 @@ export function clone<T>(value: T): T {
 	return value;
 }
 
-register(DOMMatrixReadOnly, m => m.scale(1));
+register(DOMMatrixReadOnly, m => m.translate());
+register(SVGMatrix, m => m.translate());

@@ -17,6 +17,8 @@ export type CanvasContextExecutor = (_: {
 }) => void;
 
 export class CanvasContext {
+	private points = new Set<SVGPoint>();
+
 	constructor(
 		private svgroot: SVGSVGElement,
 		public readonly coordMapping: State<CoordinateMapping>,
@@ -46,6 +48,7 @@ export class CanvasContext {
 
 	public createPoint(p?: Point): SVGPoint {
 		const point = this.svgroot.createSVGPoint();
+		// this.points.add(point);
 		if (p) {
 			point.x = p.x;
 			point.y = p.y;
@@ -54,12 +57,12 @@ export class CanvasContext {
 	}
 
 	public createPointBy = (s: State<Point>) => {
-		const point = this.createPoint();
-		return s.derived(({ x, y }) => {
+		const point = this.createPoint(s.get());
+		s.watchOn(point, ({ x, y }) => {
 			point.x = x;
 			point.y = y;
-			return point;
 		});
+		return point;
 	};
 
 	public createRect(pos: Point, size: Point) {

@@ -78,7 +78,7 @@ impl Board {
 
         let new_ids = new_sits_checked.iter().map(|&(i, _)| i).collect();
 
-        let sits = old_sits_checked.iter().chain(old_sits_checked.iter());
+        let sits = new_sits_checked.iter().chain(old_sits_checked.iter());
 
         let mut client = self.get_client(&id).await;
         let selection = &mut client.get_mut().selection;
