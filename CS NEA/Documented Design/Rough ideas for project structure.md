@@ -58,6 +58,25 @@
 		- Could have small metadata file and larger data file to avoid keeping all data in memory
 			- Metadata could all be grouped into one file
 	- Could experiment with chunked files for large projects but probably not necessary for a-level
+## Board data files
+- Write new file next to output and move when done
+- Don't need to store IDs as can assign new ones when loading
+File structure:
+```json
+{
+	"items": [
+		{
+			"type": "Line"
+			...
+		},
+		{
+			"type": "Path"
+			...
+		}
+	],
+	"readonly": false,
+}
+```
 # Website
 ## Components
 - WebSocket API
