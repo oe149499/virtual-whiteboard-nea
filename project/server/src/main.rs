@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use camino::Utf8PathBuf;
 use clap::Parser;
 use flexi_logger::Logger;
@@ -12,9 +14,8 @@ use warp::{filters::BoxedFilter, reply::Reply, Filter};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short = 'r', long, default_value = ".")]
-    board_root: Utf8PathBuf,
-
+    // #[arg(short = 'r', long, default_value = ".")]
+    // board_root: Utf8PathBuf,
     #[arg(short = 's', long = "static-root")]
     static_path: Utf8PathBuf,
 
@@ -23,6 +24,9 @@ struct Args {
 
     #[arg(short = 'm', long = "media-root")]
     media_root: Utf8PathBuf,
+
+    #[arg(short = 'b', long = "board-root")]
+    board_root: Utf8PathBuf,
 
     #[arg(long, default_value_t = true)]
     serve_ts: bool,
@@ -39,6 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .static_root(args.static_path.into())
         .script_root(args.script_root.into())
         .media_root(args.media_root.into())
+        .board_root(args.board_root.clone().into())
         .serve_ts(args.serve_ts)
         .build()
         .unwrap();
@@ -62,9 +67,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     runtime.block_on(async move {
         info!("Loading boards");
         // The board manager should stay alive for the lifetime of the program
-        let boards = BoardManager::new_debug();
+        let boards = BoardManager::new_debug(&args.board_root.as_std_path());
 
         let res = GlobalResources::new(boards, config).as_static();
+
+        tokio::task::spawn(async {
+            loop {
+                info!("Beginning autosave");
+                let current_task = tokio::task::spawn(res.boards.autosave());
+
+                tokio::time::sleep(Duration::from_secs(10)).await;
+
+                current_task.await.unwrap_or_else(|e| {
+                    error!("Autosave task panicked: {e}");
+                });
+            }
+        });
 
         let filter = create_filter(res);
 

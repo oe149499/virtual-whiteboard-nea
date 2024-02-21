@@ -122,7 +122,7 @@ impl Board {
                 continue;
             };
             if *item.get() == Some(client_id) {
-                let item = self.canvas.get_ref_mut(item_id).await;
+                let item = self.canvas.get_ref(item_id).await;
                 let Some(mut item) = item else { continue };
                 let res = item.apply_location_update(item_id, &update);
                 if let Err((update, reason)) = res {
@@ -203,7 +203,7 @@ impl Board {
             return handle.error(resource_not_owned(params.item_id));
         }
 
-        let mut item = self.canvas.get_ref_mut(params.item_id).await.unwrap(); // Checked earlier that item exists
+        let mut item = self.canvas.get_ref(params.item_id).await.unwrap(); // Checked earlier that item exists
         *item = params.item.clone();
 
         handle.ok(());

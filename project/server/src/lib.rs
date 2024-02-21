@@ -33,13 +33,16 @@ pub struct Configuration {
     pub script_root: PathBuf,
     /// Path to media files (upload and serving)
     pub media_root: PathBuf,
+    /// Path to stored boards
+    pub board_root: PathBuf,
     /// Whether or not to serve TypeScript files as well as generated JS
     pub serve_ts: bool,
 }
 
 /// A container of all resources shared across parts of the application
 pub struct GlobalResources {
-    boards: BoardManager,
+    /// See [`BoardManager`]
+    pub boards: BoardManager,
     sessions: SessionRegistry,
     /// See [`Configuration`]
     pub config: Configuration,
@@ -58,7 +61,7 @@ impl GlobalResources {
         }
     }
 
-    /// Move [`self`] into a reference-counted pointer
+    /// Move [`self`] into a leaked static reference
     pub fn as_static(self) -> GlobalRes {
         Box::leak(Box::new(self))
     }

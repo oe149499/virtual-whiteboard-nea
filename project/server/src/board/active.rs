@@ -7,12 +7,16 @@ mod method_impls;
 
 use std::{future::Future, sync::Arc, time::Duration};
 
+use futures_util::{future::BoxFuture, FutureExt};
 use log::error;
 use scc::HashMap as AsyncHashMap;
-use tokio::{sync::RwLock, time::Instant};
+use tokio::{
+    sync::{oneshot, RwLock},
+    time::Instant,
+};
 
 use crate::{
-    canvas::{ActiveCanvas, SplineNode, Stroke, Transform},
+    canvas::{self, ActiveCanvas, SplineNode, Stroke, Transform},
     client::ClientHandle,
     message::{
         iterate::{GetActivePath, IterateHandle},
@@ -51,7 +55,7 @@ struct ClientState {
 struct Board {
     client_ids: RwLock<std::collections::BTreeSet<ClientID>>,
     clients: AsyncHashMap<ClientID, ClientState>,
-    canvas: ActiveCanvas,
+    canvas: Arc<ActiveCanvas>,
     selected_items: AsyncHashMap<ItemID, Option<ClientID>>,
     active_paths: AsyncHashMap<PathID, ActivePath>,
 }
@@ -61,9 +65,19 @@ impl Board {
         Self {
             client_ids: Default::default(),
             clients: AsyncHashMap::new(),
-            canvas: ActiveCanvas::new_empty(),
+            canvas: Arc::new(ActiveCanvas::new_empty()),
             selected_items: AsyncHashMap::new(),
             active_paths: AsyncHashMap::default(),
+        }
+    }
+
+    fn new_from_canvas(canvas: Arc<ActiveCanvas>) -> Self {
+        Self {
+            client_ids: Default::default(),
+            clients: Default::default(),
+            canvas,
+            selected_items: Default::default(),
+            active_paths: Default::default(),
         }
     }
 
@@ -154,5 +168,11 @@ pub fn debug_board() -> BoardHandle {
     let (handle, task) = board.launch(4);
     Box::leak(Box::new(handle.clone()));
     tokio::task::spawn(task);
+    handle
+}
+
+pub fn from_canvas(canvas: Arc<ActiveCanvas>, tasks: usize) -> BoardHandle {
+    let board = Board::new_from_canvas(canvas);
+    let (handle, task) = board.launch(tasks);
     handle
 }

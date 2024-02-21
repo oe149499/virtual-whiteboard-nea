@@ -1,6 +1,9 @@
 //! The implementation of the board itself
 mod active;
+mod file;
 mod manager;
+
+use std::sync::{Arc, Weak};
 
 pub use manager::BoardManager;
 
@@ -26,6 +29,8 @@ enum BoardMessage {
 pub struct BoardHandle {
     message_pipe: async_channel::Sender<BoardMessage>,
 }
+
+struct WeakHandle(async_channel::WeakSender<BoardMessage>);
 
 impl BoardHandle {
     fn send_msg(&self, msg: BoardMessage) {
@@ -57,5 +62,17 @@ impl BoardHandle {
     /// Inform the board that a client has disconnected
     pub fn client_disconnected(&self, id: ClientID) {
         self.send_msg(BoardMessage::ClientDisconnected(id));
+    }
+
+    fn downgrade(&self) -> WeakHandle {
+        WeakHandle(self.message_pipe.downgrade())
+    }
+}
+
+impl WeakHandle {
+    fn upgrade(&self) -> Option<BoardHandle> {
+        Some(BoardHandle {
+            message_pipe: self.0.upgrade()?,
+        })
     }
 }
