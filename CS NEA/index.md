@@ -5,6 +5,8 @@
 
 %% MAIN
 
+.var renumber=1
+
 .header @Analysis
 .fprefix ${Analysis/}
 .embed ${Introduction to problem}
@@ -12,15 +14,20 @@
 .embed ${Investigation}
 .embed ${Existing Solutions}
 
+
 .header @Objectives
-.embed ${/Analysis/Objectives v2} @_
+.embed ${/Analysis/Objectives v2} @_ renumber=0
+
 
 .header @{Documented Design}
 .fprefix ${Documented Design/}
+.embed ${Key algorithms}
+.embed ${Client Overview}
+.embed ${Server Overview}
 
 .header $2 @{Data Structures}
 .fprefix ${Documented Design/Data structures/}
-.embed ${Transfer} @{Client-server communication}
+.embed ${Canvas items}
 
 .header @{Technical Solution}
 
@@ -30,11 +37,14 @@
 .header $2 @{Client-side code}
 .include @CLIENT_CODE
 
+
 .header @{System Testing}
 .fprefix ${Testing}
 
+
 .header @Evaluation
 .fprefix ${Evaluation}
+
 
 %% SERVER_CODE
 

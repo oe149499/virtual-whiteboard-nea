@@ -62,20 +62,20 @@ For the frontend, I have therefore decided to use HTML5+CSS+TypeScript, as HTML+
 
 For the backend, I will be using Rust with the [Warp](https://docs.rs/warp) web server and [Tokio](https://docs.rs/tokio) runtime as I found these to work well together for other projects.
 
-###  Communication
+### 1.3.1 Communication
 In previous projects I have used either a custom system or the [`serde_json`](https://docs.rs/serde_json) library for serialisation. However, both of these have the issue that parsing and generating messages client-side is error-prone and/or requires repeating the structure of types used in messages. To avoid this, I found [`ts-rs`](https://docs.rs/ts-rs), a Rust library that enables generation of TS type declarations from Rust types, which combined with `serde_json` should enable a seamless programming experience.
 
-###  Rendering
+### 1.3.2 Rendering
 In an earlier prototype I used the Canvas API to render the board, however this required manual rendering from basic shapes, and so I plan to use SVG to render the board.
 ## 1.4 Existing Solutions
-###  Microsoft OneNote
+### 1.4.1 Microsoft OneNote
 I had been forced to use this previously in lessons and so I have some  familiarity with it, though its many frustrations drove me away from it somewhat. When trialling it more thoroughly, I found that it had several issues that made it unsuitable for the problem.
 
 Firstly, the software is divided into 5 different versions (Windows 10, iOS, Mac, Android, and Web), which despite accessing the same notebooks have varied feature support and reliability. This can make a task which is trivial on one device impossible on another.
 
 Secondly, editing ability is limited at best. There is currently no way to rotate any object except for in increments of 90 degrees, and furthermore this functionality does not seem to be available on all platforms. Furthermore, [this help page](https://support.microsoft.com/en-au/office/rotate-pictures-and-objects-on-a-page-in-onenote-65f12233-3618-461c-b5d1-53825c087238) recommends using a separate application to edit photos beforehand. This is not only slow and inconvenient but cannot be applied to other objects such as text or "ink" drawings.
 
-###  Miro
+### 1.4.2 Miro
 I had not used Miro before, but had heard of it from various friends and family. Upon trying it, the first thing I noticed was that the web version was somewhat slow to load, and occupied a significant amount of my laptop's resources. While my laptop is not particularly powerful, the system I aim to create should work on phones where this level of resource usage would be unacceptable. Miro does also provide a mobile app, though in this case the app is not feature-complete as it appears to be developed separately from the web version.
 
 While Miro is a significant improvement over OneNote, it is not without some flaws, such as limited ability to work with custom shapes, along with selection of objects being clunky and confusing. For example, the rotation tool appears as a not immediately obvious icon in the bottom left corner of the selection. When releasing the mouse the selection box, and therefore rotation handle, is recomputed to fit the grid. This interrupts the flow of editing.
@@ -280,10 +280,232 @@ The program must function as expected whenever possible
 	3. Conflicting changes made during the interruption should be resolved by following the most recent edit
 2. In the case of a power failure or unexpected termination of the host, the board should *always* be restorable to a state less than 10 seconds (or a configurable duration) old
 # 3 Documented Design
-## 3.1 Data Structures
-### 3.1.1 Client-server communication
-####  Cor
-####  Items
+## 3.1 Key algorithms
+### 3.1.1 Selection
+A user's selection is modelled as a separate coordinate space from the global/canvas space, which has its origin at the centre of the user's transform and the same basis at the moment when the selection is initialised.
+
+The selection is then processed in terms of two transformation matrices:
+- The Selection Root Transform (abbreviated to SRT)
+	- This is the transformation mapping selection space back to canvas space
+	- This is updated when the whole transform is edited by dragging it around or rotating it, and regenerated when adding or removing items from the selection
+- The Selection Item Transforms (abbreviated to SITs)
+	- These transform each item from its original location in canvas space to its current location in selection space
+	- These are updated when new items are added to the selection
+#### 3.1.1.1 Implementation in SVG
+The selection hierarchy is implemented by the following layout
+- Root selection container
+	- Item container - root for all items in the selection
+		- SRT container - applies the SRT to its children
+			- SIT containers - Each item is wrapped in a container applying its SIT
+		- Staging container - new items being added are moved here so the new bounding box can be computed by the item container
+	- UI container - root for additional UI - border box, drag handles, etc.
+#### 3.1.1.2 Adding items for the selection
+The algorithm can be derived based on the following constraints:
+- For every item, its final transform must be unchanged by the whole procedure
+	- The final transform of an item is equal to the product of the SRT and the item's SIT
+	- For new items, this must be the identity
+- The new selection space should be axis-aligned with canvas space and have no scaling, and should be centred on the bounding box of the complete set of items
+	- This forces the new SRT to consist only of a translation
+This leads to the following steps:
+- First, compute the bounding box of the new selection
+	- Move all new items to the staging container
+	- Acquire the bounding box through the SVG `getBBox` API
+- The new SRT can be calculated as the translation from the origin to the centre of the bounding box
+- For existing items, their new SITs are derived as follows:
+$$
+\begin{align}
+R_1I_1&=R_0I_0\\
+R_1^{-1}R_1I_1&=R_1^{-1}R_0I_0\\
+I_1&=(R_1^{-1}R_0)I_0
+\end{align}
+$$
+- For new items, their SITs should be the inverse of the new SRT such that the net transform cancels out
+#### 3.1.1.3 Moving the selection
+- Dragging is simply translating the SRT
+- Rotation:
+	- At the beginning of the gesture, store the current SRT and the direction (in canvas space) from the selection origin to the cursor
+	- When the cursor moves, find the new direction from the selection origin to the cursor
+	- Update the SRT to the initial value rotated by the difference between the initial angle and the current angle
+- Stretching:
+	- At the beginning of the gesture, store the current SRT and the vector from the selection origin to the cursor
+	- When the cursor moves, find the new vector from the selection origin to the cursor
+	- The scale factor is computed as the component of the new vector in the direction of the initial one
+	- Update the SRT by scaling in the x and/or y directions as appropriate
+## 3.2 Client Overview
+Data flow throughout the application is based on a few key mechanisms:
+- `State`, a value which can change throughout the lifetime of the application
+	- To reduce the need to manually pass around callbacks and propagate notifications, `State` encapsulates this process into an interface with two fundamental operations:
+		- Read the current value
+		- Attach a callback to be notified when the value changes
+	- This is then used to implement other operations such as:
+		- Create a derived state from a function mapping the current value to a new one
+		- Combining multiple states together in order to create a state derived from multiple inputs
+	- 
+- `Channel`, an asynchronous queue
+	- A channel consists of a sender with the ability to push items, and a receiver which is an asynchronous iterable of items
+### 3.2.1 Key Modules
+- GenWrapper
+- Properties
+- client
+	- IterateReceiver
+	- RawClient
+	- Client
+	- HttpApi
+- ui
+	- Icon
+	- Panel
+	- PropertiesEditor
+		- ResourcePicker
+	- UIManager
+- canvas
+	- CanvasBase
+	- CanvasItems
+	- Gesture
+	- Selection
+		- SelectionUI
+	- Canvas
+## 3.3 Server Overview
+The server-side code operates on a coroutine-based event driven system, largely powered by the following constructs:
+- Concurrent Hash Map, from `scc`
+	- Implements a hash table able to insert and fetch items without locking the table as a whole, allowing the system to scale better on multi-threaded systems
+- Multi-producer channels
+	- Used in two forms: `mpsc` (Multi-producer single-consumer, from `tokio`) and `mpmc` (Multi-producer multi-consumer, from `async_channel`)
+	- `mpsc` channels are used for relaying messages to clients to be stored
+	- `mpmc` channels are used for sending messages to the board so that multiple tasks can process messages in parallel
+- Read-Write Locks, from `tokio`
+	- These are used when a structure needs to be completely owned to be mutated
+	- Any number of read-only references to the wrapped value can be held, but writing requires exclusive access
+	- Used in this project to wrap sets of IDs since `scc`'s maps don't have a good mechanism for iterating over them
+
+Serving pages and communicating with clients is done through Warp, a lightweight implementation of an HTTP server
+- Warp operates though "filters", patterns that match requests and can generate a reply
+- Filters can be chained and composed to produce the final application, enabling different subsystems to each produce filters which add together to produce an application
+### 3.3.1 Modules
+- `lib` - top-level code including composition of filters and shared object declarations
+- `upload` - filters for storing and serving media files
+- `client` - filters for establishing a connection between client and server
+- `message` - declaration of structures which are sent to and from clients
+	- Split across several sub-modules for different sections of the protocol
+- `canvas` - declaration of structures relating to the canvas itself
+	- `items` - Item type declarations
+	- `active` - wrapper around the tables used to store a board
+- `board` - implementation of whiteboards
+	- `file` - disk format and saving/loading boards
+	- `manager` - keeping track of active boards and loading/saving as necessary
+	- `active` - processing messages and actually maintaining a board
+		- Several sub-modules for implementation of different components of this
+### 3.3.2 Compilation targets
+The project has two different compilation outputs:
+- `codegen` - building TypeScript declaration files
+	- Collects types and outputs them to a configurable location
+- `main` - running a server
+	- Handles command-line arguments and initialising the server
+## 3.4 Data Structures
+### 3.4.1 Canvas items
+#### 3.4.1.1 Basic structures
+Aliases for specific uses of types:
+```ts
+type Color = string;
+```
+Point - a general 2D vector:
+```typescript
+interface Point {
+	x: number;
+	y: number;
+}
+```
+Stroke - a combination of stroke width and colour:
+```ts
+interface Stroke {
+	width: number;
+	color: Color;
+}
+```
+Transform - a 2D transformation, corresponds to a 3x2 matrix:
+```ts
+interface Transform {
+	origin: Point;
+	basisX: Point;
+	basisY: Point;
+}
+```
+Spline Node - a part of a hand-drawn path:
+```ts
+interface SplineNode {
+	position: Point;
+	velocity: Point;
+}
+```
+#### 3.4.1.2 Item types
+Common properties of items:
+```ts
+interface TransformItem {
+	transform: Transform;
+}
+
+interface StrokeItem {
+	stroke: Stroke;
+}
+
+interface FillItem {
+	fill: Color;
+}
+```
+Item types:
+```ts
+interface RectangleItem extends TransformItem, StrokeItem, FillItem {
+	type: "Rectangle";
+}
+
+interface EllipseItem extends TransformItem, StrokeItem, FillItem {
+	type: "Ellipse";
+}
+
+interface LineItem extends StrokeItem {
+	type: "Line";
+	start: Point;
+	end: Point;
+}
+
+interface PolygonItem extends StrokeItem, FillItem {
+	type: "Polygon";
+	points: Point[];
+}
+
+interface PathItem extends StrokeItem, TransformItem {
+	type: "Path";
+	nodes: SplineNode[];
+}
+
+interface ImageItem extends TransformItem {
+	type: "Image";
+	url: string;
+	description: string;
+}
+
+interface TextItem extends TransformItem {
+	type: "Text";
+	text: string;
+}
+
+interface LinkItem extends TransformItem {
+	type: "Link";
+	text: string;
+	url: string;
+}
+```
+#### 3.4.1.3 Other supporting types
+Location update - change in the position of an item:
+```ts
+type LocationUpdate = { "Transform": Transform } | { "Points": Point[]};
+```
+Batch changes - changes that can be made to multiple items at once:
+```ts
+interface BatchChanges {
+	fill?: Color;
+	stroke?: Stroke;
+}
+```
 
 # 4 Technical Solution
 ## 4.1 Server-side code
@@ -303,9 +525,8 @@ use warp::{filters::BoxedFilter, reply::Reply, Filter};
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-	#[arg(short = 'r', long, default_value = ".")]
-	board_root: Utf8PathBuf,
-	
+	// #[arg(short = 'r', long, default_value = ".")]
+	// board_root: Utf8PathBuf,
 	#[arg(short = 's', long = "static-root")]
 	static_path: Utf8PathBuf,
 	
@@ -394,7 +615,7 @@ fn create_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
 import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
-import { BoardTable } from "./canvas/ItemTable.js";
+import { BoardTable } from "./BoardTable.js";
 import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";

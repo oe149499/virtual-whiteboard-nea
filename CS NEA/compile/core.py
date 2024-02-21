@@ -1,6 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import TextIOWrapper
-from typing import Iterable, Type
+from typing import Iterable, Type, Callable
 
 
 class Block:
@@ -64,32 +64,38 @@ class ItemStatement(Statement):
 	def expand_main(self, ctx: "Context") -> Iterable["Block"]:
 		return ()
 
+def header_generator():
+	nums = []
+	def _inner(level: int):
+		if len(nums) >= level:
+			while len(nums) > level:
+				nums.pop(-1)
+			nums[-1] += 1
+		while len(nums) < level:
+			nums.append(1)
+		return '.'.join(str(i) for i in nums)
+	_inner.nums = nums
+	return _inner
+
 @dataclass
 class Context:
 	sections: dict[str, list["ItemStatement"]]
 
-	current_indent = 1
-	header_numbers = []
+	current_indent: int = 1
+	header: Callable[[int], str] = field(default_factory=header_generator)
+	num_prefix: str = ""
 
-	file_prefix = "./"
-	variables = {}
+	file_prefix: str = "./"
+	variables: dict = field(default_factory=dict)
 
 	def get_header(self, indent: int, text: str):
-		if len(self.header_numbers) >= indent:
-			while len(self.header_numbers) > indent:
-				self.header_numbers.pop(-1)	
-			self.header_numbers[-1] += 1
-		while len(self.header_numbers) < indent:
-			self.header_numbers.append(1)
-		# num = self.header_numbers[-1]
-		# self.header_numbers[-1] += 1
+		num_fmt = self.header(indent)
+		self.num_prefix = num_fmt
 		self.current_indent = indent
-		num_fmt = '.'.join(str(i) for i in self.header_numbers)
 		return StrBlock(f"{'#'*indent} {num_fmt} {text}\n")
 	
 	def add_indent(self):
 		self.current_indent += 1
-		self.header_numbers.append(0)
 	
 	def get_path(self, path: str):
 		if path.startswith('/'):

@@ -1,0 +1,32 @@
+Data flow throughout the application is based on a few key mechanisms:
+- `State`, a value which can change throughout the lifetime of the application
+	- To reduce the need to manually pass around callbacks and propagate notifications, `State` encapsulates this process into an interface with two fundamental operations:
+		- Read the current value
+		- Attach a callback to be notified when the value changes
+	- This is then used to implement other operations such as:
+		- Create a derived state from a function mapping the current value to a new one
+		- Combining multiple states together in order to create a state derived from multiple inputs
+	- 
+- `Channel`, an asynchronous queue
+	- A channel consists of a sender with the ability to push items, and a receiver which is an asynchronous iterable of items
+# Key Modules
+- GenWrapper
+- Properties
+- client
+	- IterateReceiver
+	- RawClient
+	- Client
+	- HttpApi
+- ui
+	- Icon
+	- Panel
+	- PropertiesEditor
+		- ResourcePicker
+	- UIManager
+- canvas
+	- CanvasBase
+	- CanvasItems
+	- Gesture
+	- Selection
+		- SelectionUI
+	- Canvas
