@@ -66,7 +66,8 @@ macro_rules! notify_c_declarations {
 		$(
 			$(#[$($attr)*])*
 			#[derive(Serialize, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
+            #[cfg_attr(feature = "codegen", derive(TS))]
+            #[serde(rename_all = "camelCase")]
 			pub struct $name {
 				$(
 					$(#[$($pattr)*])*

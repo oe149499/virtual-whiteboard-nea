@@ -1,7 +1,7 @@
 import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
 import { StrokeHelper } from "./canvas/CanvasBase.js";
-import { BoardTable } from "./canvas/ItemTable.js";
+import { BoardTable } from "./BoardTable.js";
 import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";

@@ -16,6 +16,7 @@ export class Line extends StrokeMixin(CanvasItem) {
 	) {
 		super(ctx);
 		this.elem = ctx.createElement("line");
+		this.updateItem(item);
 	}
 
 	public override updateItem(value: Item): void {

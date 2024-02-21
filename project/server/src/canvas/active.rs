@@ -3,7 +3,7 @@
 use std::{
     collections::BTreeSet,
     ops::{Deref, DerefMut},
-    sync::atomic::{AtomicU32, AtomicU64, Ordering},
+    sync::atomic::{AtomicU32, Ordering},
 };
 
 use scc::hash_map::OccupiedEntry;
@@ -98,5 +98,10 @@ impl ActiveCanvas {
     /// Get a vector of all current Item IDs
     pub async fn get_item_ids(&self) -> Vec<ItemID> {
         self.item_ids.read().await.iter().cloned().collect()
+    }
+
+    pub fn get_item_ids_sync(&self) -> Result<Vec<ItemID>, ()> {
+        let ids = self.item_ids.try_read().or(Err(()))?;
+        Ok(ids.iter().cloned().collect())
     }
 }

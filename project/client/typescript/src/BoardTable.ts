@@ -1,18 +1,19 @@
-import { ItemType, MArgs, SpecificItem } from "../GenWrapper.js";
-import { ClientID, Item, ItemID, Transform, type ClientInfo } from "../gen/Types.js";
-import { CanvasItem } from "./items/CanvasItems.js";
-import { None, Option, Some, ok, todo, unwrapOption } from "../util/Utils.js";
-import { exclusiveProvider, keyedProvider, multiTargetProvider } from "../util/Events.js";
-import { SessionClient } from "../client/Client.js";
-import { Logger } from "../Logger.js";
-import { invertTransform, unitTransform } from "../Transform.js";
-import { LocalSelection, RemoteSelection, RemoteSelectionInit, TransformRecord } from "./Selection.js";
+import { ItemType, SpecificItem } from "./GenWrapper.js";
+import { ClientID, Item, ItemID, Transform, type ClientInfo } from "./gen/Types.js";
+import { CanvasItem } from "./canvas/items/CanvasItems.js";
+import { None, Option, Some, ok, todo } from "./util/Utils.js";
+import { exclusiveProvider, keyedProvider, multiTargetProvider } from "./util/Events.js";
+import { SessionClient } from "./client/Client.js";
+import { Logger } from "./Logger.js";
+import { invertTransform } from "./Transform.js";
+import { LocalSelection, RemoteSelection, RemoteSelectionInit, TransformRecord } from "./canvas/Selection.js";
+import { mutableStateOf, type ReadonlyAs, type State } from "./util/State.js";
 
 const logger = new Logger("ItemTable");
 
 export interface ItemEntry<T extends ItemType = ItemType> {
 	id: ItemID;
-	item: SpecificItem<T>;
+	item: SpecificItem<T> & ReadonlyAs<SpecificItem<T>>;
 	canvasItem: CanvasItem;
 	selection: Option<ClientID>;
 }
@@ -25,6 +26,7 @@ export enum ConnectionState {
 }
 
 export interface ClientEntry {
+	[ReadonlyAs]?(): ClientEntry;
 	readonly id: ClientID;
 	readonly items: ReadonlySet<ItemID>;
 	readonly info: Readonly<ClientInfo>;
@@ -45,6 +47,22 @@ interface RemoteEntry extends ClientEntryMut {
 interface SelfEntry extends ClientEntryMut {
 	box: Option<LocalSelection>;
 }
+
+export enum LocalSelectionCount {
+	None,
+	One,
+	Multiple,
+}
+
+type LocalSelectionState = {
+	type: LocalSelectionCount.None,
+} | {
+	type: LocalSelectionCount.One,
+	entry: ItemEntry,
+} | {
+	type: LocalSelectionCount.Multiple,
+	ids: ReadonlySet<ItemID>,
+};
 
 interface SelectionHandlers {
 	add(i: ItemEntry[]): void;
@@ -76,6 +94,9 @@ export class BoardTable {
 	private self: SelfEntry;
 	public readonly ownID: ClientID;
 
+	private _selectionState = mutableStateOf<LocalSelectionState>({ type: LocalSelectionCount.None });
+	public readonly selectionState = this._selectionState.asReadonly();
+
 	public constructor(private client: SessionClient) {
 		this.ownID = client.clientID;
 
@@ -98,9 +119,17 @@ export class BoardTable {
 			this.addItem(id, item);
 		});
 
-		for await (const [item, id] of this.client.iterate.GetFullItems({ ids: items }).dechunk().zipWith(items)) {
-			if (ok(item)) {
-				this.addItem(id, item.value);
+		this.client.bindNotify("SingleItemEdited", ({ id, item }) => {
+			const entry = this.items.assume(id);
+			if (this.self.items.has(id)) return;
+			entry.item = item;
+			entry.canvasItem.update(item);
+		});
+
+		for await (const res of this.client.iterate.GetFullItems({ ids: items }).dechunk()) {
+			if (ok(res)) {
+				const [id, item] = res.value;
+				this.addItem(id, item);
 			}
 		}
 
@@ -110,7 +139,12 @@ export class BoardTable {
 
 		const ownInfo = await this.client.method.GetClientState({ clientId: this.ownID });
 		logger.debug("own info: ", ownInfo);
+		for (const [id] of ownInfo.selectedItems) {
+			this.self.items.add(id);
+		}
 		this.self.box = this._events.ownSelectionCreate.call(ownInfo.selectionTransform, ownInfo.selectedItems);
+
+		this.updateSelectionState();
 
 		await Promise.all(clients.map(id => this.addClient(id)));
 
@@ -137,11 +171,11 @@ export class BoardTable {
 	}
 
 	private bindSelectionEvents() {
-		this.client.bindNotify("SelectionItemsAdded", ({ id, items, new_srt }) => {
+		this.client.bindNotify("SelectionItemsAdded", ({ id, items, newSrt }) => {
 			if (id === this.ownID) return;
 			const entry = this.clients.assume(id);
 
-			const sit = invertTransform(new_srt);
+			const sit = invertTransform(newSrt);
 			const item_entries: TransformRecord[] = items.map(id => [id, sit]);
 
 			entry.items.addFrom(items);
@@ -149,11 +183,11 @@ export class BoardTable {
 				const box = this._events.remoteSelectionCreate.call({
 					id,
 					items: item_entries,
-					srt: new_srt,
+					srt: newSrt,
 				});
 				entry.box = box;
 			} else {
-				entry.box.addItems(item_entries, new_srt);
+				entry.box.addItems(item_entries, newSrt);
 			}
 		});
 
@@ -161,14 +195,21 @@ export class BoardTable {
 			todo(id, items);
 		});
 
-		this.client.bindNotify("SelectionMoved", ({ id, transform }) => {
-			this._events.selection.emit("move", id, transform);
+		this.client.bindNotify("SelectionMoved", ({ id, transform, newSits }) => {
+			if (id == this.ownID) return;
+			const box = this.clients.assume(id).box;
+			if (box === None) return;
+			box.moveItems(transform, newSits);
 		});
 	}
 
 	private async addClient(id: ClientID) {
 		if (id === this.ownID) return;
-		const { info, paths, selectedItems, selectionTransform } = await this.client.method.GetClientState({ clientId: id });
+		const { info, paths: _, selectedItems, selectionTransform } = await this.client.method.GetClientState({ clientId: id });
+
+		for (const [itemId] of selectedItems) {
+			this.items.assume(itemId).selection = id;
+		}
 
 		const entry: RemoteEntry = {
 			id,
@@ -210,6 +251,7 @@ export class BoardTable {
 	public get(id: ItemID): Option<ItemEntry>;
 	public get(idOrIds: ItemID | Iterable<ItemID>, filter?: true): Option<ItemEntry> | Iterable<Option<ItemEntry>> {
 		if (typeof idOrIds === "object") {
+			if (filter) return mapFilter(idOrIds, id => this.items.get(id) ?? None, Some);
 			return map(idOrIds, id => this.items.get(id) ?? None);
 		}
 		return this.items.get(idOrIds) ?? None;
@@ -224,34 +266,21 @@ export class BoardTable {
 		if (self.box === None) {
 			self.box = this._events.ownSelectionCreate.call();
 		}
-		// @ts-ignore not enough narrowing
-		return self;
+		return self as SelfEntry & { box: LocalSelection };
 	}
 
-	// private ensureSelection(client: ClientID) {
-	// 	const clientEntry = this.clients.get(client);
-	// 	if (!clientEntry) return logger.throw("Missing client ID: ", client);
-	// 	if (clientEntry.box === None)
-	// 		clientEntry.box = this._events.remoteSelectionCreate.call({
-	// 			id: client,
-	// 			items: {},
-	// 			transform: unitTransform(),
-	// 		});
-	// 	return clientEntry as ClientEntryMut & { box: SelectionBoxBase };
-	// }
-
-	// private addSelection(selection: ClientID, items: ItemID[]) {
-	// 	const selectionEntry = this.ensureSelection(selection);
-
-	// 	for (const item of items) {
-	// 		if (this.items.get(item)?.selection !== None) continue;
-	// 		selectionEntry.items.add(item);
-	// 	}
-
-	// 	const itemEntries = Array.from(this.get(items)).filter(Some);
-
-	// 	this._events.selection.emit("add", selection, itemEntries);
-	// }
+	private updateSelectionState() {
+		const count = this.self.items.size;
+		if (count === 0) this._selectionState.mutate(s => s.type = LocalSelectionCount.None);
+		else if (count == 1) this._selectionState.set({
+			type: LocalSelectionCount.One,
+			entry: this.items.assume(this.self.items.first()!),
+		});
+		else this._selectionState.set({
+			type: LocalSelectionCount.Multiple,
+			ids: this.self.items,
+		});
+	}
 
 	public addOwnSelection(items: ItemID[]) {
 		const self = this.ensureLocalBox();
@@ -260,18 +289,30 @@ export class BoardTable {
 			if (item.selection !== None) continue;
 			item.selection = self.id;
 			entries.push(item);
+			self.items.add(item.id);
 		}
 
-		self.items.addFrom(items);
+		// self.items.addFrom(items);
 
 		const payload = self.box.createAddPayload(entries);
 
 		logger.debug("Sending payload: ", payload);
 
 		this.client.method.SelectionAddItems(payload).then(res => logger.debug("Add items result: ", res));
+
+		this.updateSelectionState();
 	}
 
 	public moveOwnSelection(transform: Transform) {
 		this.client.method.SelectionMove({ newSrt: transform });
+	}
+
+	public editSelectedItem(entry: ItemEntry) {
+		entry.canvasItem.update(entry.item);
+		logger.debug("Editing entry: ", entry);
+		this.client.method.EditSingleItem({
+			itemId: entry.id,
+			item: entry.item,
+		});
 	}
 }

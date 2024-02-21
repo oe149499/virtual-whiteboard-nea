@@ -1,6 +1,6 @@
 import { Color } from "./gen/Types.js";
 import { None, Option } from "./util/Utils.js";
-import { BlockDeepReadonly } from "./util/State.js";
+import { BlockDeepReadonly, type ReadonlyAs } from "./util/State.js";
 import { Logger } from "./Logger.js";
 
 const logger = new Logger("Properties");
@@ -134,4 +134,9 @@ export class SingletonPropertyStore extends PropertyStore {
 	protected override set<N extends keyof ValuePropertyTypes>(key: PropKey<N>, value: PropValue<N>) {
 		this.dataStore.set(key, value);
 	}
+}
+
+export interface PropertyInstance {
+	schema: PropertySchema[] & ReadonlyAs<PropertySchema[]>;
+	store: PropertyStore;
 }

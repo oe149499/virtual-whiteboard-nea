@@ -1,8 +1,13 @@
 import { Point, Result } from "../gen/Types.js";
-import { MutableState, mutableStateOf } from "./State.js";
+import type { EventMap } from "./Extensions.js";
+import { MutableState, mutableStateOf, type DeepReadonly } from "./State.js";
 
 Set.prototype.addFrom = function <T>(this: Set<T>, src: Iterable<T>) {
 	for (const item of src) this.add(item);
+};
+
+Set.prototype.first = function () {
+	for (const item of this) return item;
 };
 
 Map.prototype.assume = function <K, V>(this: Map<K, V>, key: K) {
@@ -56,6 +61,14 @@ Element.prototype.setAttrs = function (attrs) {
 
 Element.prototype.setContent = function (content) {
 	this.textContent = content;
+	return this;
+};
+
+Element.prototype.addHandlers = function <E extends Element>(this: E, handlers: EventMap<E>) {
+	for (const name in handlers) {
+		// @ts-ignore
+		this.addEventListener(name, handlers[name]);
+	}
 	return this;
 };
 
@@ -173,3 +186,6 @@ SVGGraphicsElement.prototype.getBBoxState = function () {
 	bboxStateObserver.observe(this);
 	return state;
 };
+
+// @ts-expect-error could be invalid in theory
+Object.prototype.asReadonly = function () { return this; };

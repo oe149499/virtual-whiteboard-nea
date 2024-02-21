@@ -8,19 +8,21 @@ import { Color, Item, ItemID, Point, Stroke, Transform } from "../../gen/Types.j
 import { AutoMap, HookMap } from "../../util/Maps.js";
 import { Constructor, None, Option } from "../../util/Utils.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
-import { ItemEntry, BoardTable } from "../ItemTable.js";
+import { ItemEntry, BoardTable } from "../../BoardTable.js";
+import { ReadonlyAs } from "../../util/State.js";
 
 const logger = new Logger("canvas-items");
 
 export abstract class CanvasItem {
+	[ReadonlyAs]?(): CanvasItem;
 	static readonly InitHook = new HookMap<CanvasItem, CanvasContext>();
 	static readonly UpdateHook = new HookMap<CanvasItem>();
-	static readonly PropertiesHook = new HookMap<CanvasItem, void, PropertySchema>();
+	static readonly PropertiesHook = new HookMap<CanvasItem, ItemPropertyStore, PropertySchema>();
 
 	public readonly element: SVGGElement;
 	protected abstract get innerElement(): SVGGraphicsElement;
 
-	public _update(value: Item) {
+	public update(value: Item) {
 		this.updateItem(value);
 		UpdateHook.trigger(this);
 	}
@@ -30,11 +32,11 @@ export abstract class CanvasItem {
 
 	private static schemas: { [K in ItemType]?: PropertySchema[] } = {};
 
-	public static schemaFor(item: CanvasItem) {
+	public static schemaFor(item: CanvasItem, store: ItemPropertyStore) {
 		if (item.item.type in this.schemas) {
 			return this.schemas[item.item.type]!;
 		} else {
-			const schema = Array.from(PropertiesHook.collect(item));
+			const schema = Array.from(PropertiesHook.collect(item, store));
 			this.schemas[item.item.type] = schema;
 			return schema;
 		}
@@ -83,7 +85,7 @@ interface ItemAcc<T extends ItemType, N extends PropType> {
 type AccMap<T extends ItemType> = AutoMap<PropKey<any>, ItemAcc<T, any>>;
 
 export class ItemPropertyStore extends PropertyStore {
-	public constructor(private items: BoardTable) { super(); }
+	public constructor(private table: BoardTable) { super(); }
 
 	private currentItem: Option<ItemEntry> = None;
 	private accessorTable: {
@@ -102,8 +104,8 @@ export class ItemPropertyStore extends PropertyStore {
 	}
 
 	public bind(id: ItemID) {
-		const entry = this.items.get(id);
-		this.currentItem = entry ?? None;
+		const entry = this.table.get(id);
+		this.currentItem = entry;
 	}
 
 	public getter<T extends ItemType, N extends PropType>(type: T, key: PropKey<N>, fn: Required<ItemAcc<T, N>>["getter"]): this {
@@ -128,6 +130,7 @@ export class ItemPropertyStore extends PropertyStore {
 		const setter = this.getAccessor(this.currentItem.item.type, key).setter;
 		if (!setter) return;
 		setter(this.currentItem.item, value);
+		this.table.editSelectedItem(this.currentItem);
 	}
 }
 
@@ -167,6 +170,18 @@ export function StrokeMixin<TBase extends Constructor<CanvasItem>>(Base: TBase) 
 			UpdateHook.add(this, function () {
 				this.#stroke?.update(this.item.stroke);
 			});
+
+			PropertiesHook.add(this, function (store) {
+				const { keys, schema } = PropertyTemplates.StrokeSchema();
+				const t = this.item.type;
+
+				store.getter(t, keys.color, item => item.stroke.color);
+				store.setter(t, keys.color, (item, color) => item.stroke.color = color);
+				store.getter(t, keys.width, item => item.stroke.width);
+				store.setter(t, keys.width, (item, val) => item.stroke.width = val);
+
+				return schema;
+			});
 		}
 	}
 
@@ -186,6 +201,18 @@ export function FillMixin<TBase extends Constructor<CanvasItem>>(Base: TBase) {
 
 			UpdateHook.add(this, function () {
 				this.#fill?.update(this.item.fill);
+			});
+
+			PropertiesHook.add(this, function (store) {
+				const key = new PropKey("color");
+				const schema: PropertySchema = {
+					type: "color",
+					key,
+					displayName: "Fill color",
+				};
+				store.getter(this.item.type, key, item => item.fill);
+				store.setter(this.item.type, key, ((item, color) => item.fill = color));
+				return schema;
 			});
 		}
 	}

@@ -2,7 +2,7 @@ import { updateMatrix } from "../Transform.js";
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
 import { State } from "../util/State.js";
 import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
-import { BoardTable } from "./ItemTable.js";
+import { BoardTable } from "../BoardTable.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 

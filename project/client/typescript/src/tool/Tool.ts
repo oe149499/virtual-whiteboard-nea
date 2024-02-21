@@ -1,6 +1,7 @@
 import type { Board } from "../Board.js";
 import { SingletonPropertyStore } from "../Properties.js";
 import { DragGestureState, FilterHandle, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
+import type { BlockDeepReadonly } from "../util/State.js";
 import { None } from "../util/Utils.js";
 
 export type ToolState = {
@@ -17,6 +18,7 @@ export enum ToolType {
 }
 
 interface _Tool {
+	[BlockDeepReadonly]?(): unknown;
 	properties?: SingletonPropertyStore;
 }
 

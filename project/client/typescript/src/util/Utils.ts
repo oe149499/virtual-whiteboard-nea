@@ -14,6 +14,8 @@ export function Some<T>(x: Option<T>): x is T {
 	return x !== None;
 }
 
+export const QUERY_PARAMS = new URLSearchParams(window.location.href);
+
 export type PromiseHandle<T> = {
 	resolve: (_: T) => void,
 	reject: (_: unknown) => void,

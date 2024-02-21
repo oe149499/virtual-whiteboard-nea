@@ -1,12 +1,18 @@
 import { BoundsTester } from "../Bounds";
 import { Result } from "../gen/Types";
-import { State } from "./State";
+import { State, type ReadonlyAs, type DeepReadonly } from "./State";
+
+type EventMap<E extends Element> = {
+	[K in keyof E as (K extends `on${infer N}` ? N : never)]?: E[K]
+}
 
 declare global {
 	type Handler<T> = ((_: T) => void) | null;
 
 	interface Set<T> {
 		addFrom(src: Iterable<T>): void;
+
+		first(): T | undefined;
 	}
 
 	interface Map<K, V> {
@@ -42,6 +48,8 @@ declare global {
 		setAttrs(attrs: { [K in keyof this]?: string | number | this[K] }): this;
 
 		setContent(content: string): this;
+
+		addHandlers(handlers: EventMap<this>): this;
 	}
 
 	interface Promise<T> {
@@ -51,5 +59,9 @@ declare global {
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface WeakMap<K extends object, V> {
 		has(value: unknown): value is K;
+	}
+
+	interface Object {
+		asReadonly<T>(this: ReadonlyAs<T>): T;
 	}
 }

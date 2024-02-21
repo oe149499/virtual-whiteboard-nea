@@ -1,14 +1,32 @@
 import { Logger } from "../Logger.js";
+import type { Transform } from "../gen/Types.js";
 import { clone } from "./Clone.js";
 import { None, Option, getObjectID } from "./Utils.js";
 
 export const BlockDeepReadonly = Symbol("BlockReadonly");
+export const ReadonlyAs = Symbol("ReadonlyAs");
 
 // eslint-disable-next-line @typescript-eslint/ban-types
-export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | DOMMatrixReadOnly | DOMPointReadOnly | BlockReadonly;
+export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | Promise<unknown>;
 
 interface BlockReadonly {
-	[BlockDeepReadonly]: unknown;
+	[BlockDeepReadonly]?: unknown;
+}
+
+export interface ReadonlyAs<T> {
+	[ReadonlyAs]?(): T;
+}
+
+declare global {
+	interface ReadonlyArray<T> extends ReadonlyAs<ReadonlyArray<T>> { }
+
+	interface ReadonlySet<T> extends ReadonlyAs<ReadonlySet<T>> { }
+
+	interface ReadonlyMap<K, V> extends ReadonlyAs<ReadonlyMap<K, V>> { }
+
+	interface DOMMatrixReadOnly extends ReadonlyAs<DOMMatrixReadOnly> { }
+
+	interface DOMPointReadOnly extends ReadonlyAs<DOMPointReadOnly> { }
 }
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;
@@ -17,9 +35,11 @@ type ROMap<T, U> = (_: DeepReadonly<T>) => U;
 type StateTuple<T extends any[]> = { [K in keyof T]: State<T[K]> };
 
 export type DeepReadonly<T> = T extends SkipReadonly ? T
-	: T extends (infer U)[] ? ReadonlyArray<DeepReadonly<U>>
+	: T extends ReadonlyAs<infer U> ? U : T extends BlockReadonly ? T
 	// eslint-disable-next-line @stylistic/indent
 	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
+type Test = DeepReadonly<MutableState<number>>
 
 export interface WatchHandle {
 	end(): void;
@@ -27,7 +47,7 @@ export interface WatchHandle {
 }
 
 export function stateWithSetterOf<T>(value: T) {
-	const state = new _MutableState(value);
+	const state = new MutableState(value);
 	return {
 		state: state as State<T>,
 		setter: state.set,
@@ -35,15 +55,15 @@ export function stateWithSetterOf<T>(value: T) {
 }
 
 export function mutableStateOf<T>(value: T) {
-	return new _MutableState(value) as MutableState<T>;
+	return new MutableState(value) as MutableState<T>;
 }
 
 export function mutableStateOfNone<T>(): MutableState<Option<T>> {
 	return mutableStateOf<Option<T>>(None);
 }
 
-export function stateBy<T>(value: T, executor: (f: ROAction<T>) => void) {
-	const state = new _MutableState(value);
+export function stateBy<T>(value: T, executor: (f: (_: T) => void) => void) {
+	const state = new MutableState(value);
 	executor(state.set.bind(state));
 	return state as State<T>;
 }
@@ -73,7 +93,7 @@ export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArra
 		if (val instanceof State) {
 			const handle = val[watchWeak](value => {
 				out[index] = value;
-				setter(out as DeepReadonly<T>);
+				setter(out);
 			});
 			handles.push(handle);
 			return val.get();
@@ -82,7 +102,7 @@ export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArra
 		}
 	});
 
-	setter(out as DeepReadonly<T>);
+	setter(out);
 
 	return state;
 }
@@ -94,7 +114,7 @@ type MaybeReturnType<T> = T extends (...args: infer _) => infer R ? R : never;
 
 // @ts-expect-error watcher maps will still recieve the type they watched
 export abstract class State<out T> {
-	[BlockDeepReadonly]() { }
+	[ReadonlyAs]?(): State<T>;
 	private watchers = new Map<number, ROAction<T>>();
 	private weakWatchers = new Map<number, WeakRef<ROAction<T>>>();
 	public updateDerived = true;
@@ -253,25 +273,25 @@ class FieldExtractor<T, N extends keyof T> extends MutableExtractor<T, T[N]> {
 	}
 }
 
-export abstract class MutableState<T> extends State<T> {
+export class MutableState<T> extends State<T> {
 	public constructor(value: T) {
 		super(value);
 	}
 
-	public set(value: DeepReadonly<T>) {
-		this.update(value);
+	public set(value: T) {
+		this.update(value as DeepReadonly<T>);
 	}
 
 	public updateBy(f: (_: T) => T): void {
 		const currentVal = this.value;
 		const newVal = f(currentVal) ?? currentVal;
-		this.set(newVal as DeepReadonly<T>);
+		this.set(newVal);
 	}
 
 	public mutate(f: (_: T) => void) {
 		const currentVal = this.value;
 		f(currentVal);
-		this.set(currentVal as DeepReadonly<T>);
+		this.set(currentVal);
 	}
 
 	public derivedM<U>(transformer: MutableTransformer<T, U>): MutableState<U> {
@@ -289,8 +309,6 @@ export abstract class MutableState<T> extends State<T> {
 	}
 }
 
-class _MutableState<T> extends MutableState<T> { }
-
 class MutableDerived<T, U> extends MutableState<U> {
 	#handle: unknown;
 	public constructor(
@@ -303,9 +321,9 @@ class MutableDerived<T, U> extends MutableState<U> {
 		});
 	}
 
-	public override set(value: DeepReadonly<U>) {
-		this.update(value);
-		this.source.set(this.transformer.backwards(value) as DeepReadonly<T>);
+	public override set(value: U) {
+		this.update(value as DeepReadonly<U>);
+		this.source.set(this.transformer.backwards(value as DeepReadonly<U>));
 	}
 }
 

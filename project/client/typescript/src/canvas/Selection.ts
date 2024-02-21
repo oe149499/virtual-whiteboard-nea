@@ -5,7 +5,7 @@ import { mutableStateOf, type State } from "../util/State.js";
 import { None, OwnedInterval, point } from "../util/Utils.js";
 import type { CanvasContext } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
-import type { ItemEntry, BoardTable } from "./ItemTable.js";
+import type { ItemEntry, BoardTable } from "../BoardTable.js";
 import { SelectionBorder, RotateHandle, StretchHandleSet } from "./SelectionUI.js";
 
 const logger = new Logger("canvas/Selection");
@@ -64,7 +64,12 @@ export abstract class SelectionBox {
 		this.rootTransform.transform.baseVal.appendItem(transform);
 		this.srt.watch(m => transform.setMatrix(m));
 
-		this.size = this.rootTransform.getBBoxState().derived(({ width, height }: DOMRect) => point(width, height));
+		this.size = this
+			.rootTransform
+			.getBBoxState()
+			.derived(
+				({ width, height }: DOMRect) => point(width + 0.5, height + 0.5),
+			);
 	}
 
 	protected addFromTransforms(newSits: TransformRecord[], newSrt: Transform) {
@@ -127,7 +132,7 @@ export abstract class SelectionBox {
 			}
 		}
 
-		this.srt.updateBy(m => updateMatrix(m, newSrt));
+		this.srt.updateTransform(newSrt);
 
 		return {
 			newSrt,
@@ -164,7 +169,7 @@ export class RemoteSelection extends SelectionBox {
 			this.items.set(id, holder);
 		}
 
-		this.srt.updateBy(m => updateMatrix(m, init.srt));
+		this.srt.updateTransform(init.srt);
 
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
 		this.uiContainer.appendChild(this.border.element);
@@ -172,6 +177,14 @@ export class RemoteSelection extends SelectionBox {
 
 	public addItems(newSits: TransformRecord[], newSrt: Transform) {
 		this.addFromTransforms(newSits, newSrt);
+	}
+
+	public moveItems(newSrt: Transform, newSits?: TransformRecord[]) {
+		this.srt.updateTransform(newSrt);
+		if (newSits) for (const [id, transform] of newSits) {
+			const sit = this.items.assume(id).sit;
+			updateMatrix(sit, transform);
+		}
 	}
 }
 
@@ -210,7 +223,7 @@ export class LocalSelection extends SelectionBox {
 
 		if (init) {
 			this.addFromTransforms(init.items, init.srt);
-			this.srt.updateBy(m => updateMatrix(m, init.srt));
+			this.srt.updateTransform(init.srt);
 		}
 		// this.srt.updateDerived = false;
 

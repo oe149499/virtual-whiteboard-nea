@@ -230,7 +230,7 @@ iterate_declarations! {
 
     GetFullItems(
         ids: Vec<ItemID>,
-    ) => super::Result<Item>
+    ) => super::Result<(ItemID, Item)>
 
     GetActivePath(
         path: PathID,

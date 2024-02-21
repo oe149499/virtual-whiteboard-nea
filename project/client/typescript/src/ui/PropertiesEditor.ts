@@ -1,5 +1,5 @@
 import { Logger } from "../Logger.js";
-import { PropertyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue } from "../Properties.js";
+import { PropertyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue, type PropertyInstance } from "../Properties.js";
 import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
 import { None, Option, getObjectID } from "../util/Utils.js";
@@ -27,12 +27,13 @@ export class PropertyEditor {
 
 	public constructor(
 		private container: HTMLElement,
-		toolState: State<ToolState>,
+		propState: State<Option<PropertyInstance>>,
+		// toolState: State<ToolState>,
 	) {
-		toolState.watch(s => {
+		propState.watchOn(this, s => {
 			if (s !== None) {
-				const props = s.tool.properties;
-				if (props) this.loadProperties(props.schema, props);
+				const { schema, store } = s;
+				this.loadProperties(schema, store);
 			} else {
 				this.currentElement?.remove();
 				delete this.currentElement;

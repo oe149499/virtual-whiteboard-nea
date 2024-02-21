@@ -5,7 +5,10 @@ import { PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
 import { MutableState, State, mutableStateOfNone } from "../util/State.js";
 import { Logger } from "../Logger.js";
-import { None } from "../util/Utils.js";
+import { None, Option, todo } from "../util/Utils.js";
+import { LocalSelectionCount } from "../BoardTable.js";
+import { PropertyInstance } from "../Properties.js";
+import { CanvasItem } from "../canvas/items/CanvasItems.js";
 
 const logger = new Logger("ui/manager");
 
@@ -16,8 +19,8 @@ export class UIManager {
 	public readonly propertiesPanel: PanelController;
 	public readonly properties: PropertyEditor;
 
-	public readonly toolState: State<ToolState>;
-	private readonly _toolState: MutableState<ToolState>;
+	private readonly _toolState = mutableStateOfNone<ToolState>();
+	public readonly toolState = this._toolState.asReadonly();
 
 	public constructor(
 		canvas: CanvasController,
@@ -62,11 +65,27 @@ export class UIManager {
 			.addClasses("panel-contents");
 
 
-		this._toolState = mutableStateOfNone<ToolState>();
-		this.toolState = this._toolState;
+		const toolProps = this.toolState.derived<Option<PropertyInstance>>(t => {
+			if (t === None) return None;
+			const properties = t.tool.properties;
+			if (!properties) return None;
+			return {
+				schema: properties.schema,
+				store: properties,
+			};
+		});
+
+		const propertiesState = toolProps.with(canvas.boardTable.selectionState)
+			.derivedT((tool, selection) => {
+				switch (selection.type) {
+					case LocalSelectionCount.None: return tool;
+					case LocalSelectionCount.One: return canvas.getPropertyInstance(selection.entry);
+					case LocalSelectionCount.Multiple: return None;
+				}
+			});
 
 		this.propertiesPanel = new PanelController(panelContainer);
-		this.properties = new PropertyEditor(propEditorContainer, this.toolState);
+		this.properties = new PropertyEditor(propEditorContainer, propertiesState);
 	}
 
 	public addToolIcon(icon: ToolIcon) {

@@ -144,6 +144,6 @@ export class RawClient {
 	private handleNotifyC<N extends NCName>(name: N, args: NCArgs<N>) {
 		const handler: ((_: NCArgs<N>) => void) | undefined = this.notifyCHandlers[name];
 		if (handler) queueMicrotask(handler.bind(null, args));
-		else logger.error(`No handler set for Notify-C type ${name}`);
+		else logger.error(`No handler set for Notify-C type ${name}: `, args);
 	}
 }

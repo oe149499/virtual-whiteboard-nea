@@ -33,7 +33,7 @@ impl Board {
 
         for (idx, id) in params.ids.into_iter().enumerate() {
             if let Some(item) = self.canvas.get_item(id).await {
-                handle.add_item(message::Ok(item));
+                handle.add_item(message::Ok((id, item)));
             } else {
                 handle.add_item(message::Err(message::ErrorCode::NotFound.into()));
             }

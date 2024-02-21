@@ -137,7 +137,7 @@ class Dechunked<T> extends AsyncIter<T> {
 	protected override async [Next](): Promise<T | End> {
 		if (this.currentChunk === End) return End;
 		if (this.currentChunk.length > 0) {
-			return this.currentChunk.pop()!;
+			return this.currentChunk.shift()!;
 		} else {
 			this.currentChunk = await this.source[getNext]();
 			return this[Next]();

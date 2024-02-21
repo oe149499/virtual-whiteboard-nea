@@ -1,7 +1,7 @@
 import { IterateDispatcher, MethodDispatcher, NCArgs, NCName, createIterateReciever, createMethodReciever } from "../GenWrapper.js";
 import { Logger } from "../Logger.js";
 import { RawClient } from "./RawClient.js";
-import { unwrap } from "../util/Utils.js";
+import { QUERY_PARAMS, unwrap } from "../util/Utils.js";
 import { ClientInfo, type ConnectionInfo } from "../gen/Types.js";
 import { API } from "./HttpApi.js";
 
@@ -20,7 +20,7 @@ export class SessionClient {
 		boardName: string,
 		info: ClientInfo,
 	): Promise<SessionClient> {
-		const storageKey = SESSION_STORAGE_KEY + boardName;
+		const storageKey = SESSION_STORAGE_KEY + boardName + (QUERY_PARAMS.get("session") ?? "");
 		const cache = sessionStorage.getItem(storageKey);
 
 		if (cache) {

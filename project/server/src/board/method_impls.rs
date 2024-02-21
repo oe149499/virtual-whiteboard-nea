@@ -203,6 +203,8 @@ impl Board {
             return handle.error(resource_not_owned(params.item_id));
         }
 
+        debug!("Editing item {:?}", params.item_id);
+
         let mut item = self.canvas.get_ref(params.item_id).await.unwrap(); // Checked earlier that item exists
         *item = params.item.clone();
 

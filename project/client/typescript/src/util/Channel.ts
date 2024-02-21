@@ -5,7 +5,7 @@ const getIter = Symbol("getIter");
 
 export function makeChannel<T>(): [Channel<T>, AsyncIter<T>] {
 	const channel = new Channel<T>();
-	return [channel, AsyncIter.of<T>(channel[getIter]())];
+	return [channel, AsyncIter.of(channel[getIter]())];
 }
 
 export class Channel<T> {
@@ -41,7 +41,7 @@ export class Channel<T> {
 		for (const handle of this.handles) handle.reject("closed");
 	}
 
-	public [getIter]() {
+	public [getIter](): AsyncIterator<T> {
 		return {
 			next: () => this.pop().then(
 				value => ({ done: false as const, value }),

@@ -1,31 +1,51 @@
 import { Logger } from "../Logger.js";
-import { ClientID, Item, ItemID, Point } from "../gen/Types.js";
+import { Item, ItemID, Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
-import { CanvasItem } from "./items/CanvasItems.js";
+import { CanvasItem, ItemPropertyStore } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
-import { DragGestureState, GestureHandler, LongPressGesture, PressGesture } from "./Gesture.js";
-import { BoardTable } from "./ItemTable.js";
+import { GestureHandler } from "./Gesture.js";
+import { BoardTable, type ItemEntry } from "../BoardTable.js";
 import { TimeoutMap } from "../util/TimeoutMap.js";
 import { LocalSelection, RemoteSelection } from "./Selection.js";
+import type { PropertyInstance } from "../Properties.js";
+import { None } from "../util/Utils.js";
 
 
 const PX_PER_CM = 37.8;
 const logger = new Logger("canvas/CanvasController");
 
 export class CanvasController {
-	public readonly svgElement: SVGSVGElement;
+	public readonly svgElement = document.createElementNS(SVGNS, "svg")
+		.setAttrs({
+			viewBox: "0 0 0 0",
+		})
+		.addHandlers({
+			pointerdown: this.pointerDown.bind(this),
+			pointerup: this.pointerUp.bind(this),
+			pointermove: this.pointerMove.bind(this),
+		});
+
 	public readonly ctx: CanvasContext;
 	// public readonly selection = new Map<ClientID, UserSelection>();
 
-	private targetRect: DOMRect;
+	private targetRect = this.svgElement.viewBox.baseVal;
 
-	public readonly elementBounds: State<DOMRectReadOnly>;
+	public readonly elementBounds = stateBy(
+		new DOMRect(),
+		set => new ResizeObserver(
+			entries => set(entries[0].contentRect),
+		).observe(this.svgElement),
+	);
 
 	private activeGestures: { [key: number]: { move: Channel<PointerEvent>, end: (_: PointerEvent) => void } } = {};
 	private gestures!: GestureHandler;
-	private coordMapping: MutableState<CoordinateMapping>;
+	private coordMapping = mutableStateOf<CoordinateMapping>({
+		screenOrigin: { x: 0, y: 0 },
+		stretch: PX_PER_CM,
+		targetOffset: { x: 0, y: 0 },
+	});
 
 	private cursorTimeouts = new TimeoutMap(1000, (id: number) => {
 		this.currentCursors.mutate(c => c.delete(id));
@@ -34,47 +54,32 @@ export class CanvasController {
 	private currentCursors = mutableStateOf(new Set());
 	public readonly isGesture = this.currentCursors.derived(s => s.size !== 0);
 
-	public ondraggesture: Handler<DragGestureState> = null;
-	public onpressgesture: Handler<PressGesture> = null;
-	public onlongpressgesture: Handler<LongPressGesture> = null;
+	public readonly propertyStore: ItemPropertyStore;
 
-	constructor(public readonly itemTable: BoardTable) {
-		const svgElement = document.createElementNS(SVGNS, "svg");
-		this.svgElement = svgElement;
+	constructor(public readonly boardTable: BoardTable) {
+		const svgElement = this.svgElement;
 
-		this.coordMapping = mutableStateOf({
-			screenOrigin: { x: 0, y: 0 },
-			stretch: PX_PER_CM,
-			targetOffset: { x: 0, y: 0 },
-		});
-
-		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, itemTable, ({ gestures }) => {
+		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, boardTable, ({ gestures }) => {
 			this.gestures = gestures;
 		});
 
-		itemTable.events.items.connect("insert", ({ canvasItem }) => {
+		this.propertyStore = new ItemPropertyStore(boardTable);
+
+		boardTable.events.items.connect("insert", ({ canvasItem }) => {
 			svgElement.appendChild(canvasItem.element);
 		});
 
-		itemTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
-		itemTable.events.remoteSelectionCreate.bind(init => {
-			return new RemoteSelection(this.ctx, itemTable, init);
+		boardTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
+		boardTable.events.remoteSelectionCreate.bind(init => {
+			return new RemoteSelection(this.ctx, boardTable, init);
 			// return null as unknown as never;
 		});
-		itemTable.events.ownSelectionCreate.bind((...args) => {
+		boardTable.events.ownSelectionCreate.bind((...args) => {
 			if (args.length) {
 				const [srt, items] = args;
-				return new LocalSelection(this.ctx, itemTable, { srt, items });
-			} else return new LocalSelection(this.ctx, itemTable);
+				return new LocalSelection(this.ctx, boardTable, { srt, items });
+			} else return new LocalSelection(this.ctx, boardTable);
 		});
-
-		svgElement.setAttribute("viewBox", "0 0 0 0");
-		this.targetRect = svgElement.viewBox.baseVal;
-
-		this.elementBounds = stateBy(
-			new DOMRect(),
-			set => new ResizeObserver(([{ contentRect }]) => set(contentRect)).observe(svgElement),
-		);
 
 		this.elementBounds.watch(({ x, y, width, height }) => {
 			this.coordMapping.updateBy(m => (
@@ -84,20 +89,21 @@ export class CanvasController {
 			this.targetRect.height = height / PX_PER_CM;
 		});
 
-		svgElement.onpointerdown = this.pointerDown.bind(this);
-		svgElement.onpointermove = this.pointerMove.bind(this);
-		svgElement.onpointerup = this.pointerUp.bind(this);
+		// svgElement.onpointerdown = this.pointerDown.bind(this);
+		// svgElement.onpointermove = this.pointerMove.bind(this);
+		// svgElement.onpointerup = this.pointerUp.bind(this);
 	}
 
 	public * probePoint(target: Point) {
-		for (const { id, canvasItem: item } of this.itemTable.entries()) {
-			if (item.bounds.testIntersection(target)) yield { item, id };
+		for (const entry of this.boardTable.entries()) {
+			if (entry.selection !== None) continue;
+			if (entry.canvasItem.bounds.testIntersection(target)) yield { item: entry.canvasItem, id: entry.id };
 		}
 	}
 
 	/** @deprecated */
 	public addItem(id: ItemID, item: Item) {
-		this.itemTable.addItem(id, item);
+		this.boardTable.addItem(id, item);
 	}
 
 	public addRawElement(elem: SVGElement) {
@@ -115,6 +121,12 @@ export class CanvasController {
 			m.targetOffset = { x, y };
 			return m;
 		});
+	}
+
+	public getPropertyInstance(entry: ItemEntry): PropertyInstance {
+		const schema = CanvasItem.schemaFor(entry.canvasItem, this.propertyStore);
+		this.propertyStore.bind(entry.id);
+		return { schema, store: this.propertyStore };
 	}
 
 	private pointerDown(e: PointerEvent): void {

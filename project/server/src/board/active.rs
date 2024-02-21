@@ -72,40 +72,44 @@ impl Board {
     }
 
     fn new_from_canvas(canvas: Arc<ActiveCanvas>) -> Self {
+        let selected_items = AsyncHashMap::default();
+
+        for id in canvas.get_item_ids_sync().unwrap() {
+            selected_items.insert(id, None).unwrap();
+        }
+
         Self {
             client_ids: Default::default(),
             clients: Default::default(),
             canvas,
-            selected_items: Default::default(),
+            selected_items,
             active_paths: Default::default(),
         }
     }
 
-    fn launch(self, tasks: usize) -> (BoardHandle, impl Future<Output = Self>) {
+    fn launch(self, tasks: usize) -> BoardHandle {
         let (sender, receiver) = async_channel::unbounded();
         let self_rc = Arc::new(self);
-        let mut handles = Vec::new();
+        // let mut handles = Vec::new();
         for _ in 0..tasks {
             let receiver = receiver.clone();
             let self_rc = self_rc.clone();
-            let handle = tokio::task::spawn(async move {
+            tokio::task::spawn(async move {
                 while let Ok(msg) = receiver.recv().await {
                     self_rc.handle_message(msg).await;
                 }
             });
-            handles.push(handle)
+            // handles.push(handle)
         }
-        let result = async move {
-            futures::future::join_all(handles).await;
-            Arc::<Board>::into_inner(self_rc)
-                .expect("Board references were not dropped by individual tasks")
-        };
-        (
-            BoardHandle {
-                message_pipe: sender,
-            },
-            result,
-        )
+        // let result = async move {
+        //     futures::future::join_all(handles).await;
+        //     Arc::<Board>::into_inner(self_rc)
+        //         .expect("Board references were not dropped by individual tasks")
+        // };
+
+        BoardHandle {
+            message_pipe: sender,
+        }
     }
 
     async fn handle_message(&self, msg: BoardMessage) {
@@ -162,17 +166,16 @@ impl Board {
     }
 }
 
-/// Creates a handle for a board that can be used for testing
-pub fn debug_board() -> BoardHandle {
-    let board = Board::new_debug();
-    let (handle, task) = board.launch(4);
-    Box::leak(Box::new(handle.clone()));
-    tokio::task::spawn(task);
-    handle
-}
+// /// Creates a handle for a board that can be used for testing
+// pub fn debug_board() -> BoardHandle {
+//     let board = Board::new_debug();
+//     let (handle, task) = board.launch(4);
+//     Box::leak(Box::new(handle.clone()));
+//     tokio::task::spawn(task);
+//     handle
+// }
 
 pub fn from_canvas(canvas: Arc<ActiveCanvas>, tasks: usize) -> BoardHandle {
     let board = Board::new_from_canvas(canvas);
-    let (handle, task) = board.launch(tasks);
-    handle
+    board.launch(tasks)
 }
