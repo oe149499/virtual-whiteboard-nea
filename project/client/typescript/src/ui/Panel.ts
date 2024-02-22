@@ -1,6 +1,6 @@
 import { Logger } from "../Logger.js";
 import { mutableStateOf, type State } from "../util/State.js";
-import { SvgIcon } from "./Icon.js";
+import { SvgIcon, SimpleIcon } from "./Icon.js";
 import "../util/ExtensionsImpl.js";
 import type { Color } from "../gen/Types.js";
 import { multiTargetProvider, type MultiTargetDispatcher } from "../util/Events.js";
@@ -18,6 +18,11 @@ const StateColors: { readonly [S in EnabledState]: Color } = {
 	[EnabledState.Inactive]: "#444444",
 	[EnabledState.Cancellable]: "#ff0000",
 };
+
+function VIS_ICON(open: boolean): string {
+	if (open) return "xmark";
+	else return "bars";
+}
 
 export class PanelController {
 	private visibility: VisibilityButton;
@@ -49,7 +54,7 @@ export class PanelController {
 		private containerElement: HTMLElement,
 		enabledState: State<EnabledState>,
 	) {
-		this.visibility = new VisibilityButton("panel-icon", enabledState);
+		this.visibility = new VisibilityButton(enabledState);
 		this.containerElement.prepend(
 			this.visibility.element,
 		);
@@ -59,7 +64,7 @@ export class PanelController {
 
 		this.contents = this.getContents();
 
-		this.contents.classList.selectBy("open", "closed", this.visibility.openState);
+		this.contents.classList.selectBy("open", "closed", enabledState.derived(s => s === EnabledState.Active));
 	}
 }
 
@@ -69,7 +74,7 @@ type PanelEvents = {
 
 class VisibilityButton {
 	private container: HTMLDivElement;
-	private icon: SvgIcon;
+	private icon: SimpleIcon;
 
 	public readonly openState = mutableStateOf(true);
 	public get element(): HTMLElement {
@@ -79,7 +84,6 @@ class VisibilityButton {
 	public readonly events = multiTargetProvider<PanelEvents>();
 
 	public constructor(
-		iconName: string,
 		enabledState: State<EnabledState>,
 	) {
 		this.container = document.createElement("div");
@@ -93,15 +97,16 @@ class VisibilityButton {
 			.derivedT((enabled, open) => {
 				if (enabled == EnabledState.Cancellable) return true;
 				else return open;
-			});
+			})
+			.derived(VIS_ICON);
 
-		this.icon = new SvgIcon(iconName);
-		this.container.appendChild(this.icon.objectElement);
+		this.icon = new SimpleIcon(iconState);
+		this.container.appendChild(this.icon.element);
 
-		this.icon.svgElement.then(el => {
-			Object.setPrototypeOf(el.classList, DOMTokenList.prototype);
-			el.classList.selectBy("open", "closed", iconState);
-		});
+		// this.icon.svgElement.then(el => {
+		// 	Object.setPrototypeOf(el.classList, DOMTokenList.prototype);
+		// 	el.classList.selectBy("open", "closed", iconState);
+		// });
 
 		this.container.onclick = () => {
 			switch (enabledState.get()) {

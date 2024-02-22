@@ -8,6 +8,7 @@ import { Logger } from "./Logger.js";
 import { invertTransform } from "./Transform.js";
 import { LocalSelection, RemoteSelection, RemoteSelectionInit, TransformRecord } from "./canvas/Selection.js";
 import { mutableStateOf, type ReadonlyAs, type State } from "./util/State.js";
+import { MutableStateSet, StateSet } from "./util/StateSet.js";
 
 const logger = new Logger("ItemTable");
 
@@ -33,18 +34,19 @@ export interface ClientEntry {
 	readonly connection: ConnectionState;
 }
 
-interface ClientEntryMut extends ClientEntry {
+interface RemoteEntry extends ClientEntry {
 	id: ClientID;
 	items: Set<ItemID>;
 	info: ClientInfo;
 	connection: ConnectionState;
-}
-
-interface RemoteEntry extends ClientEntryMut {
 	box: Option<RemoteSelection>;
 }
 
-interface SelfEntry extends ClientEntryMut {
+interface SelfEntry {
+	id: ClientID;
+	items: MutableStateSet<ItemID>;
+	info: ClientInfo;
+	connection: ConnectionState;
 	box: Option<LocalSelection>;
 }
 
@@ -95,19 +97,22 @@ export class BoardTable {
 	private self: SelfEntry;
 	public readonly ownID: ClientID;
 
-	private _selectionState = mutableStateOf<LocalSelectionState>({ type: LocalSelectionCount.None });
-	public readonly selectionState = this._selectionState.asReadonly();
+	// private _selectionState = mutableStateOf<LocalSelectionState>({ type: LocalSelectionCount.None });
+	// public readonly selectionState = this._selectionState.asReadonly();
+	public readonly selectedItems: StateSet<ItemEntry>;
 
 	public constructor(private client: SessionClient) {
 		this.ownID = client.clientID;
 
 		this.self = {
 			id: this.ownID,
-			items: new Set(),
+			items: new MutableStateSet(),
 			info: client.info,
 			connection: ConnectionState.Connected,
 			box: None,
 		};
+
+		this.selectedItems = this.self.items.map(id => this.items.assume(id));
 
 		this.bootstrap();
 	}
@@ -145,7 +150,7 @@ export class BoardTable {
 		}
 		this.self.box = this._events.ownSelectionCreate.call(ownInfo.selectionTransform, ownInfo.selectedItems);
 
-		this.updateSelectionState();
+		// this.updateSelectionState();
 
 		await Promise.all(clients.map(id => this.addClient(id)));
 
@@ -275,18 +280,18 @@ export class BoardTable {
 		return self as SelfEntry & { box: LocalSelection };
 	}
 
-	private updateSelectionState() {
-		const count = this.self.items.size;
-		if (count === 0) this._selectionState.mutate(s => s.type = LocalSelectionCount.None);
-		else if (count == 1) this._selectionState.set({
-			type: LocalSelectionCount.One,
-			entry: this.items.assume(this.self.items.first()!),
-		});
-		else this._selectionState.set({
-			type: LocalSelectionCount.Multiple,
-			ids: this.self.items,
-		});
-	}
+	// private updateSelectionState() {
+	// 	const count = this.self.items.size;
+	// 	if (count === 0) this._selectionState.mutate(s => s.type = LocalSelectionCount.None);
+	// 	else if (count == 1) this._selectionState.set({
+	// 		type: LocalSelectionCount.One,
+	// 		entry: this.items.assume(this.self.items.first()!),
+	// 	});
+	// 	else this._selectionState.set({
+	// 		type: LocalSelectionCount.Multiple,
+	// 		ids: this.self.items,
+	// 	});
+	// }
 
 	public addOwnSelection(items: ItemID[]) {
 		const self = this.ensureLocalBox();
@@ -306,7 +311,7 @@ export class BoardTable {
 
 		this.client.method.SelectionAddItems(payload).then(res => logger.debug("Add items result: ", res));
 
-		this.updateSelectionState();
+		// this.updateSelectionState();
 	}
 
 	public moveOwnSelection(transform: Transform) {
@@ -327,6 +332,10 @@ export class BoardTable {
 			entry.selection = None;
 			this._events.items.emit("deselect", entry);
 		}
+
+		this.self.items.clear();
+		box.clear();
+		// this.updateSelectionState();
 
 		this.client.method.SelectionRemoveItems({ items });
 	}

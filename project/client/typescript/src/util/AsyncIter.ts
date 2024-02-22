@@ -77,6 +77,12 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return output;
 	}
 
+	public async last(): Promise<Option<T>> {
+		let current: Option<T> = None;
+		for await (current of this);
+		return current;
+	}
+
 	public static of<T>(source: AsyncIterInit<T>): AsyncIter<T> {
 		if (source instanceof this) return source;
 		return new Wrapped(source);

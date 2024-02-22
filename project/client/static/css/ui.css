@@ -54,6 +54,7 @@ body {
 .ui-icon {
 	display: inline-block;
 	pointer-events: all;
+	user-select: none;
 }
 
 .ui-icon>* {
@@ -62,8 +63,13 @@ body {
 	pointer-events: none;
 }
 
+.tool-icon {
+	padding: 3px;
+}
+
 .icon-container {
 	display: inline-flex;
+	user-select: none;
 }
 
 .panel-contents {

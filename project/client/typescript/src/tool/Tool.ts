@@ -110,7 +110,10 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 
 	protected start() {
 		this.onBegin?.({
-			cancel: this.cancel.bind(this),
+			cancel: () => {
+				this.gestureFilter.pause();
+				this.cancel();
+			},
 			completion: new Promise((resolve) => {
 				this.completionResolve = resolve;
 			}),

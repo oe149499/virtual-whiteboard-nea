@@ -1,8 +1,9 @@
 import { updateMatrix } from "../Transform.js";
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
-import { State } from "../util/State.js";
+import { State, mutableStateOf } from "../util/State.js";
 import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
 import { BoardTable } from "../BoardTable.js";
+import { point } from "../util/Utils.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
 
@@ -16,19 +17,27 @@ export type CanvasContextExecutor = (_: {
 	gestures: GestureHandler,
 }) => void;
 
-export class CanvasContext {
-	private points = new Set<SVGPoint>();
+export interface CanvasContextInit {
+	cursorPos: State<Point>;
+	exec?: CanvasContextExecutor;
+}
 
+export class CanvasContext {
 	constructor(
 		private svgroot: SVGSVGElement,
 		public readonly coordMapping: State<CoordinateMapping>,
 		public readonly items: BoardTable,
-		exec?: CanvasContextExecutor,
+		init: CanvasContextInit,
 	) {
-		exec?.({
+		init.exec?.({
 			gestures: this.gestures,
 		});
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		this.cursorPosition = init.cursorPos.with(coordMapping).derivedT(this.translate);
 	}
+
+	public readonly cursorPosition: State<Point>;
 
 	private gestures = new GestureHandler(this);
 
@@ -166,6 +175,10 @@ export class StrokeHelper {
 		this.style.stroke = stroke.color;
 		this.style.strokeWidth = stroke.width.toString();
 	}
+
+	public static apply(element: SVGElement, stroke: Stroke) {
+		this.prototype.update.call(element, stroke);
+	}
 }
 
 export class FillHelper {
@@ -178,5 +191,9 @@ export class FillHelper {
 
 	public update(value: Color) {
 		this.style.fill = value;
+	}
+
+	public static apply(element: SVGElement, fill: Color) {
+		this.prototype.update.call(element, fill);
 	}
 }

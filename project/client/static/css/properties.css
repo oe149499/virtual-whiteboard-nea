@@ -4,6 +4,7 @@
 	width: max-content;
 	row-gap: 3px;
 	border-radius: 8px;
+	user-select: initial;
 }
 
 .property-struct {

@@ -276,4 +276,9 @@ export class LocalSelection extends SelectionBox {
 			yield [id, srt.multiply(sit.sit)];
 		}
 	}
+
+	public clear() {
+		for (const holder of this.items.values()) holder.element.remove();
+		this.items.clear();
+	}
 }

@@ -4,7 +4,6 @@ import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
 import { DragGestureState } from "../canvas/Gesture.js";
 import { ActionToolBase } from "./Tool.js";
-import { Board } from "../Board.js";
 import { PropertyTemplates } from "../PropertyTemplates.js";
 const logger = new Logger("tool/Path");
 
@@ -12,28 +11,18 @@ const { schema, keys } = PropertyTemplates.StrokeSchema();
 
 
 export class PathTool extends ActionToolBase {
-	public constructor(board: Board) {
-		super(board);
-	}
-
 	public override readonly properties = new SingletonPropertyStore([schema]);
 
 	protected override async onDragGesture(gesture: DragGestureState) {
 		const { points, location: first } = gesture;
 		const stroke = this.properties.read(keys.stroke);
 
-		// const first = await points.next();
-
-		// if (first === None) return;
-
 		this.start();
 
 		const pathId = await this.board.client.method.BeginPath({ stroke });
 
-		const pathElem = this.board.canvas.ctx.createElement("path");
+		const pathElem = this.ctx.createRootElement("path");
 		pathElem.setAttribute("fill", "none");
-		this.board.canvas.addRawElement(pathElem);
-
 		const helper = new PathHelper(pathElem, first);
 		// TODO: maybe add static methods
 		new StrokeHelper(pathElem.style, stroke);

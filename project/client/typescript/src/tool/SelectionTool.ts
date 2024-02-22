@@ -23,6 +23,12 @@ export class SelectionTool extends ActionToolBase {
 		const items = Array.from(this.board.canvas.probePoint(gesture.location))
 			.map(({ id }) => id);
 
+		if (items.length === 0) return;
+
+		this.start();
+
 		this.board.items.addOwnSelection(items);
+
+		this.end();
 	}
 }

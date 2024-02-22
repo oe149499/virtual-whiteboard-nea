@@ -10,7 +10,7 @@ import { BoardTable, type ItemEntry } from "../BoardTable.js";
 import { TimeoutMap } from "../util/TimeoutMap.js";
 import { LocalSelection, RemoteSelection } from "./Selection.js";
 import type { PropertyInstance } from "../Properties.js";
-import { None } from "../util/Utils.js";
+import { None, point } from "../util/Utils.js";
 
 
 const PX_PER_CM = 37.8;
@@ -54,14 +54,20 @@ export class CanvasController {
 	private currentCursors = mutableStateOf(new Set());
 	public readonly isGesture = this.currentCursors.derived(s => s.size !== 0);
 
+	private cursorPos = mutableStateOf(point());
+
 	public readonly propertyStore: ItemPropertyStore;
 
 	constructor(public readonly boardTable: BoardTable) {
 		const svgElement = this.svgElement;
 
-		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, boardTable, ({ gestures }) => {
-			this.gestures = gestures;
+		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, boardTable, {
+			cursorPos: this.cursorPos,
+			exec: ({ gestures: g }) => this.gestures = g,
 		});
+		//  ({ gestures }) => {
+		// 	this.gestures = gestures;
+		// });
 
 		this.propertyStore = new ItemPropertyStore(boardTable);
 
@@ -99,11 +105,11 @@ export class CanvasController {
 		// svgElement.onpointerup = this.pointerUp.bind(this);
 	}
 
-	public * probePoint(target: Point) {
+	public * probePoint(target: Point): Iterable<ItemEntry> {
 		for (const entry of this.boardTable.entries()) {
 			if (entry.selection !== None) continue;
 			logger.debug("bounds: ", entry.canvasItem.bounds);
-			if (entry.canvasItem.bounds.testIntersection(target)) yield { item: entry.canvasItem, id: entry.id };
+			if (entry.canvasItem.bounds.testIntersection(target)) yield entry;
 		}
 	}
 
@@ -171,6 +177,7 @@ export class CanvasController {
 	}
 
 	private pointerMove(e: PointerEvent): void {
+		this.cursorPos.set(point(e.x, e.y));
 		if (!(e.pointerId in this.activeGestures)) return;
 		const id = e.pointerId;
 

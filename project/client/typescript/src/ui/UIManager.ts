@@ -13,7 +13,10 @@ import { CanvasItem } from "../canvas/items/CanvasItems.js";
 const logger = new Logger("ui/manager");
 
 export class UIManager {
-	public readonly containerElement: HTMLDivElement;
+	public readonly containerElement = document
+		.createElement("div")
+		.addClasses("ui");
+
 	public readonly viewPanel: PanelController;
 	public readonly toolPanel: PanelController;
 	public readonly propertiesPanel: PanelController;
@@ -26,9 +29,6 @@ export class UIManager {
 		canvas: CanvasController,
 		table: BoardTable,
 	) {
-		this.containerElement = document
-			.createElement("div")
-			.addClasses("ui");
 		this.containerElement.style.height = "100%";
 
 		this.containerElement.appendChild(canvas.svgElement);
@@ -37,42 +37,25 @@ export class UIManager {
 			height: "100%",
 		});
 
-		let panelContainer = this.containerElement
-			.createChild("div")
-			.addClasses("bottom-container");
+		this.viewPanel = this.createPanel("bottom-container", deadStateOf(EnabledState.Active), "icon-container");
 
-		panelContainer
-			.createChild("div")
-			.addClasses("icon-container", "panel-contents");
+		const toolPanelActive = table
+			.selectedItems
+			.size.with(this.toolState)
+			.derivedT((items, tool) => {
+				if (items > 0) return EnabledState.Cancellable;
+				if (tool === None) return EnabledState.Active;
+				if ("action" in tool && tool.action) return EnabledState.Cancellable;
+				return EnabledState.Active;
+			});
 
-		this.viewPanel = new PanelController(panelContainer, deadStateOf(EnabledState.Inactive));
-
-		panelContainer = this.containerElement
-			.createChild("div")
-			.addClasses("right-container");
-
-		panelContainer
-			.createChild("div")
-			.addClasses("icon-container", "panel-contents");
-
-		const selectionActive = table
-			.selectionState
-			.derived(({ type }: { type: LocalSelectionCount }): EnabledState => type == LocalSelectionCount.None ? EnabledState.Active : EnabledState.Cancellable);
-
-		this.toolPanel = new PanelController(panelContainer, selectionActive);
+		this.toolPanel = this.createPanel("right-container", toolPanelActive, "icon-container");
 
 		this.toolPanel.events.connect("cancel", () => {
-			table.cancelSelection();
+			const tool = this.toolState.get();
+			if (tool !== None) this.cancelTool();
+			else table.cancelSelection();
 		});
-
-		panelContainer = this.containerElement
-			.createChild("div")
-			.addClasses("left-container");
-
-		const propEditorContainer = panelContainer
-			.createChild("div")
-			.addClasses("panel-contents");
-
 
 		const toolProps = this.toolState.derived<Option<PropertyInstance>>(t => {
 			if (t === None) return None;
@@ -84,17 +67,19 @@ export class UIManager {
 			};
 		});
 
-		const propertiesState = toolProps.with(canvas.boardTable.selectionState)
+		const propertiesState = toolProps.with(table.selectedItems)
 			.derivedT((tool, selection) => {
-				switch (selection.type) {
-					case LocalSelectionCount.None: return tool;
-					case LocalSelectionCount.One: return canvas.getPropertyInstance(selection.entry);
-					case LocalSelectionCount.Multiple: return None;
+				switch (selection.size) {
+					case 0: return tool;
+					case 1: return canvas.getPropertyInstance(selection.first()!);
+					default: return None;
 				}
 			});
 
-		this.propertiesPanel = new PanelController(panelContainer, propertiesState.derived(s => s === None ? EnabledState.Inactive : EnabledState.Active));
-		this.properties = new PropertyEditor(propEditorContainer, propertiesState);
+		const propertiesEnabled = propertiesState.derived(s => s == None ? EnabledState.Inactive : EnabledState.Active);
+
+		this.propertiesPanel = this.createPanel("left-container", propertiesEnabled);
+		this.properties = new PropertyEditor(this.propertiesPanel.contents, propertiesState);
 	}
 
 	public addToolIcon(icon: ToolIcon) {
@@ -148,4 +133,16 @@ export class UIManager {
 		if (toolState === None) return;
 		if (toolState.tool === tool) this.cancelTool();
 	};
+
+	private createPanel(containerClass: string, enabledState: State<EnabledState>, ...contentClases: string[]) {
+		const panelContainer = this.containerElement
+			.createChild("div")
+			.addClasses(containerClass);
+
+		panelContainer
+			.createChild("div")
+			.addClasses("panel-contents", ...contentClases);
+
+		return new PanelController(panelContainer, enabledState);
+	}
 }

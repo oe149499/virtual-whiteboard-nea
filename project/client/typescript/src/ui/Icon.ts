@@ -1,16 +1,18 @@
 import { Logger } from "../Logger.js";
 import { Tool, ToolState } from "../tool/Tool.js";
-import { State, deferredStateOf } from "../util/State.js";
+import { State, deferredStateOf, type MaybeState, valueOf } from "../util/State.js";
 import { None } from "../util/Utils.js";
 
 const logger = new Logger("ui/icon");
+
+const ICON_PATH = (name: string) => `/static/icon/${name}.svg`;
 
 export class SvgIcon {
 	public readonly svgElement: Promise<SVGSVGElement>;
 	public readonly objectElement: HTMLObjectElement;
 
 	public constructor(iconName: string) {
-		const url = `/static/icon/${iconName}.svg`;
+		const url = ICON_PATH(iconName);
 
 		this.objectElement = document.createElement("object");
 		this.objectElement.setAttribute("data", url);
@@ -35,10 +37,23 @@ export class SvgIcon {
 	}
 }
 
+export class SimpleIcon {
+	public readonly element = document.createElement("img");
+
+	public constructor(iconName: MaybeState<string>) {
+		const current = valueOf(iconName);
+		this.element.setAttribute("src", ICON_PATH(current));
+
+		if (iconName instanceof State) {
+			iconName.watchOn(this, name => this.element.setAttribute("src", ICON_PATH(name)));
+		}
+	}
+}
+
 export type ToolIconCallback = (tool: Tool) => void;
 
 export class ToolIcon {
-	private icon: SvgIcon;
+	private icon: SimpleIcon;
 	public readonly element: HTMLElement;
 
 	private toolState = deferredStateOf(None as ToolState);
@@ -51,11 +66,11 @@ export class ToolIcon {
 	public ondeselect?: ToolIconCallback;
 
 	constructor(iconName: string, public readonly tool: Tool) {
-		this.icon = new SvgIcon(iconName);
+		this.icon = new SimpleIcon(iconName);
 
 		this.element = document.createElement("div").addClasses("tool-icon", "ui-icon");
 
-		this.element.appendChild(this.icon.objectElement);
+		this.element.appendChild(this.icon.element);
 
 		this.active.watch(active => this.element.classList.set("selected", active));
 		this.toolState.watch(t => logger.debug("Tool state changed: %o", t));

@@ -107,7 +107,7 @@ export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArra
 	return state;
 }
 
-const watchWeak = Symbol();
+export const watchWeak = Symbol();
 
 type MaybeParameters<T> = T extends (...args: infer P) => void ? P : never;
 type MaybeReturnType<T> = T extends (...args: infer _) => infer R ? R : never;
@@ -128,7 +128,7 @@ export abstract class State<out T> {
 		return clone(this.value);
 	}
 
-	protected update(value: DeepReadonly<T>) {
+	protected update(value: DeepReadonly<T> = this.value as DeepReadonly<T>) {
 		this.value = value as T;
 		if (this.updateDerived) for (const f of this.weakWatchers.values()) {
 			f.deref()?.(value);
