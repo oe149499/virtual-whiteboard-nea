@@ -1,5 +1,5 @@
 import { BoundsTester } from "../Bounds";
-import { Result } from "../gen/Types";
+import { Result, type Point } from "../gen/Types";
 import { State, type ReadonlyAs, type DeepReadonly } from "./State";
 
 type EventMap<E extends Element> = {
@@ -23,6 +23,14 @@ declare global {
 		set(name: string, value: boolean): void;
 
 		setBy(name: string, source: State<boolean>): void;
+
+		select(ifTrue: string, ifFalse: string, value: boolean): void;
+
+		selectBy(ifTrue: string, ifFalse: string, source: State<boolean>): void;
+	}
+
+	interface DOMPoint {
+		getXY(): Point;
 	}
 
 	interface DOMRectReadOnly extends BoundsTester { }

@@ -58,7 +58,7 @@ class SingleTargetDispatcher<T extends EventSchema> extends EventDispatcherBase<
 	}
 }
 
-class MultiTargetDispatcher<T extends EventSchema> extends EventDispatcherBase<T> {
+export class MultiTargetDispatcher<T extends EventSchema> extends EventDispatcherBase<T> {
 	private callbacks: {
 		[K in keyof T]?: T[K][]
 	} = {};

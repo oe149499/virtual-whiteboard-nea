@@ -69,6 +69,11 @@ export class CanvasController {
 			svgElement.appendChild(canvasItem.element);
 		});
 
+		boardTable.events.items.connect("deselect", ({ canvasItem }) => {
+			logger.debug("Deselecting item");
+			svgElement.appendChild(canvasItem.element);
+		});
+
 		boardTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
 		boardTable.events.remoteSelectionCreate.bind(init => {
 			return new RemoteSelection(this.ctx, boardTable, init);
@@ -97,6 +102,7 @@ export class CanvasController {
 	public * probePoint(target: Point) {
 		for (const entry of this.boardTable.entries()) {
 			if (entry.selection !== None) continue;
+			logger.debug("bounds: ", entry.canvasItem.bounds);
 			if (entry.canvasItem.bounds.testIntersection(target)) yield { item: entry.canvasItem, id: entry.id };
 		}
 	}

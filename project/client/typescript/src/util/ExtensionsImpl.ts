@@ -77,11 +77,22 @@ DOMTokenList.prototype.set = function (name, value) {
 	else this.remove(name);
 };
 
-const keepaliveMap = new WeakMap();
-
 DOMTokenList.prototype.setBy = function (name, source) {
-	const handle = source.watch(value => this.set(name, value));
-	keepaliveMap.set(this, handle);
+	source.watchOn(this, this.set.bind(this, name));
+};
+
+DOMTokenList.prototype.select = function (a, b, v) {
+	this.set(a, v);
+	this.set(b, !v);
+};
+
+DOMTokenList.prototype.selectBy = function (a, b, s) {
+	s.watchOn(this, this.select.bind(this, a, b));
+};
+
+DOMPoint.prototype.getXY = function () {
+	const { x, y } = this;
+	return { x, y };
 };
 
 const testIntersection = function (this: DOMRectReadOnly, { x, y }: Point) {

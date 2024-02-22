@@ -1,8 +1,10 @@
 import { SpecificItem } from "../../GenWrapper.js";
-import { Item } from "../../gen/Types.js";
+import type { PropertySchema } from "../../Properties.js";
+import { PropertyTemplates } from "../../PropertyTemplates.js";
+import { Item, type LocationUpdate } from "../../gen/Types.js";
 import { CanvasContext } from "../CanvasBase.js";
 import { PathHelper } from "../Path.js";
-import { StrokeMixin, CanvasItem, FillMixin, TransformMixin } from "./CanvasItems.js";
+import { StrokeMixin, CanvasItem, FillMixin, TransformMixin, type ItemPropertyStore } from "./CanvasItems.js";
 
 
 export class Line extends StrokeMixin(CanvasItem) {
@@ -31,6 +33,40 @@ export class Line extends StrokeMixin(CanvasItem) {
 			x2: end.x,
 			y2: end.y,
 		});
+	}
+
+	public override getLocationUpdate(transform: DOMMatrix): LocationUpdate {
+		const start = transform.transformPoint(this.item.start);
+		const end = transform.transformPoint(this.item.end);
+		return { Points: [start.getXY(), end.getXY()] };
+	}
+
+	public override applylocationUpdate(update: LocationUpdate): void {
+		if ("Transform" in update) return;
+		const { Points: [start, end] } = update;
+		this.item.start = start;
+		this.item.end = end;
+		this.updateItem(this.item);
+	}
+
+	static {
+		const conf = (prop: "start" | "end", displayName: string, store: ItemPropertyStore): PropertySchema => {
+			const { keys: { x, y }, schema } = PropertyTemplates.PointSchema();
+
+			store.getter("Line", x, item => item[prop].x);
+			store.setter("Line", x, (item, val) => item[prop].x = val);
+			store.getter("Line", y, item => item[prop].y);
+			store.setter("Line", y, (item, val) => item[prop].y = val);
+
+			return {
+				type: "struct",
+				displayName,
+				fields: schema,
+			};
+		};
+
+		CanvasItem.PropertiesHook.add(this, conf.bind(null, "start", "Start"));
+		CanvasItem.PropertiesHook.add(this, conf.bind(null, "end", "End"));
 	}
 }
 
@@ -62,6 +98,20 @@ export class Polygon extends FillMixin(StrokeMixin(CanvasItem)) {
 		this.checkType(value, "Polygon");
 
 		this.item = value;
+	}
+
+	public override getLocationUpdate(transform: DOMMatrix): LocationUpdate {
+		return {
+			Points: this.item.points.map(
+				p => transform.transformPoint(p).getXY(),
+			),
+		};
+	}
+
+	public override applylocationUpdate(update: LocationUpdate): void {
+		if ("Transform" in update) return;
+		({ Points: this.item.points } = update);
+		this.updatePoints();
 	}
 }
 

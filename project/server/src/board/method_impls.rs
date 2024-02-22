@@ -11,7 +11,8 @@ use crate::{
         self as m,
         method::*,
         notify_c::{
-            ItemCreated, PathStarted, SelectionItemsAdded, SelectionMoved, SingleItemEdited,
+            ItemCreated, PathStarted, SelectionItemsAdded, SelectionItemsRemoved, SelectionMoved,
+            SingleItemEdited,
         },
         reject::helpers::{non_existent_id, resource_not_owned},
         ClientID, ErrorCode, PathID,
@@ -110,7 +111,7 @@ impl Board {
 
         let mut client = self.get_client(&client_id).await;
 
-        let mut out = BTreeMap::new();
+        let mut out = Vec::new();
 
         let mut ok = true;
 
@@ -126,10 +127,10 @@ impl Board {
                 let Some(mut item) = item else { continue };
                 let res = item.apply_location_update(item_id, &update);
                 if let Err((update, reason)) = res {
-                    out.insert(item_id, update);
+                    out.push((item_id, update));
                     handle.warn(reason);
                 } else {
-                    out.insert(item_id, update);
+                    out.push((item_id, update));
                 }
             } else {
                 handle.warn(resource_not_owned(item_id));
@@ -137,15 +138,23 @@ impl Board {
             }
         }
 
-        for id in out.keys() {
+        for (id, _) in out.iter() {
             client.get_mut().selection.items.remove(id);
         }
+
+        drop(client);
 
         if ok {
             handle.ok(());
         } else {
             handle.err(ErrorCode::BadData.into())
         }
+
+        self.send_notify_c(SelectionItemsRemoved {
+            id: client_id,
+            items: out,
+        })
+        .await;
     }
 
     async fn handle_selection_move(&self, id: ClientID, call: Call<SelectionMove>) {

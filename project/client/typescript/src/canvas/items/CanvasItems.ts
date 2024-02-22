@@ -4,12 +4,13 @@ import { Logger } from "../../Logger.js";
 import { PropertySchema, PropertyStore, PropKey, PropType, PropValue } from "../../Properties.js";
 import { PropertyTemplates } from "../../PropertyTemplates.js";
 // import { AnyPropertyMap } from "../../Properties.js";
-import { Color, Item, ItemID, Point, Stroke, Transform } from "../../gen/Types.js";
+import { Color, Item, ItemID, Point, Stroke, Transform, type LocationUpdate } from "../../gen/Types.js";
 import { AutoMap, HookMap } from "../../util/Maps.js";
 import { Constructor, None, Option } from "../../util/Utils.js";
 import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
 import { ItemEntry, BoardTable } from "../../BoardTable.js";
 import { ReadonlyAs } from "../../util/State.js";
+import { fromMatrix, updateMatrix } from "../../Transform.js";
 
 const logger = new Logger("canvas-items");
 
@@ -64,6 +65,9 @@ export abstract class CanvasItem {
 			this.element.appendChild(this.innerElement);
 		});
 	}
+
+	public abstract getLocationUpdate(transform: DOMMatrix): LocationUpdate;
+	public abstract applylocationUpdate(update: LocationUpdate): void;
 
 	protected checkType<T extends Item["type"]>(item: Item, type: T): asserts item is SpecificItem<T> {
 		if (item.type !== type) logger.throw("Tried to update `%o` item with type `%o`: %o", type, item.type, item);
@@ -139,6 +143,22 @@ export function TransformMixin<TBase extends Constructor<CanvasItem>>(Base: TBas
 		protected abstract override item: Extract<Item, { transform: Transform }>;
 
 		protected transform!: TransformHelper;
+
+		public override getLocationUpdate(transform: DOMMatrix): LocationUpdate {
+			const mat = updateMatrix(new DOMMatrix(), this.item.transform);
+			mat.multiplySelf(transform);
+			const t = fromMatrix(mat);
+			// this.transform.update(t);
+			// this.item.transform = t;
+			return { Transform: t };
+		}
+
+		public override applylocationUpdate(update: LocationUpdate): void {
+			if ("Points" in update) return;
+			const { Transform: t } = update;
+			this.transform.update(t);
+			this.item.transform = t;
+		}
 
 		static {
 			InitHook.add(this, function (ctx) {

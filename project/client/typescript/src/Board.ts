@@ -21,12 +21,12 @@ type BoardInfo = ClientInfo & {
 export class Board {
 	public static async new(name: string, info: ClientInfo): Promise<Board> {
 		const client = await SessionClient.new(name, info);
-		const items = new BoardTable(client);
-		const canvas = new CanvasController(items);
-		const ui = new UIManager(canvas);
+		const table = new BoardTable(client);
+		const canvas = new CanvasController(table);
+		const ui = new UIManager(canvas, table);
 		const boardInfo = { ...info, boardName: name, clientID: client.clientID };
 
-		const board = new this(ui, client, canvas, items, boardInfo);
+		const board = new this(ui, client, canvas, table, boardInfo);
 
 		queueMicrotask(() => board.init());
 

@@ -242,8 +242,10 @@ class StructPropertyUI extends PropertyUI {
 		private prop: StructPropertySchema,
 	) {
 		super();
+
 		const container = target.createChild("div")
 			.addClasses("property-struct");
+
 		if (prop.displayName) container
 			.createChild("span")
 			.addClasses("struct-header")

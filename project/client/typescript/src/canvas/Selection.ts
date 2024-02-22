@@ -269,4 +269,11 @@ export class LocalSelection extends SelectionBox {
 	public createAddPayload(entries: ItemEntry[]) {
 		return this.addFromCanvas(entries);
 	}
+
+	public * getFinalTransforms(): Iterable<[ItemID, DOMMatrix]> {
+		const srt = this.srt.get();
+		for (const [id, sit] of this.items.entries()) {
+			yield [id, srt.multiply(sit.sit)];
+		}
+	}
 }

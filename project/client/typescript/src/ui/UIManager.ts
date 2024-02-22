@@ -1,12 +1,12 @@
 import { ToolState, ToolType } from "../tool/Tool.js";
 import { CanvasController } from "../canvas/Canvas.js";
 import { ToolIcon, ToolIconCallback } from "./Icon.js";
-import { PanelController } from "./Panel.js";
+import { EnabledState, PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
-import { MutableState, State, mutableStateOfNone } from "../util/State.js";
+import { MutableState, State, deadStateOf, mutableStateOfNone } from "../util/State.js";
 import { Logger } from "../Logger.js";
 import { None, Option, todo } from "../util/Utils.js";
-import { LocalSelectionCount } from "../BoardTable.js";
+import { LocalSelectionCount, type BoardTable } from "../BoardTable.js";
 import { PropertyInstance } from "../Properties.js";
 import { CanvasItem } from "../canvas/items/CanvasItems.js";
 
@@ -24,6 +24,7 @@ export class UIManager {
 
 	public constructor(
 		canvas: CanvasController,
+		table: BoardTable,
 	) {
 		this.containerElement = document
 			.createElement("div")
@@ -44,7 +45,7 @@ export class UIManager {
 			.createChild("div")
 			.addClasses("icon-container", "panel-contents");
 
-		this.viewPanel = new PanelController(panelContainer);
+		this.viewPanel = new PanelController(panelContainer, deadStateOf(EnabledState.Inactive));
 
 		panelContainer = this.containerElement
 			.createChild("div")
@@ -54,7 +55,15 @@ export class UIManager {
 			.createChild("div")
 			.addClasses("icon-container", "panel-contents");
 
-		this.toolPanel = new PanelController(panelContainer);
+		const selectionActive = table
+			.selectionState
+			.derived(({ type }: { type: LocalSelectionCount }): EnabledState => type == LocalSelectionCount.None ? EnabledState.Active : EnabledState.Cancellable);
+
+		this.toolPanel = new PanelController(panelContainer, selectionActive);
+
+		this.toolPanel.events.connect("cancel", () => {
+			table.cancelSelection();
+		});
 
 		panelContainer = this.containerElement
 			.createChild("div")
@@ -84,7 +93,7 @@ export class UIManager {
 				}
 			});
 
-		this.propertiesPanel = new PanelController(panelContainer);
+		this.propertiesPanel = new PanelController(panelContainer, propertiesState.derived(s => s === None ? EnabledState.Inactive : EnabledState.Active));
 		this.properties = new PropertyEditor(propEditorContainer, propertiesState);
 	}
 

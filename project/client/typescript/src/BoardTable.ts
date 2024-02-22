@@ -1,5 +1,5 @@
 import { ItemType, SpecificItem } from "./GenWrapper.js";
-import { ClientID, Item, ItemID, Transform, type ClientInfo } from "./gen/Types.js";
+import { ClientID, Item, ItemID, Transform, type ClientInfo, type LocationUpdate } from "./gen/Types.js";
 import { CanvasItem } from "./canvas/items/CanvasItems.js";
 import { None, Option, Some, ok, todo } from "./util/Utils.js";
 import { exclusiveProvider, keyedProvider, multiTargetProvider } from "./util/Events.js";
@@ -73,6 +73,7 @@ type SelectionHandlersT = { [K in keyof SelectionHandlers]: SelectionHandlers[K]
 
 type ItemHandlers = {
 	insert(entry: ItemEntry): void,
+	deselect(entry: ItemEntry): void,
 }
 
 function* map<T, U>(src: Iterable<T>, fn: (_: T) => U) {
@@ -192,7 +193,12 @@ export class BoardTable {
 		});
 
 		this.client.bindNotify("SelectionItemsRemoved", ({ id, items }) => {
-			todo(id, items);
+			if (id == this.ownID) return;
+			for (const [id, update] of items) {
+				const entry = this.items.assume(id);
+				entry.canvasItem.applylocationUpdate(update);
+				this._events.items.emit("deselect", entry);
+			}
 		});
 
 		this.client.bindNotify("SelectionMoved", ({ id, transform, newSits }) => {
@@ -305,6 +311,24 @@ export class BoardTable {
 
 	public moveOwnSelection(transform: Transform) {
 		this.client.method.SelectionMove({ newSrt: transform });
+	}
+
+	public cancelSelection() {
+		const items: [ItemID, LocationUpdate][] = [];
+
+		const box = this.self.box;
+		if (box === None) return;
+
+		for (const [id, transform] of box.getFinalTransforms()) {
+			const entry = this.items.assume(id);
+			const update = entry.canvasItem.getLocationUpdate(transform);
+			entry.canvasItem.applylocationUpdate(update);
+			items.push([id, update]);
+			entry.selection = None;
+			this._events.items.emit("deselect", entry);
+		}
+
+		this.client.method.SelectionRemoveItems({ items });
 	}
 
 	public editSelectedItem(entry: ItemEntry) {

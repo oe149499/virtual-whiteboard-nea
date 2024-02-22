@@ -1,13 +1,30 @@
 import { Logger } from "../Logger.js";
+import { mutableStateOf, type State } from "../util/State.js";
 import { SvgIcon } from "./Icon.js";
+import "../util/ExtensionsImpl.js";
+import type { Color } from "../gen/Types.js";
+import { multiTargetProvider, type MultiTargetDispatcher } from "../util/Events.js";
 
 const logger = new Logger("panel");
+
+export enum EnabledState {
+	Active,
+	Inactive,
+	Cancellable,
+}
+
+const StateColors: { readonly [S in EnabledState]: Color } = {
+	[EnabledState.Active]: "#ffffff",
+	[EnabledState.Inactive]: "#444444",
+	[EnabledState.Cancellable]: "#ff0000",
+};
 
 export class PanelController {
 	private visibility: VisibilityButton;
 	public readonly contents: HTMLElement;
 
-	public get open() { return this.visibility.open; }
+	public readonly openState: State<boolean>;
+	public readonly events: MultiTargetDispatcher<PanelEvents>;
 
 	private getContents(): HTMLElement {
 		const contents = this
@@ -30,58 +47,70 @@ export class PanelController {
 
 	public constructor(
 		private containerElement: HTMLElement,
+		enabledState: State<EnabledState>,
 	) {
-		this.visibility = new VisibilityButton("panel-icon");
+		this.visibility = new VisibilityButton("panel-icon", enabledState);
 		this.containerElement.prepend(
 			this.visibility.element,
 		);
 
-		this.visibility.onopen = () => {
-			this.contents.classList.replace("closed", "open");
-		};
-
-		this.visibility.onclose = () => {
-			this.contents.classList.replace("open", "closed");
-		};
+		this.openState = this.visibility.openState;
+		this.events = this.visibility.events.dispatcher;
 
 		this.contents = this.getContents();
+
+		this.contents.classList.selectBy("open", "closed", this.visibility.openState);
 	}
+}
+
+type PanelEvents = {
+	cancel(): void,
 }
 
 class VisibilityButton {
 	private container: HTMLDivElement;
 	private icon: SvgIcon;
 
-	private _open = true;
-	public get open() { return this._open; }
-	private set open(value) { this._open = value; }
-
+	public readonly openState = mutableStateOf(true);
 	public get element(): HTMLElement {
 		return this.container;
 	}
 
-	public onopen?: () => void;
-	public onclose?: () => void;
+	public readonly events = multiTargetProvider<PanelEvents>();
 
-	public constructor(iconName: string) {
+	public constructor(
+		iconName: string,
+		enabledState: State<EnabledState>,
+	) {
 		this.container = document.createElement("div");
 		this.container.setAttribute("class", "ui-icon");
+
+		enabledState.watchOn(this, s => {
+			this.container.style.backgroundColor = StateColors[s];
+		});
+
+		const iconState = enabledState.with(this.openState)
+			.derivedT((enabled, open) => {
+				if (enabled == EnabledState.Cancellable) return true;
+				else return open;
+			});
 
 		this.icon = new SvgIcon(iconName);
 		this.container.appendChild(this.icon.objectElement);
 
-		this.container.onclick = async () => {
-			const classes = (await this.icon.svgElement).classList;
-			if (this.open) {
-				classes.remove("open");
-				this.open = false;
-				classes.add("closed");
-				this.onclose?.();
-			} else {
-				classes.remove("closed");
-				this.open = true;
-				classes.add("open");
-				this.onopen?.();
+		this.icon.svgElement.then(el => {
+			Object.setPrototypeOf(el.classList, DOMTokenList.prototype);
+			el.classList.selectBy("open", "closed", iconState);
+		});
+
+		this.container.onclick = () => {
+			switch (enabledState.get()) {
+				case EnabledState.Active: {
+					this.openState.updateBy(current => !current);
+				} break;
+				case EnabledState.Cancellable: {
+					this.events.emit("cancel");
+				} break;
 			}
 		};
 	}

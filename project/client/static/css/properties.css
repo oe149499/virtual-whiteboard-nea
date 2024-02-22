@@ -2,12 +2,20 @@
 	display: grid;
 	grid-template-columns: 1fr 1fr;
 	width: max-content;
+	row-gap: 3px;
+	border-radius: 8px;
 }
 
 .property-struct {
 	display: grid;
 	grid-column: 1 / 3;
 	grid-template-columns: 1fr 1fr;
+	row-gap: 3px;
+	padding: 3px;
+	border: 1px solid black;
+	background-color: #00000033;
+	margin: 1px;
+	border-radius: 5px;
 }
 
 .property-input-file,
@@ -18,10 +26,22 @@
 	grid-column: 1 / 3;
 }
 
+.struct-header {
+	margin: auto;
+}
+
 .property-file-upload-button {
 	display: none;
 }
 
 .property-file-upload-button.file-present {
 	display: initial;
+}
+
+.property-container label {
+	margin: auto;
+}
+
+.property-container input[type="color"] {
+	width: auto;
 }

@@ -36,6 +36,7 @@ body {
 	right: 0.5cm;
 	display: flex;
 	flex-direction: column;
+	align-items: end;
 }
 
 .left-container {
@@ -75,5 +76,5 @@ body {
 }
 
 .panel-contents.closed {
-	width: 0;
+	display: none;
 }
