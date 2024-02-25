@@ -12,6 +12,8 @@ declare global {
 	interface Set<T> {
 		addFrom(src: Iterable<T>): void;
 
+		drain(): Iterable<T>;
+
 		first(): T | undefined;
 	}
 

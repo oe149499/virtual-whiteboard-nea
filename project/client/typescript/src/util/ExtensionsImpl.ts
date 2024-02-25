@@ -10,6 +10,13 @@ Set.prototype.first = function () {
 	for (const item of this) return item;
 };
 
+Set.prototype.drain = function* () {
+	for (const item of this) {
+		this.delete(item);
+		yield item;
+	}
+};
+
 Map.prototype.assume = function <K, V>(this: Map<K, V>, key: K) {
 	const val = this.get(key);
 	if (val === undefined) throw new Error("Incorrectly assumed a key to be in a map");
@@ -52,6 +59,7 @@ SVGElement.prototype.createChild = function (tagname) {
 
 Element.prototype.setAttrs = function (attrs) {
 	for (const name in attrs) {
+		if (name === "asReadonly") continue;
 		const attrName = name.startsWith("html") ? name.slice(4) : name;
 		// @ts-expect-error I'M LITERALLY ITERATING OVER THE KEYS OF THE OBJECT
 		this.setAttribute(attrName, attrs[name]);
@@ -198,5 +206,7 @@ SVGGraphicsElement.prototype.getBBoxState = function () {
 	return state;
 };
 
-// @ts-expect-error could be invalid in theory
-Object.prototype.asReadonly = function () { return this; };
+Object.defineProperty(Object.prototype, "asReadonly", {
+	enumerable: false,
+	value: function () { return this; },
+});

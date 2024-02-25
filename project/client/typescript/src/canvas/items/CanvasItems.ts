@@ -7,7 +7,7 @@ import { PropertyTemplates } from "../../PropertyTemplates.js";
 import { Color, Item, ItemID, Point, Stroke, Transform, type LocationUpdate } from "../../gen/Types.js";
 import { AutoMap, HookMap } from "../../util/Maps.js";
 import { Constructor, None, Option } from "../../util/Utils.js";
-import { CanvasContext, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
+import { CanvasContext, CenterHelper, FillHelper, StrokeHelper, TransformHelper } from "../CanvasBase.js";
 import { ItemEntry, BoardTable } from "../../BoardTable.js";
 import { ReadonlyAs } from "../../util/State.js";
 import { fromMatrix, updateMatrix } from "../../Transform.js";
@@ -146,7 +146,7 @@ export function TransformMixin<TBase extends Constructor<CanvasItem>>(Base: TBas
 
 		public override getLocationUpdate(transform: DOMMatrix): LocationUpdate {
 			const mat = updateMatrix(new DOMMatrix(), this.item.transform);
-			mat.multiplySelf(transform);
+			mat.preMultiplySelf(transform);
 			const t = fromMatrix(mat);
 			// this.transform.update(t);
 			// this.item.transform = t;
@@ -241,7 +241,7 @@ export function FillMixin<TBase extends Constructor<CanvasItem>>(Base: TBase) {
 }
 
 export class Image extends TransformMixin(CanvasItem) {
-	private elem: SVGImageElement;
+	private elem: SVGGraphicsElement;
 
 	public override get innerElement() { return this.elem; }
 	public constructor(
@@ -254,7 +254,7 @@ export class Image extends TransformMixin(CanvasItem) {
 			.setAttrs({
 				href: item.url,
 			});
-		this.elem = elem;
+		this.elem = CenterHelper.of(elem);
 	}
 
 	static {

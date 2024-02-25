@@ -209,6 +209,10 @@ class LongTextPropertyUI extends WidePropertyUI<"text"> {
 	protected override build(target: HTMLElement, id: number): void {
 		this.area = target.createChild("textarea")
 			.setAttrs({ id });
+
+		this.area.oninput = () => {
+			this.update(this.area.value);
+		};
 	}
 
 	public override load(value: string): void {

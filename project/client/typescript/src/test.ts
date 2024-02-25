@@ -46,6 +46,16 @@ export const triangle: SpecificItem<"Polygon"> = {
 	fill: "green",
 };
 
+export const textTest: SpecificItem<"Text"> = {
+	type: "Text",
+	transform: {
+		origin: point(15, 15),
+		basisX: point(1, 0),
+		basisY: point(0, 1),
+	},
+	text: "lponpaoubp pj\npoih",
+};
+
 const message: string = "Hello World!";
 const item = JSON.stringify(basic_item);
 console.log(message, item);

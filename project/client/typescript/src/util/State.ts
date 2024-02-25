@@ -27,6 +27,8 @@ declare global {
 	interface DOMMatrixReadOnly extends ReadonlyAs<DOMMatrixReadOnly> { }
 
 	interface DOMPointReadOnly extends ReadonlyAs<DOMPointReadOnly> { }
+
+	interface DOMRectReadOnly extends ReadonlyAs<DOMRectReadOnly> { }
 }
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;

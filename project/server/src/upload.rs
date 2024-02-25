@@ -9,7 +9,10 @@ use futures_util::StreamExt;
 use log::debug;
 use tokio::io::AsyncWriteExt;
 use warp::{
-    filters::{multipart::FormData, BoxedFilter},
+    filters::{
+        multipart::{FormData, FormOptions},
+        BoxedFilter,
+    },
     reply::Reply,
     Filter,
 };
@@ -19,9 +22,10 @@ use crate::GlobalRes;
 /// Create a filter that receives files and stores them
 pub fn create_upload_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
     let target = &*Box::leak(Box::new(res.config.media_root.to_owned()));
+    let form_options = warp::multipart::form().max_length(1024 * 1024 * 64);
     warp::path("upload")
         .and(warp::post())
-        .and(warp::multipart::form())
+        .and(form_options)
         .and_then(move |mut form: FormData| async move {
             while let Some(Ok(mut part)) = form.next().await {
                 debug!(

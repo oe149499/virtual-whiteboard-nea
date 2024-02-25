@@ -197,3 +197,30 @@ export class FillHelper {
 		this.prototype.update.call(element, fill);
 	}
 }
+
+export class CenterHelper {
+	static parentMap = new WeakMap<SVGGraphicsElement, SVGTransform>();
+
+	static observer = new ResizeObserver(entries => {
+		for (const entry of entries) {
+			const element = entry.target;
+			if (this.parentMap.has(element)) {
+				const bbox = element.getBBox();
+				const transform = this.parentMap.get(element)!;
+				const cx = (bbox.left + bbox.right) / 2;
+				const cy = (bbox.top + bbox.bottom) / 2;
+				transform.setTranslate(-cx, -cy);
+			}
+		}
+	});
+
+	static of(target: SVGGraphicsElement) {
+		const holder = document.createElementNS(SVGNS, "g");
+		const transform = holder.transform.baseVal.createSVGTransformFromMatrix();
+		holder.transform.baseVal.appendItem(transform);
+		holder.appendChild(target);
+		this.parentMap.set(target, transform);
+		holder.appendChild(target);
+		return holder;
+	}
+}

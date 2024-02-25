@@ -3,6 +3,7 @@ import { CanvasContext } from "../CanvasBase.js";
 import { Image, CanvasItem } from "./CanvasItems.js";
 import { Line, Polygon, Path } from "./Line.js";
 import { Rectangle, Ellipse } from "./Shape.js";
+import { Text } from "./Text.js";
 
 const ItemBuilders = {
 	Rectangle,
@@ -11,6 +12,7 @@ const ItemBuilders = {
 	Polygon,
 	Path,
 	Image,
+	Text,
 } as { [K in ItemType]?: new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem };
 
 CanvasItem.create = function <K extends ItemType>(ctx: CanvasContext, item: SpecificItem<K>): CanvasItem {

@@ -1,0 +1,23 @@
+tspan.md-italic {
+	font-style: italic;
+}
+
+tspan.md-bold {
+	font-weight: bold;
+}
+
+tspan.md-underline {
+	text-decoration: underline;
+}
+
+tspan.md-strikethrough {
+	text-decoration: line-through;
+}
+
+tspan.md-underline.md-strikethrough {
+	text-decoration: underline line-through;
+}
+
+tspan.md-linebreak {
+	visibility: hidden;
+}

@@ -7,6 +7,7 @@ import type { CanvasContext } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
 import type { ItemEntry, BoardTable } from "../BoardTable.js";
 import { SelectionBorder, RotateHandle, StretchHandleSet } from "./SelectionUI.js";
+import type { MArgs } from "../GenWrapper.js";
 
 const logger = new Logger("canvas/Selection");
 
@@ -91,7 +92,28 @@ export abstract class SelectionBox {
 		}
 	}
 
-	protected addFromCanvas(entries: ItemEntry[]) {
+	protected addFromCanvas(entries: ItemEntry[]): MArgs<"SelectionAddItems"> {
+		if (this.items.size === 0 && entries.length === 1) {
+			const [entry] = entries;
+			if ("transform" in entry.item) {
+				const holder = new ItemHolder(this.ctx, entry.canvasItem.element);
+				this.items.set(entry.id, holder);
+				this.rootTransform.appendChild(holder.element);
+
+				const itemTransform = entry.item.transform;
+				const newSrt = updateMatrix(new DOMMatrix(), itemTransform);
+				const newSit = newSrt.inverse();
+				holder.updateSit(newSit);
+				this.srt.updateTransform(itemTransform);
+
+				return {
+					newSrt: itemTransform,
+					oldSits: [],
+					newSits: [[entry.id, fromMatrix(newSit)]],
+				};
+			}
+		}
+
 		const ids = new Set<ItemID>();
 		entries.forEach(({ canvasItem, id }: ItemEntry) => {
 			this.stagingContainer.append(canvasItem.element);
