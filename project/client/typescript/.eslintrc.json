@@ -17,16 +17,7 @@
         "@stylistic"
     ],
     "rules": {
-        "@stylistic/indent": [
-            "error",
-            "tab",
-            {
-                "SwitchCase": 1,
-                "ignoredNodes": [
-                    "TSTypeAliasDeclaration *"
-                ]
-            }
-        ],
+        "@stylistic/indent": "off",
         "linebreak-style": [
             "error",
             "unix"

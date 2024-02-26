@@ -2,7 +2,7 @@ import { Logger } from "../Logger.js";
 import type { Point } from "../gen/Types.js";
 import type { State } from "../util/State.js";
 import { point, rad2deg } from "../util/Utils.js";
-import { CanvasContext } from "./CanvasBase.js";
+import { CanvasContext, type UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, type FilterHandle, FilterMode, type DragGestureState, GestureType } from "./Gesture.js";
 
 const logger = new Logger("canvas/SelectionUI");
@@ -24,12 +24,15 @@ export class SelectionBorder {
 		this.points = this.element.points;
 
 		for (const [dx, dy] of DIRS) {
-			const transformed = srt.with(size).derivedT((t, { x, y }) => {
-				const scaled = point(x * dx, y * dy);
-				return t.transformPoint(scaled);
-			});
+			const transformed = srt.with(size)
+				.derivedT((t, { x, y }) => {
+					const scaled = point(x * dx, y * dy);
+					return t.transformPoint(scaled);
+				});
 
-			this.points.appendItem(ctx.createPointBy(transformed));
+			const scaled = ctx.getUnscaledPos(transformed);
+
+			this.points.appendItem(ctx.createPointBy(scaled));
 		}
 	}
 }
@@ -40,19 +43,20 @@ abstract class HandleBase {
 	public readonly element: SVGGraphicsElement;
 
 	public constructor(
-		ctx: CanvasContext,
+		handle: UnscaledHandle,
 		srt: State<DOMMatrix>,
-		offset: State<Point>,
+		pos: State<Point>,
 	) {
-		const pos = srt.with(offset).derivedT((t, p) => t.transformPoint(p));
-		const transform = ctx.createTransform();
-		pos.watchOn(this, p => transform.setTranslate(p.x, p.y));
+		// const pos = srt.with(offset).derivedT((t, p) => t.transformPoint(p));
+		// const transform = ctx.createTransform();
+		// pos.watchOn(this, p => transform.setTranslate(p.x, p.y));
 
-		const element = this.getElement(ctx);
-		element.transform.baseVal.appendItem(transform);
-		this.element = element;
+		const element = this.getElement(handle.ctx);
+		// element.transform.baseVal.appendItem(transform);
+		this.element = handle.insert(element, pos);
 
-		this.handle = ctx.createGestureFilter(GestureLayer.SelectionHandle)
+
+		this.handle = handle.ctx.createGestureFilter(GestureLayer.SelectionHandle)
 			.setTest(({ x, y }) => {
 				const p = pos.get();
 				const dx = Math.abs(x - p.x);
@@ -68,12 +72,27 @@ abstract class HandleBase {
 
 export class RotateHandle extends HandleBase {
 	public constructor(
-		ctx: CanvasContext,
+		handle: UnscaledHandle,
 		srt: State<DOMMatrix>,
 		size: State<Point>,
 		private updateSrt: (_: DOMMatrix) => void,
 	) {
-		super(ctx, srt, size.derived(({ y }: Point) => point(0, -y / 2 - 0.5)));
+		const extraOffset = srt.derived(s => {
+			const bx = s.c;
+			const by = s.d;
+			const length = Math.sqrt((bx * bx) + (by * by));
+			return point(-bx / length, -by / length);
+		});
+
+		const srtOffset = size
+			.derived(s => point(0, -s.y / 2))
+			.with(srt)
+			.derivedT((pos, srt) => srt.transformPoint(pos));
+
+		const totalOffset = extraOffset.with(srtOffset)
+			.derivedT((a, b) => point(a.x + b.x, a.y + b.y));
+
+		super(handle, srt, totalOffset);
 	}
 
 	protected override getElement(ctx: CanvasContext): SVGGraphicsElement {
@@ -106,12 +125,12 @@ export class RotateHandle extends HandleBase {
 
 export class StretchHandle extends HandleBase {
 	public constructor(
-		ctx: CanvasContext,
+		handle: UnscaledHandle,
 		srt: State<DOMMatrix>,
 		private offset: State<Point>,
 		private updateSrt: (_: DOMMatrix) => void,
 	) {
-		super(ctx, srt, offset);
+		super(handle, srt, srt.with(offset).derivedT((t, p) => t.transformPoint(p)));
 	}
 
 	protected override getElement(ctx: CanvasContext): SVGGraphicsElement {
@@ -167,14 +186,14 @@ export class StretchHandleSet {
 	private handles: StretchHandle[];
 
 	public constructor(
-		ctx: CanvasContext,
+		handle: UnscaledHandle,
 		srt: State<DOMMatrix>,
 		size: State<Point>,
 		updateSrt: (_: DOMMatrix) => void,
 	) {
 		this.handles = StretchHandleSet.Directions.map(p => {
 			const offset = size.derived(({ x, y }: Point) => point(x * p.x / 2, y * p.y / 2));
-			return new StretchHandle(ctx, srt, offset, updateSrt);
+			return new StretchHandle(handle, srt, offset, updateSrt);
 		});
 	}
 

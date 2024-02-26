@@ -1,10 +1,10 @@
 import { Board } from "../Board.js";
 import { Logger } from "../Logger.js";
 import { PressGesture } from "../canvas/Gesture.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionToolBase, ModeToolBase } from "./Tool.js";
 const logger = new Logger("tool/SelectionTool");
 
-export class SelectionTool extends ActionToolBase {
+export class SelectionTool extends ModeToolBase {
 	// TODO: this is very incomplete
 	public constructor(
 		board: Board,
@@ -12,9 +12,9 @@ export class SelectionTool extends ActionToolBase {
 		super(board);
 	}
 
-	protected override cancel(): void {
-		this.gestureFilter.pause();
-	}
+	// protected override cancel(): void {
+	// 	this.gestureFilter.pause();
+	// }
 
 	protected override onPressGesture(gesture: PressGesture): void {
 		logger.debug("received press gesture");
@@ -25,10 +25,10 @@ export class SelectionTool extends ActionToolBase {
 
 		if (items.length === 0) return;
 
-		this.start();
+		// this.start();
 
 		this.board.items.addOwnSelection(items);
 
-		this.end();
+		// this.end();
 	}
 }

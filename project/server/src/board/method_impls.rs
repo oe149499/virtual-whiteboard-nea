@@ -2,6 +2,7 @@ use std::collections::{self, BTreeMap};
 
 use itertools::Itertools;
 use log::debug;
+use scc::hash_map::Entry;
 use tokio::time::Instant;
 
 use crate::{
@@ -116,16 +117,17 @@ impl Board {
         let mut ok = true;
 
         for (item_id, update) in params.items {
-            let item = self.selected_items.get_async(&item_id).await;
-            let Some(item) = item else {
+            let entry = self.selected_items.entry_async(item_id).await;
+            let Entry::Occupied(mut entry) = entry else {
                 handle.warn(non_existent_id(item_id));
                 ok = false;
                 continue;
             };
-            if *item.get() == Some(client_id) {
+            if *entry.get() == Some(client_id) {
                 let item = self.canvas.get_ref(item_id).await;
                 let Some(mut item) = item else { continue };
                 let res = item.apply_location_update(item_id, &update);
+                *entry.get_mut() = None;
                 if let Err((update, reason)) = res {
                     out.push((item_id, update));
                     handle.warn(reason);
@@ -211,6 +213,8 @@ impl Board {
         if selected.get() != &Some(id) {
             return handle.error(resource_not_owned(params.item_id));
         }
+
+        drop(selected);
 
         debug!("Editing item {:?}", params.item_id);
 

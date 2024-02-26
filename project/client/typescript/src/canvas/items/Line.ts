@@ -4,10 +4,10 @@ import { PropertyTemplates } from "../../PropertyTemplates.js";
 import { Item, type LocationUpdate } from "../../gen/Types.js";
 import { CanvasContext } from "../CanvasBase.js";
 import { PathHelper } from "../Path.js";
-import { StrokeMixin, CanvasItem, FillMixin, TransformMixin, type ItemPropertyStore } from "./CanvasItems.js";
+import { CanvasItem, TransformMixin, type ItemPropertyStore, FillItem, StrokeItem } from "./CanvasItems.js";
 
 
-export class Line extends StrokeMixin(CanvasItem) {
+export class Line extends StrokeItem {
 	private elem: SVGLineElement;
 
 	public get innerElement() { return this.elem; }
@@ -70,7 +70,7 @@ export class Line extends StrokeMixin(CanvasItem) {
 	}
 }
 
-export class Polygon extends FillMixin(StrokeMixin(CanvasItem)) {
+export class Polygon extends FillItem {
 	private elem: SVGPolygonElement;
 
 	public override get innerElement() { return this.elem; }
@@ -115,7 +115,7 @@ export class Polygon extends FillMixin(StrokeMixin(CanvasItem)) {
 	}
 }
 
-export class Path extends StrokeMixin(TransformMixin(CanvasItem)) {
+export class Path extends TransformMixin(StrokeItem) {
 	private elem: SVGPathElement;
 	private pathHelper: PathHelper;
 	public override get innerElement() { return this.elem; }

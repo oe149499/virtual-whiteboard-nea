@@ -196,6 +196,8 @@ class ShortTextPropertyUI extends ShortPropertyUI<"text"> {
 		this.input.setAttrs({
 			type: "text",
 		});
+
+		this.input.oninput = () => this.update(this.input.value);
 	}
 
 	protected override load(value: string): void {

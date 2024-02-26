@@ -3,21 +3,40 @@ import { Item, ItemID, Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
 import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
 import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
-import { CanvasItem, ItemPropertyStore } from "./items/CanvasItems.js";
+import { CanvasItem, FillItem, ItemPropertyStore, StrokeItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
 import { GestureHandler } from "./Gesture.js";
 import { BoardTable, type ItemEntry } from "../BoardTable.js";
 import { TimeoutMap } from "../util/TimeoutMap.js";
 import { LocalSelection, RemoteSelection } from "./Selection.js";
-import type { PropertyInstance } from "../Properties.js";
-import { None, point } from "../util/Utils.js";
+import type { PropertyInstance, PropertySchema } from "../Properties.js";
+import { None, anyOf, instanceOf, point } from "../util/Utils.js";
 
 
 const PX_PER_CM = 37.8;
 const logger = new Logger("canvas/CanvasController");
 
 export class CanvasController {
-	public readonly svgElement = document.createElementNS(SVGNS, "svg")
+	private gestures!: GestureHandler;
+
+	private coordMapping = mutableStateOf<CoordinateMapping>({
+		screenOrigin: { x: 0, y: 0 },
+		stretch: PX_PER_CM * 1.5,
+		targetOffset: { x: 0, y: 0 },
+	});
+
+	private cursorPos = mutableStateOf(point());
+
+	#svg!: SVGSVGElement;
+	public readonly ctx = new CanvasContext(this.coordMapping, {
+		exec: ({ gestures, svg }) => {
+			this.gestures = gestures;
+			this.#svg = svg;
+		},
+		cursorPos: this.cursorPos,
+	});
+
+	public readonly svgElement = this.#svg
 		.setAttrs({
 			viewBox: "0 0 0 0",
 		})
@@ -26,9 +45,6 @@ export class CanvasController {
 			pointerup: this.pointerUp.bind(this),
 			pointermove: this.pointerMove.bind(this),
 		});
-
-	public readonly ctx: CanvasContext;
-	// public readonly selection = new Map<ClientID, UserSelection>();
 
 	private targetRect = this.svgElement.viewBox.baseVal;
 
@@ -40,12 +56,6 @@ export class CanvasController {
 	);
 
 	private activeGestures: { [key: number]: { move: Channel<PointerEvent>, end: (_: PointerEvent) => void } } = {};
-	private gestures!: GestureHandler;
-	private coordMapping = mutableStateOf<CoordinateMapping>({
-		screenOrigin: { x: 0, y: 0 },
-		stretch: PX_PER_CM,
-		targetOffset: { x: 0, y: 0 },
-	});
 
 	private cursorTimeouts = new TimeoutMap(1000, (id: number) => {
 		this.currentCursors.mutate(c => c.delete(id));
@@ -54,55 +64,36 @@ export class CanvasController {
 	private currentCursors = mutableStateOf(new Set());
 	public readonly isGesture = this.currentCursors.derived(s => s.size !== 0);
 
-	private cursorPos = mutableStateOf(point());
-
 	public readonly propertyStore: ItemPropertyStore;
 
 	constructor(public readonly boardTable: BoardTable) {
-		const svgElement = this.svgElement;
-
-		this.ctx = new CanvasContext(this.svgElement, this.coordMapping, boardTable, {
-			cursorPos: this.cursorPos,
-			exec: ({ gestures: g }) => this.gestures = g,
-		});
-		//  ({ gestures }) => {
-		// 	this.gestures = gestures;
-		// });
+		const ctx = this.ctx;
 
 		this.propertyStore = new ItemPropertyStore(boardTable);
 
 		boardTable.events.items.connect("insert", ({ canvasItem }) => {
-			svgElement.appendChild(canvasItem.element);
+			ctx.insertScaled(canvasItem.element);
+			CanvasItem.schemaFor(canvasItem, this.propertyStore);
 		});
 
-		boardTable.events.items.connect("deselect", ({ canvasItem }) => {
-			logger.debug("Deselecting item");
-			svgElement.appendChild(canvasItem.element);
-		});
+		boardTable.events.items.connect("deselect", ({ canvasItem: { element } }) => ctx.insertScaled(element));
 
-		boardTable.events.itemCreate.bind(item => CanvasItem.create(this.ctx, item));
+		boardTable.events.itemCreate.bind(item => CanvasItem.create(ctx, item));
 		boardTable.events.remoteSelectionCreate.bind(init => {
-			return new RemoteSelection(this.ctx, boardTable, init);
-			// return null as unknown as never;
+			return new RemoteSelection(ctx, boardTable, init);
 		});
 		boardTable.events.ownSelectionCreate.bind((...args) => {
 			if (args.length) {
 				const [srt, items] = args;
-				return new LocalSelection(this.ctx, boardTable, { srt, items });
-			} else return new LocalSelection(this.ctx, boardTable);
+				return new LocalSelection(ctx, boardTable, { srt, items });
+			} else return new LocalSelection(ctx, boardTable);
 		});
 
 		this.elementBounds.watch(({ x, y, width, height }) => {
-			this.coordMapping.updateBy(m => (
-				m.screenOrigin = { x, y }, m
-			));
-			this.targetRect.width = width / PX_PER_CM;
-			this.targetRect.height = height / PX_PER_CM;
+			this.coordMapping.mutate(m => m.screenOrigin = { x, y });
+			this.targetRect.width = width;
+			this.targetRect.height = height;
 		});
-
-		// svgElement.onpointerdown = this.pointerDown.bind(this);
-		// svgElement.onpointermove = this.pointerMove.bind(this);
-		// svgElement.onpointerup = this.pointerUp.bind(this);
 	}
 
 	public * probePoint(target: Point): Iterable<ItemEntry> {
@@ -113,35 +104,33 @@ export class CanvasController {
 		}
 	}
 
-	/** @deprecated */
-	public addItem(id: ItemID, item: Item) {
-		this.boardTable.addItem(id, item);
-	}
-
 	public addRawElement(elem: SVGElement) {
 		this.svgElement.appendChild(elem);
 	}
 
-	public getOrigin() {
-		return { x: this.targetRect.x, y: this.targetRect.y };
-	}
+	public readonly origin = this.coordMapping.extract("targetOffset");
+	public readonly zoom = this.coordMapping.extract("stretch");
 
-	public setOrigin({ x, y }: { x: number, y: number }) {
-		this.targetRect.x = x;
-		this.targetRect.y = y;
-		this.coordMapping.updateBy(m => {
-			m.targetOffset = { x, y };
-			return m;
-		});
-	}
 
-	public getPropertyInstance(entry: ItemEntry): PropertyInstance {
-		const schema = CanvasItem.schemaFor(entry.canvasItem, this.propertyStore);
-		this.propertyStore.bind(entry.id);
+	public getPropertyInstance(entries: ReadonlySet<ItemEntry>): PropertyInstance {
+		let schema: PropertySchema[] = [];
+
+		if (entries.size === 1) for (const { canvasItem } of entries) {
+			schema = CanvasItem.schemaFor(canvasItem, this.propertyStore);
+		} else if (anyOf(entries, ({ canvasItem }) => canvasItem instanceof FillItem)) {
+			schema = FillItem.schema;
+		} else if (anyOf(entries, ({ canvasItem }) => canvasItem instanceof StrokeItem)) {
+			schema = StrokeItem.schema;
+		}
+
+		logger.debug("Schema for %o is %o", entries, schema);
+
+		this.propertyStore.bindEntries(entries);
 		return { schema, store: this.propertyStore };
 	}
 
 	private pointerDown(e: PointerEvent): void {
+		this.cursorPos.set(point(e.x, e.y));
 		this.currentCursors.mutate(s => s.add(e.pointerId));
 		this.cursorTimeouts.add(e.pointerId);
 
@@ -163,6 +152,8 @@ export class CanvasController {
 			moves: receiver,
 			end: endPromise,
 		});
+
+		e.preventDefault();
 	}
 
 	private pointerUp(e: PointerEvent): void {
@@ -187,5 +178,6 @@ export class CanvasController {
 		if (!gesture) return;
 
 		gesture.move.push(e);
+		e.stopPropagation();
 	}
 }

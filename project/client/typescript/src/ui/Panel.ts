@@ -64,7 +64,11 @@ export class PanelController {
 
 		this.contents = this.getContents();
 
-		this.contents.classList.selectBy("open", "closed", enabledState.derived(s => s === EnabledState.Active));
+		const panelVisible = enabledState.derived(s => s === EnabledState.Active)
+			.with(this.openState)
+			.derivedT((enabled, open) => enabled && open);
+
+		this.contents.classList.selectBy("open", "closed", panelVisible);
 	}
 }
 

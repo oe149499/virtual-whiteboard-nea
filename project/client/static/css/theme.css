@@ -30,3 +30,8 @@
 	background-color: #eeeeee;
 	border-width: 4px;
 }
+
+.hyperlink {
+	fill: blue;
+	text-decoration: underline;
+}

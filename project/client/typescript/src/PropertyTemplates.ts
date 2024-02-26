@@ -1,5 +1,5 @@
 import { CompositeKey, PropKey, PropType, PropertySchema, ValuePropertyType } from "./Properties.js";
-import { Stroke } from "./gen/Types.js";
+import { Stroke, type Point } from "./gen/Types.js";
 import { point } from "./util/Utils.js";
 
 function PointSchema(defaultVal = point()) {
@@ -7,6 +7,8 @@ function PointSchema(defaultVal = point()) {
 		x: new PropKey("number", { defaultValue: defaultVal.x }),
 		y: new PropKey("number", { defaultValue: defaultVal.y }),
 	};
+
+	console.log(keys);
 
 	const schema: PropertySchema[] = [
 		{
@@ -22,6 +24,17 @@ function PointSchema(defaultVal = point()) {
 	];
 
 	return { keys, schema };
+}
+
+function PointPropertySchema(name: string, defaults?: Point) {
+	const { keys, schema: fields } = PointSchema(defaults);
+	return {
+		keys: { point: keys },
+		schema: {
+			type: "struct" as const,
+			fields,
+		},
+	};
 }
 
 function TransformSchema() {
@@ -128,7 +141,6 @@ class Builder<TKeys extends object> {
 	public add<Name extends string, N extends PropType, TAdd = Record<Name, PropKey<N>>>(templOrName: Template<TAdd> | Name, prop?: ValuePropertyType<N>) {
 		if (typeof templOrName == "object") {
 			const { schema, keys } = templOrName;
-			this.schemas.push(schema);
 			return new Builder(
 				{
 					...this.keys,
@@ -167,5 +179,5 @@ export function merge<Ts extends object[]>(...objs: Ts): Merged<object, Ts> {
 }
 
 export const PropertyTemplates = Object.freeze({
-	PointSchema, TransformSchema, StrokeSchema,
+	PointSchema, PointPropertySchema, TransformSchema, StrokeSchema,
 });

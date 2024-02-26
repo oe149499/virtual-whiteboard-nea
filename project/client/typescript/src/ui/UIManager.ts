@@ -12,6 +12,11 @@ import { CanvasItem } from "../canvas/items/CanvasItems.js";
 
 const logger = new Logger("ui/manager");
 
+const iconTypeMap = {
+	"edit": "toolPanel",
+	"view": "viewPanel",
+} as const;
+
 export class UIManager {
 	public readonly containerElement = document
 		.createElement("div")
@@ -69,11 +74,8 @@ export class UIManager {
 
 		const propertiesState = toolProps.with(table.selectedItems)
 			.derivedT((tool, selection) => {
-				switch (selection.size) {
-					case 0: return tool;
-					case 1: return canvas.getPropertyInstance(selection.first()!);
-					default: return None;
-				}
+				if (selection.size === 0) return tool;
+				else return canvas.getPropertyInstance(selection);
 			});
 
 		const propertiesEnabled = propertiesState.derived(s => s == None ? EnabledState.Inactive : EnabledState.Active);
@@ -82,8 +84,9 @@ export class UIManager {
 		this.properties = new PropertyEditor(this.propertiesPanel.contents, propertiesState);
 	}
 
-	public addToolIcon(icon: ToolIcon) {
-		this.toolPanel.contents.appendChild(icon.element);
+	public addToolIcon(icon: ToolIcon, panel: "edit" | "view") {
+		const container = this[iconTypeMap[panel]].contents;
+		container.appendChild(icon.element);
 		icon.bind(this.toolState);
 		icon.onselect = this.onIconSelect;
 		icon.ondeselect = this.onItemDeselect;

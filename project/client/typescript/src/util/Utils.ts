@@ -58,6 +58,15 @@ export function unwrapOption<T>(opt: Option<T>, or?: () => T): T {
 	} else return opt;
 }
 
+export function anyOf<T>(src: Iterable<T>, are: (_: T) => boolean) {
+	for (const item of src) if (are(item)) return true;
+	return false;
+}
+
+export function instanceOf<T>(ctor: abstract new (..._: never) => void) {
+	return (val: object) => val instanceof ctor;
+}
+
 export function todo(..._: unknown[]): never {
 	throw new Error("Not yet implemented");
 }

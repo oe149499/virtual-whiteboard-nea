@@ -9,7 +9,7 @@ type EventMap<E extends Element> = {
 declare global {
 	type Handler<T> = ((_: T) => void) | null;
 
-	interface Set<T> {
+	interface Set<T> extends ReadonlyAs<ReadonlySet<T>> {
 		addFrom(src: Iterable<T>): void;
 
 		drain(): Iterable<T>;

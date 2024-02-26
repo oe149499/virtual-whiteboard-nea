@@ -340,6 +340,11 @@ class MutableExtracted<T, U> extends MutableState<U> {
 			this.update(extractor.get(value as T) as DeepReadonly<U>);
 		});
 	}
+
+	public override set(value: U): void {
+		const sourceVal = this.extractor.patch(value, this.source["value"]);
+		this.source["update"](sourceVal as DeepReadonly<T>);
+	}
 }
 
 class DeadState<T> extends State<T> {

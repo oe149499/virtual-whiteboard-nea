@@ -1,7 +1,8 @@
 import { watchWeak } from "./State.js";
 import { mutableStateOf, type DeepReadonly, State, type MutableState } from "./State.js";
 
-export class StateSet<T> extends State<Set<T>> {
+// @ts-expect-error same logic as State<T>
+abstract class _StateSet<out T> extends State<Set<T>>{
 	public readonly size = this.derived(s => s.size);
 
 	// protected constructor(protected _inner: State<Set<T>>) {
@@ -14,14 +15,16 @@ export class StateSet<T> extends State<Set<T>> {
 		return this.derivedI("has", value);
 	}
 
-	public map<U>(fn: (_: DeepReadonly<T>) => U): StateSet<U> {
+	public map<U>(fn: (_: DeepReadonly<T>) => U): _StateSet<U> {
 		return new DerivedStateSet(this, fn);
 	}
 }
 
-class DerivedStateSet<T, U> extends StateSet<U> {
+export type StateSet<T> = _StateSet<T> & State<Set<T>>;
+
+class DerivedStateSet<T, U> extends _StateSet<U> {
 	#handle: unknown;
-	public constructor(source: StateSet<T>, fn: (_: DeepReadonly<T>) => U) {
+	public constructor(source: _StateSet<T>, fn: (_: DeepReadonly<T>) => U) {
 		const newSet = new Set<U>();
 		super(newSet);
 
@@ -44,7 +47,7 @@ class DerivedStateSet<T, U> extends StateSet<U> {
 	}
 }
 
-export class MutableStateSet<T> extends StateSet<T> {
+export class MutableStateSet<T> extends _StateSet<T> {
 	// private inner: MutableState<Set<T>>;
 	public constructor() {
 		super(new Set());

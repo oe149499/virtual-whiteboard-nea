@@ -1,9 +1,10 @@
 import type { SpecificItem } from "../../GenWrapper.js";
 import { Logger } from "../../Logger.js";
-import { PropKey } from "../../Properties.js";
+import { PropKey, type PropertySchema } from "../../Properties.js";
 import type { Item } from "../../gen/Types.js";
 import { todo } from "../../util/Utils.js";
 import { CenterHelper, type CanvasContext } from "../CanvasBase.js";
+import { GestureLayer, GestureType } from "../Gesture.js";
 import { parseMarkdown } from "../MarkdownParser.js";
 import { CanvasItem, TransformMixin } from "./CanvasItems.js";
 
@@ -34,10 +35,6 @@ class TextRenderer {
 				x: 0,
 				dy: "-1.2em",
 			});
-
-		target.createChild("tspan")
-			.addClasses("md-linebreak")
-			.setContent("@");
 
 		for (const line of newLines) {
 			const rendered = this.getLine(line);
@@ -100,25 +97,11 @@ export class Text extends TransformMixin(CanvasItem) {
 		protected item: SpecificItem<"Text">,
 	) {
 		super(ctx);
-		this.innerElement = ctx.createElement("g");
 
 		const textElement = ctx.createElement("text");
 		textElement.setAttribute("text-anchor", "middle");
 
-		this.innerElement.appendChild(CenterHelper.of(textElement));
-
-		// const holderElement = this.innerElement.createChild("g");
-
-		// const holderTransform = ctx.createTransform();
-		// holderElement.transform.baseVal.appendItem(holderTransform);
-
-		// textElement
-		// 	.getBBoxState()
-		// 	.debug(logger)
-		// 	.derived(({ top, bottom }) => -(top + bottom) / 2)
-		// 	.watchOn(textElement, (offset) => {
-		// 		holderTransform.setTranslate(0, offset);
-		// 	});
+		this.innerElement = CenterHelper.of(textElement);
 
 		this.renderer = new TextRenderer(ctx, textElement);
 		this.renderer.update(item.text.split("\n"));
@@ -144,6 +127,75 @@ export class Text extends TransformMixin(CanvasItem) {
 				displayName: "Text",
 				display: "long",
 			};
+		});
+	}
+}
+
+export class Link extends TransformMixin(CanvasItem) {
+	public override readonly innerElement: SVGGElement;
+
+	private textElement: SVGTextElement;
+
+	public constructor(
+		ctx: CanvasContext,
+		protected item: SpecificItem<"Link">,
+	) {
+		super(ctx);
+		this.textElement = ctx.createElement("text").addClasses("hyperlink");
+		this.innerElement = CenterHelper.of(this.textElement);
+
+		ctx.createGestureFilter(GestureLayer.Lowest)
+			.setTest(p => {
+				const bounds = this.bounds;
+				return bounds.testIntersection(p);
+			})
+			.addHandler(GestureType.Click, () => {
+				try {
+					window.open(this.item.url, "_blank", "noreferrer=1");
+				} catch { return; }
+			});
+
+		this.updateItem(item);
+	}
+
+	public override updateItem(value: Item): void {
+		this.checkType(value, "Link");
+
+		this.item = value;
+
+		// this.innerElement.setAttribute("href", value.url);
+		this.textElement.setContent(value.text || value.url);
+	}
+
+	static {
+		this.PropertiesHook.add(this, store => {
+			const key = new PropKey("text");
+			const schema: PropertySchema = {
+				type: "text",
+				key,
+				displayName: "URL",
+				display: "short",
+			};
+
+			store.getter("Link", key, item => item.url);
+			store.setter("Link", key, (item, val) => item.url = val);
+
+			return schema;
+		});
+
+		this.PropertiesHook.add(this, store => {
+			const key = new PropKey("text");
+			const schema: PropertySchema = {
+				type: "text",
+				key,
+				displayName: "Link text",
+				display: "short",
+			};
+
+			store.getter("Link", key, item => item.text);
+			store.setter("Link", key, (item, val) => item.text = val);
+
+			return schema;
 		});
 	}
 }

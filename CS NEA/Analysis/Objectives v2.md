@@ -37,15 +37,19 @@ The program must display a "Toolbox" **panel** which consists of a grid of **too
 1. When clicked, the corresponding **tool** will be activated
 2. The icon corresponding to the active **tool** must be indicated or otherwise highlighted
 3. During a **multi-press action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **multi-press action**.
-## 1.3 Properties
+## 1.4 Properties
 The program must display a "Properties" **panel** which contains a list of **properties** relevant to the currently **selected** **item**(s):
 1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited, any **item**-specific actions, along with the ability to delete the **item**
-2. When multiple **item**s are **selected**, each of the following **properties** is listed if it applies to at least one of the **selected** **items**:
+2. The following **properties** should be omitted as they can be edited interactively with the **selection box**:
+	1. Transform
+	2. Start/End points for Line
+	3. Points for Polygon
+3. When multiple **item**s are **selected**, each of the following **properties** is listed if it applies to at least one of the **selected** **items**:
 	- Stroke
 	- Fill
-3. When no **item**s are **selected**, the **properties** of the current **tool** are displayed, if any.
-4. If there are no **properties** that can be displayed, the **panel** should be **disabled**
-## 1.4 View controls
+4. When no **item**s are **selected**, the **properties** of the current **tool** are displayed, if any.
+5. If there are no **properties** that can be displayed, the **panel** should be **disabled**
+## 1.5 View controls
 The program must display a "View" **panel** with the following buttons:
 1. Zoom in
 2. Zoom out

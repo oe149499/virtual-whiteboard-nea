@@ -6,7 +6,7 @@ import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
-import { createEditToolList } from "./ui/ToolLayout.js";
+import { createEditToolList, createViewToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AsyncIter } from "./util/AsyncIter.js";
 import { None } from "./util/Utils.js";
@@ -44,7 +44,12 @@ export class Board {
 	private async init() {
 		for (const [name, tool] of createEditToolList(this)) {
 			const icon = new ToolIcon(name, tool);
-			this.ui.addToolIcon(icon);
+			this.ui.addToolIcon(icon, "edit");
+		}
+
+		for (const [name, tool] of createViewToolList(this)) {
+			const icon = new ToolIcon(name, tool);
+			this.ui.addToolIcon(icon, "view");
 		}
 
 		this.ui.containerElement.classList.setBy("gesture-active", this.canvas.isGesture);

@@ -511,6 +511,8 @@ interface BatchChanges {
 ## 4.1 Server-side code
 ### 4.1.1 main.rs
 ```rust
+use std::time::Duration;
+
 use camino::Utf8PathBuf;
 use clap::Parser;
 use flexi_logger::Logger;
@@ -554,7 +556,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.static_root(args.static_path.into())
 		.script_root(args.script_root.into())
 		.media_root(args.media_root.into())
-		.board_root(args.board_root.into())
+		.board_root(args.board_root.clone().into())
 		.serve_ts(args.serve_ts)
 		.build()
 		.unwrap();
@@ -578,9 +580,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	runtime.block_on(async move {
 		info!("Loading boards");
 		// The board manager should stay alive for the lifetime of the program
-		let boards = BoardManager::new_debug();
+		let boards = BoardManager::new_debug(&args.board_root.as_std_path());
 		
 		let res = GlobalResources::new(boards, config).as_static();
+		
+		tokio::task::spawn(async {
+			loop {
+				info!("Beginning autosave");
+				let current_task = tokio::task::spawn(res.boards.autosave());
+				
+				tokio::time::sleep(Duration::from_secs(10)).await;
+				
+				current_task.await.unwrap_or_else(|e| {
+					error!("Autosave task panicked: {e}");
+				});
+			}
+		});
 		
 		let filter = create_filter(res);
 		
@@ -620,7 +635,7 @@ import { PathHelper } from "./canvas/Path.js";
 import { SessionClient } from "./client/Client.js";
 import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
-import { createEditToolList } from "./ui/ToolLayout.js";
+import { createEditToolList, createViewToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AsyncIter } from "./util/AsyncIter.js";
 import { None } from "./util/Utils.js";
@@ -635,12 +650,12 @@ type BoardInfo = ClientInfo & {
 export class Board {
 	public static async new(name: string, info: ClientInfo): Promise<Board> {
 		const client = await SessionClient.new(name, info);
-		const items = new BoardTable(client);
-		const canvas = new CanvasController(items);
-		const ui = new UIManager(canvas);
+		const table = new BoardTable(client);
+		const canvas = new CanvasController(table);
+		const ui = new UIManager(canvas, table);
 		const boardInfo = { ...info, boardName: name, clientID: client.clientID };
 		
-		const board = new this(ui, client, canvas, items, boardInfo);
+		const board = new this(ui, client, canvas, table, boardInfo);
 		
 		queueMicrotask(() => board.init());
 		
@@ -658,7 +673,12 @@ export class Board {
 	private async init() {
 		for (const [name, tool] of createEditToolList(this)) {
 			const icon = new ToolIcon(name, tool);
-			this.ui.addToolIcon(icon);
+			this.ui.addToolIcon(icon, "edit");
+		}
+		
+		for (const [name, tool] of createViewToolList(this)) {
+			const icon = new ToolIcon(name, tool);
+			this.ui.addToolIcon(icon, "view");
 		}
 		
 		this.ui.containerElement.classList.setBy("gesture-active", this.canvas.isGesture);
@@ -698,4 +718,8 @@ export class Board {
 }
 ```
 # 5 System Testing
+## 5.1 Test Plan
+### 5.1.1 Layout and interface
+- Open program
+- Verify that basic layout is as described in [Layout and Interface](#  1 Layout and Interface)
 # 6 Evaluation

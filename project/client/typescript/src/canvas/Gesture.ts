@@ -181,7 +181,9 @@ export class GestureHandler {
 			const filters = this.filterLayers[layer];
 			for (const filter of filters.active) {
 				if (gesture.type & filter.types) {
+					// logger.debug("Testing ", filter);
 					if (filter.check(gesture.location)) {
+						// logger.debug("going to ", filter);
 						filter.handle(gesture);
 						if (filter.mode == FilterMode.Capture) return;
 					}

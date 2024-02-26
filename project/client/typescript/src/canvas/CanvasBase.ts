@@ -1,11 +1,12 @@
 import { updateMatrix } from "../Transform.js";
 import { Color, Point, Stroke, Transform } from "../gen/Types.js";
-import { State, mutableStateOf } from "../util/State.js";
+import { State, mutableStateOf, type MaybeState } from "../util/State.js";
 import { FilterHandle, GestureHandler, GestureLayer } from "./Gesture.js";
 import { BoardTable } from "../BoardTable.js";
 import { point } from "../util/Utils.js";
 
 export const SVGNS = "http://www.w3.org/2000/svg";
+export const PX_PER_CM = 37.8;
 
 export interface CoordinateMapping {
 	screenOrigin: Point;
@@ -15,6 +16,7 @@ export interface CoordinateMapping {
 
 export type CanvasContextExecutor = (_: {
 	gestures: GestureHandler,
+	svg: SVGSVGElement,
 }) => void;
 
 export interface CanvasContextInit {
@@ -23,17 +25,33 @@ export interface CanvasContextInit {
 }
 
 export class CanvasContext {
+	private svgroot = document.createElementNS(SVGNS, "svg");
+
+	private scaledRoot = this.svgroot.createChild("g").addClasses("scaled-root");
+	private unscaledRoot = this.svgroot.createChild("g").addClasses("unscaled-root");
+
 	constructor(
-		private svgroot: SVGSVGElement,
 		public readonly coordMapping: State<CoordinateMapping>,
-		public readonly items: BoardTable,
 		init: CanvasContextInit,
 	) {
 		init.exec?.({
 			gestures: this.gestures,
+			svg: this.svgroot,
 		});
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const transform = this.createTransform();
+		this.scaledRoot.transform.baseVal.appendItem(transform);
+		coordMapping.watchOn(this, ({ targetOffset: o, stretch }) => {
+			transform.setMatrix({
+				a: stretch,
+				b: 0,
+				c: 0,
+				d: stretch,
+				e: -o.x * stretch,
+				f: -o.y * stretch,
+			});
+		});
+
 		this.cursorPosition = init.cursorPos.with(coordMapping).derivedT(this.translate);
 	}
 
@@ -84,7 +102,47 @@ export class CanvasContext {
 	}
 
 	public createRootElement<N extends keyof SVGElementTagNameMap>(name: N): SVGElementTagNameMap[N] {
-		return this.svgroot.appendChild(this.createElement(name));
+		return this.scaledRoot.appendChild(this.createElement(name));
+	}
+
+	public insertScaled(element: SVGElement) {
+		return this.scaledRoot.appendChild(element);
+	}
+
+	public getUnscaledHandle() {
+		const handle = new CanvasContext.UnscaledHandle(this);
+		CanvasContext.UnscaledHandleFinalizer.register(handle, handle["elements"]);
+		return handle;
+	}
+
+	public getUnscaledPos = (pos: State<Point>) =>
+		this.coordMapping
+			.with(pos)
+			.derivedT(({ targetOffset: o, stretch }, p) => ({
+				x: (p.x - o.x) * stretch,
+				y: (p.y - o.y) * stretch,
+			}));
+
+
+	public createUnscaledElement<N extends SVGGraphicsElementNames>(name: N, pos: State<Point>) {
+		const elem = this.createElement(name);
+		return this.insertUnscaled(elem, pos);
+	}
+
+	public insertUnscaled<E extends SVGGraphicsElement>(elem: E, pos: State<Point>) {
+		this.unscaledRoot.appendChild(elem);
+		const transform = this.createTransform();
+		elem.transform.baseVal.appendItem(transform);
+		this.getUnscaledPos(pos)
+			.watchOn(elem, ({ x, y }) => transform.setMatrix({
+				a: PX_PER_CM,
+				b: 0,
+				c: 0,
+				d: PX_PER_CM,
+				e: x,
+				f: y,
+			}));
+		return elem;
 	}
 
 	public translate(p: Point, m?: CoordinateMapping) {
@@ -94,8 +152,47 @@ export class CanvasContext {
 			y: ((p.y - screenOrigin.y) / stretch) + targetOffset.y,
 		};
 	}
+
+	private static UnscaledHandleFinalizer = new FinalizationRegistry<ReadonlySet<SVGElement>>(elems => {
+		for (const elem of elems) elem.remove();
+	});
+
+	private static UnscaledHandle = class UnscaledHandle {
+		private elements = new Set<SVGElement>();
+		public constructor(public readonly ctx: CanvasContext) { }
+
+		public insert<E extends SVGGraphicsElement>(elem: E, pos: State<Point>) {
+			this.elements.add(elem);
+			return this.ctx.insertUnscaled(elem, pos);
+		}
+
+		public insertStatic<E extends SVGElement>(elem: E) {
+			this.elements.add(elem);
+			this.ctx.unscaledRoot.appendChild(elem);
+			return elem;
+		}
+
+		public create<N extends SVGGraphicsElementNames>(name: N, pos: State<Point>) {
+			const elem = this.ctx.createUnscaledElement(name, pos);
+			this.elements.add(elem);
+			return elem;
+		}
+
+		public getPoint(pos: State<Point>) {
+			return this.ctx.createPointBy(this.ctx.getUnscaledPos(pos));
+		}
+
+		public clear() {
+			for (const elem of this.elements.drain()) elem.remove();
+		}
+	};
 }
 
+export type UnscaledHandle = InstanceType<(typeof CanvasContext)["UnscaledHandle"]>
+
+export type SVGGraphicsElementNames = keyof {
+	[K in keyof SVGElementTagNameMap as SVGElementTagNameMap[K] extends SVGGraphicsElement ? K : never]: SVGElementTagNameMap[K]
+};
 export class MatrixHelper {
 	private svgTransform: SVGTransform;
 
@@ -206,10 +303,11 @@ export class CenterHelper {
 			const element = entry.target;
 			if (this.parentMap.has(element)) {
 				const bbox = element.getBBox();
+				console.log(bbox);
 				const transform = this.parentMap.get(element)!;
 				const cx = (bbox.left + bbox.right) / 2;
 				const cy = (bbox.top + bbox.bottom) / 2;
-				transform.setTranslate(-cx, -cy);
+				transform.setTranslate(-cx / PX_PER_CM, -cy / PX_PER_CM);
 			}
 		}
 	});
@@ -217,10 +315,15 @@ export class CenterHelper {
 	static of(target: SVGGraphicsElement) {
 		const holder = document.createElementNS(SVGNS, "g");
 		const transform = holder.transform.baseVal.createSVGTransformFromMatrix();
+
+		console.log(target);
+
 		holder.transform.baseVal.appendItem(transform);
 		holder.appendChild(target);
-		this.parentMap.set(target, transform);
-		holder.appendChild(target);
+
+		this.parentMap.set(holder, transform);
+		this.observer.observe(holder);
+
 		return holder;
 	}
 }

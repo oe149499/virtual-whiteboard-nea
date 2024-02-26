@@ -4,7 +4,7 @@ import { PropKey } from "../../Properties.js";
 import { PropertyTemplates, builder } from "../../PropertyTemplates.js";
 import { Item } from "../../gen/Types.js";
 import { CanvasContext } from "../CanvasBase.js";
-import { CanvasItem, FillMixin, StrokeMixin, TransformMixin } from "./CanvasItems.js";
+import { CanvasItem, FillItem, TransformMixin } from "./CanvasItems.js";
 
 const logger = new Logger("canvas/items/Shape");
 
@@ -19,7 +19,7 @@ const { keys, schema } = builder()
 	.build();
 
 
-abstract class ShapeItem extends FillMixin(StrokeMixin(TransformMixin(CanvasItem))) {
+abstract class ShapeItem extends TransformMixin(FillItem) {
 	private innerElem: SVGGraphicsElement;
 
 	public get innerElement() { return this.innerElem; }
@@ -65,7 +65,7 @@ export class Ellipse extends ShapeItem {
 	protected override createElement(ctx: CanvasContext): SVGGraphicsElement {
 		const elem = ctx.createElement("circle");
 
-		elem.setAttribute("r", "0.5cm");
+		elem.setAttribute("r", "0.5");
 
 		return elem;
 	}

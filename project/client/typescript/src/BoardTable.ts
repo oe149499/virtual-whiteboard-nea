@@ -120,15 +120,18 @@ export class BoardTable {
 	private async bootstrap() {
 		const items = await this.client.method.GetAllItemIDs({});
 
-		this.client.bindNotify("ItemCreated", ({ id, item }) => {
+		this.client.bindNotify("ItemCreated", ({ id, item, client }) => {
 			if (this.items.has(id)) return;
 			this.addItem(id, item);
+			if (client == this.ownID && item.type !== "Path") this.addOwnSelection([id]);
 		});
 
 		this.client.bindNotify("SingleItemEdited", ({ id, item }) => {
+			console.log(id, item);
 			const entry = this.items.assume(id);
-			if (this.self.items.has(id)) return;
+			if (this.self.items.has(id).get()) return;
 			entry.item = item;
+			console.log(entry);
 			entry.canvasItem.update(item);
 		});
 
@@ -202,6 +205,7 @@ export class BoardTable {
 			for (const [id, update] of items) {
 				const entry = this.items.assume(id);
 				entry.canvasItem.applylocationUpdate(update);
+				entry.selection = None;
 				this._events.items.emit("deselect", entry);
 			}
 		});
@@ -279,19 +283,6 @@ export class BoardTable {
 		}
 		return self as SelfEntry & { box: LocalSelection };
 	}
-
-	// private updateSelectionState() {
-	// 	const count = this.self.items.size;
-	// 	if (count === 0) this._selectionState.mutate(s => s.type = LocalSelectionCount.None);
-	// 	else if (count == 1) this._selectionState.set({
-	// 		type: LocalSelectionCount.One,
-	// 		entry: this.items.assume(this.self.items.first()!),
-	// 	});
-	// 	else this._selectionState.set({
-	// 		type: LocalSelectionCount.Multiple,
-	// 		ids: this.self.items,
-	// 	});
-	// }
 
 	public addOwnSelection(items: ItemID[]) {
 		const self = this.ensureLocalBox();

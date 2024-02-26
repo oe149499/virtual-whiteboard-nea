@@ -3,7 +3,7 @@ import { asDomMatrix, fromMatrix, updateMatrix } from "../Transform.js";
 import type { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
 import { mutableStateOf, type State } from "../util/State.js";
 import { None, OwnedInterval, point } from "../util/Utils.js";
-import type { CanvasContext } from "./CanvasBase.js";
+import type { CanvasContext, UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
 import type { ItemEntry, BoardTable } from "../BoardTable.js";
 import { SelectionBorder, RotateHandle, StretchHandleSet } from "./SelectionUI.js";
@@ -42,7 +42,7 @@ export abstract class SelectionBox {
 	protected itemContainer: SVGGElement;
 	protected rootTransform: SVGGElement;
 	private stagingContainer: SVGGElement;
-	protected uiContainer: SVGGElement;
+	protected unscaled: UnscaledHandle;
 
 	protected srt = mutableStateOf(new DOMMatrix());
 
@@ -59,7 +59,8 @@ export abstract class SelectionBox {
 		this.itemContainer = rootElement.createChild("g").addClasses("selection-item-container");
 		this.rootTransform = this.itemContainer.createChild("g").addClasses("selection-root-transform");
 		this.stagingContainer = this.itemContainer.createChild("g").addClasses("selection-staging-container");
-		this.uiContainer = rootElement.createChild("g").addClasses("selection-ui-container");
+
+		this.unscaled = ctx.getUnscaledHandle();
 
 		const transform = ctx.createTransform();
 		this.rootTransform.transform.baseVal.appendItem(transform);
@@ -194,7 +195,8 @@ export class RemoteSelection extends SelectionBox {
 		this.srt.updateTransform(init.srt);
 
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
-		this.uiContainer.appendChild(this.border.element);
+		this.unscaled.insertStatic(this.border.element);
+		// this.uiContainer.appendChild(this.border.element);
 	}
 
 	public addItems(newSits: TransformRecord[], newSrt: Transform) {
@@ -250,13 +252,13 @@ export class LocalSelection extends SelectionBox {
 		// this.srt.updateDerived = false;
 
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
-		this.uiContainer.appendChild(this.border.element);
+		this.unscaled.insertStatic(this.border.element);
 
-		this.rotateHandle = new RotateHandle(ctx, this.srt, this.size, this.updateSrt);
-		this.uiContainer.appendChild(this.rotateHandle.element);
+		this.rotateHandle = new RotateHandle(this.unscaled, this.srt, this.size, this.updateSrt);
+		// this.uiContainer.appendChild(this.rotateHandle.element);
 
-		this.stretchHandles = new StretchHandleSet(ctx, this.srt, this.size, this.updateSrt)
-			.connectParent(this.uiContainer);
+		this.stretchHandles = new StretchHandleSet(this.unscaled, this.srt, this.size, this.updateSrt);
+		// .connectParent(this.uiContainer);
 
 		const invSrt = this.srt.derived(m => m.inverse());
 

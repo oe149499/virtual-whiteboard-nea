@@ -18,7 +18,7 @@ export class ViewTool extends ModeToolBase {
 
 		for await (const point of gesture.points) {
 			logger.trace("Point: ", point);
-			this.canvas.setOrigin({
+			this.canvas.origin.set({
 				x: offsetX - point.x,
 				y: offsetY - point.y,
 			});

@@ -18,9 +18,14 @@ const { keys, schema } = builder()
 	})
 	.build();
 
+function lenSquared(x: number, y: number) {
+	return (x * x) + (y * y);
+}
+
 export class PolygonTool extends ActionToolBase {
 	public override readonly properties = new SingletonPropertyStore(schema);
 	private builder?: PolygonBuilder;
+	private startPos?: Point;
 
 	protected override onPressGesture(gesture: PressGesture): void {
 		this.processPoint(gesture.location);
@@ -35,9 +40,15 @@ export class PolygonTool extends ActionToolBase {
 
 	private processPoint(pos: Point) {
 		if (this.builder) {
+			if (this.startPos && lenSquared(pos.x - this.startPos.x, pos.y - this.startPos.y) < 0.05) {
+				this.finish();
+				this.end();
+				return;
+			}
 			this.builder.addPoint(pos);
 		} else {
 			this.start();
+			this.startPos = pos;
 			this.startPolygon(pos);
 		}
 	}
@@ -50,10 +61,8 @@ export class PolygonTool extends ActionToolBase {
 		builder.addPoint(pos);
 	}
 
-	protected override cancel(): void {
-		if (!this.builder) return;
-
-		const points = this.builder.finish();
+	private finish() {
+		const points = this.builder!.finish();
 		const stroke = this.properties.read(keys.stroke);
 		const fill = this.properties.read(keys.fill);
 
@@ -65,6 +74,14 @@ export class PolygonTool extends ActionToolBase {
 				fill,
 			},
 		});
+
+		delete this.builder;
+	}
+
+	protected override cancel(): void {
+		if (!this.builder) return;
+
+		this.finish();
 	}
 }
 
