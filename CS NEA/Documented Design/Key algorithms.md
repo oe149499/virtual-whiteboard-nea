@@ -15,7 +15,6 @@ The selection hierarchy is implemented by the following layout
 		- SRT container - applies the SRT to its children
 			- SIT containers - Each item is wrapped in a container applying its SIT
 		- Staging container - new items being added are moved here so the new bounding box can be computed by the item container
-	- UI container - root for additional UI - border box, drag handles, etc.
 ## Adding items for the selection
 The algorithm can be derived based on the following constraints:
 - For every item, its final transform must be unchanged by the whole procedure

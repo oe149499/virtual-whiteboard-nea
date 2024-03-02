@@ -1,0 +1,5 @@
+- [ ] Diagrams
+	- [ ] Server-client-client
+- [ ] Limitations
+	- [ ] No auth
+	- [ ] 

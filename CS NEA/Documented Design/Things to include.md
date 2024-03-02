@@ -1,0 +1,77 @@
+- Client-server communication
+	- Code generation for transfer types
+- Client
+	- Properties and templates
+		- Describe type aliases and general idea
+		- `PropKey`
+		- `PropertyStore`
+		- Templates
+		- Builder
+	- Misc.
+		- `State`
+		- `AsyncIter`
+		- `Channel`
+		- Transform helpers
+	- `BoardTable` and related types
+	- Communication with server
+		- `RawClient`
+		- `SessionClient`
+		- `HttpApi`
+		- `IterateReceiver`
+	- Tools
+		- Abstract types and interfaces
+		- Individual tools and helper classes
+	- UI
+		- `SimpleIcon`
+		- `ToolIcon`
+		- `VisibilityButton`
+		- `PanelController`
+		- `PropertyEditor`
+			- Helper types
+		- `UIManager`
+	- Canvas
+		- `CanvasContext`
+		- Helper types and methods
+			- Markdown parsing
+			- `MatrixHelper`
+			- `TransformHelper`
+			- `FillHelper`
+			- `StrokeHelper`
+			- `TranslateHelper`
+			- `PathHelper`
+		- Items
+			- `CanvasItem`
+			- `ItemPropertyStore`
+			- Individual items and helpers
+		- `GestureHandler` and related
+		- Selection
+			- `ItemHolder`
+			- `SelectionBox`
+				- `LocalSelection`
+				- `RemoteSelection`
+			- `SelectionBorder`
+			- Handles
+		- `CanvasController`
+	- `Board` - unification of subsystems
+- Server
+	- Exclude communicated types and codegen as discussed elsewhere
+		- Include wrapper types
+	- `ActiveCanvas`
+	- board
+		- `ActivePath`
+		- `SelectionState`
+		- `ClientState`
+		- `Board`
+		- `BoardHandle`
+		- `WeakHandle`
+		- `BoardFileHandle`
+		- `BoardManager`
+			- `LoadedState`, `ActiveState`, `BoardRef`
+	- client
+		- `MessagePayload`
+		- `ClientMessage`
+		- `ClientHandle`
+		- `Session`
+		- `SessionRegistry`
+		- mention methods
+	- `GlobalResources`

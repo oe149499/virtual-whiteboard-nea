@@ -37,3 +37,8 @@ Tools with both click and drag input:
 - Open the board on multiple different devices
 - Create and edit several items simultaneously
 - Verify that the board state is shared correctly
+## Consistency and reliability
+Verify that the following do not cause any significant loss of data
+- Reloading a client while editing the board
+- Disconnecting a client from the network while editing the board
+- Restarting the server while editing the board

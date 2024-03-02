@@ -22,14 +22,19 @@
 .header @{Documented Design}
 .fprefix ${Documented Design/}
 .embed ${Key algorithms}
-.embed ${Client Overview}
 .embed ${Server Overview}
 
 .header $2 @{Data Structures}
 .fprefix ${Documented Design/Data structures/}
 .embed ${Canvas items}
 
+.header $1
+.embed ${/Documented Design/Client/Classes and structures} @{Client-side code}
+.embed ${/Documented Design/Server/Structures and methods} @{Server-side code}
+
 .header @{Technical Solution}
+.fprefix ${Technical Solution/}
+.embed ${Skills Used}
 
 .header $2 @{Server-side code}
 .include @SERVER_CODE

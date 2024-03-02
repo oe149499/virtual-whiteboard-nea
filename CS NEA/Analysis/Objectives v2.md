@@ -39,7 +39,7 @@ The program must display a "Toolbox" **panel** which consists of a grid of **too
 3. During a **multi-press action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **multi-press action**.
 ## 1.4 Properties
 The program must display a "Properties" **panel** which contains a list of **properties** relevant to the currently **selected** **item**(s):
-1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited, any **item**-specific actions, along with the ability to delete the **item**
+1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited
 2. The following **properties** should be omitted as they can be edited interactively with the **selection box**:
 	1. Transform
 	2. Start/End points for Line
@@ -52,8 +52,10 @@ The program must display a "Properties" **panel** which contains a list of **pro
 ## 1.5 View controls
 The program must display a "View" **panel** with the following buttons:
 1. Zoom in
-2. Zoom out
-3. Reset zoom
+2. Reset zoom
+3. Zoom out
+4. Pan
+5. Select Items
 
 # 2 Items
 A **board** may contain any number of **item**s, which are the basic visual pieces of the board
@@ -79,7 +81,6 @@ The following types of **item** exist:
 		- **Properties**: Stroke
 			- Start: **point**
 			- End: **point**
-		- Actions: Swap start/end
 	2. Polygon: a closed loop of points:
 		- **Properties**: Stroke, Fill
 			- Vertices: **list\[point\]**
@@ -104,9 +105,6 @@ The following types of **item** exist:
 		- Font size: Number (standard font size unit)
 		- Text: **text**
 			- If the **item** is **deselected** while the property consists only of whitespace it should be deleted
-	- Actions:
-		- Bold, Italic, Strikethrough, Underline
-			- Apply the formatting options (through Markdown) around the cursor (or the whole field if nothing is selected)
 1. Link: a hyperlink
 	- Displays a clickable link which opens in a new tab 
 	- **Properties**: Transform
@@ -168,8 +166,9 @@ The **board** should display an **transform box** around the currently **selecte
 2. The box should be computed once at the beginning of the **selection** and not change relative to the **item**s while the **selection** is active
 	- The exception to this is Text and Link **items**, which may change size when edited. As such, no modification to any **item** which may change its size is permitted while multiple **item**s are selected
 3. At the corners and midpoints of the edges of the **transform box**, there should be square stretch handles:
-	- Midpoint handles stretch the **item**(s) only in the direction normal to the edge, such that the opposite edge is not affected by the movement
-	- Corner handles stretch the **item**(s) such that the opposite corner does not move and the aspect ratio of the **selection** is unchanged
+	- Both types of handle stretch the selection relative to its centre
+	- Midpoint handles stretch the **item**(s) only in the direction normal to the edge
+	- Corner handles stretch the **item**(s) in both axes evenly
 4. At the "top" of the **transform box** there should be a circular rotation handle
 	- Dragging the handle rotates the **selection** around its centre
 5. A drag action anywhere else in the **transform box** should translate the **item**(s) along the mouse movement
@@ -180,7 +179,7 @@ The program should enable multiple clients to edit and view a **board** simultan
 ## 5.1 Synchronicity
 Any edits made to the **board** should be displayed on other clients with minimal delay:
 1. The creation of simple **item**s should be immediately synchronised
-2. The beginning of path-like **item**s should be immediately synchronised, and any incremental stages should be shared within one second of the individual stage being sent. (This enables bundling of edits in the case of limited bandwidth)
+2. The beginning of path **item**s should be immediately synchronised, and any incremental stages should be shared within one second of the individual stage being sent.
 3. Any edits made to existing **item**s should be shared within one second of the edit
 ## 5.2 Consistency
 The board state must be the same across all clients:
@@ -194,6 +193,6 @@ The board state must be the same across all clients:
 The program must function as expected whenever possible
 1. In the case of network failure, the program should quietly alert the user and enable changes to be made client-side where possible
 	1. The program should attempt to reconnect periodically and notify the user when it is successful
-	2. If a client loses connection while an **item** is **selected**, the **item** will stay **selected** for a configurable duration before other clients are able to **select** it
-	3. Conflicting changes made during the interruption should be resolved by following the most recent edit
+	2. If a client loses connection while an **item** is **selected**, the **item** will stay **selected**
+	3. Extension - **items** can be reclaimed by the server and **selected** by other clients
 2. In the case of a power failure or unexpected termination of the host, the board should *always* be restorable to a state less than 10 seconds (or a configurable duration) old

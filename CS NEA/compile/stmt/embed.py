@@ -18,7 +18,7 @@ class FilteredFileBlock(Block):
 						while not f.readline().startswith("---"):
 							continue
 						line = f.readline()
-				if line.startswith('#'):
+				if line.startswith('#') and ' ' in line:
 					level = line.index(' ')
 					target.write(line[:level])
 					target.write(self.header)

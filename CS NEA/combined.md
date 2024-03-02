@@ -123,15 +123,19 @@ The program must display a "Toolbox" **panel** which consists of a grid of **too
 1. When clicked, the corresponding **tool** will be activated
 2. The icon corresponding to the active **tool** must be indicated or otherwise highlighted
 3. During a **multi-press action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **multi-press action**.
-###  1.3 Properties
+###  1.4 Properties
 The program must display a "Properties" **panel** which contains a list of **properties** relevant to the currently **selected** **item**(s):
 1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited, any **item**-specific actions, along with the ability to delete the **item**
-2. When multiple **item**s are **selected**, each of the following **properties** is listed if it applies to at least one of the **selected** **items**:
+2. The following **properties** should be omitted as they can be edited interactively with the **selection box**:
+	1. Transform
+	2. Start/End points for Line
+	3. Points for Polygon
+3. When multiple **item**s are **selected**, each of the following **properties** is listed if it applies to at least one of the **selected** **items**:
 	- Stroke
 	- Fill
-3. When no **item**s are **selected**, the **properties** of the current **tool** are displayed, if any.
-4. If there are no **properties** that can be displayed, the **panel** should be **disabled**
-###  1.4 View controls
+4. When no **item**s are **selected**, the **properties** of the current **tool** are displayed, if any.
+5. If there are no **properties** that can be displayed, the **panel** should be **disabled**
+###  1.5 View controls
 The program must display a "View" **panel** with the following buttons:
 1. Zoom in
 2. Zoom out
@@ -298,7 +302,6 @@ The selection hierarchy is implemented by the following layout
 		- SRT container - applies the SRT to its children
 			- SIT containers - Each item is wrapped in a container applying its SIT
 		- Staging container - new items being added are moved here so the new bounding box can be computed by the item container
-	- UI container - root for additional UI - border box, drag handles, etc.
 #### 3.1.1.2 Adding items for the selection
 The algorithm can be derived based on the following constraints:
 - For every item, its final transform must be unchanged by the whole procedure
@@ -331,40 +334,7 @@ $$
 	- When the cursor moves, find the new vector from the selection origin to the cursor
 	- The scale factor is computed as the component of the new vector in the direction of the initial one
 	- Update the SRT by scaling in the x and/or y directions as appropriate
-## 3.2 Client Overview
-Data flow throughout the application is based on a few key mechanisms:
-- `State`, a value which can change throughout the lifetime of the application
-	- To reduce the need to manually pass around callbacks and propagate notifications, `State` encapsulates this process into an interface with two fundamental operations:
-		- Read the current value
-		- Attach a callback to be notified when the value changes
-	- This is then used to implement other operations such as:
-		- Create a derived state from a function mapping the current value to a new one
-		- Combining multiple states together in order to create a state derived from multiple inputs
-	- 
-- `Channel`, an asynchronous queue
-	- A channel consists of a sender with the ability to push items, and a receiver which is an asynchronous iterable of items
-### 3.2.1 Key Modules
-- GenWrapper
-- Properties
-- client
-	- IterateReceiver
-	- RawClient
-	- Client
-	- HttpApi
-- ui
-	- Icon
-	- Panel
-	- PropertiesEditor
-		- ResourcePicker
-	- UIManager
-- canvas
-	- CanvasBase
-	- CanvasItems
-	- Gesture
-	- Selection
-		- SelectionUI
-	- Canvas
-## 3.3 Server Overview
+## 3.2 Server Overview
 The server-side code operates on a coroutine-based event driven system, largely powered by the following constructs:
 - Concurrent Hash Map, from `scc`
 	- Implements a hash table able to insert and fetch items without locking the table as a whole, allowing the system to scale better on multi-threaded systems
@@ -380,7 +350,7 @@ The server-side code operates on a coroutine-based event driven system, largely 
 Serving pages and communicating with clients is done through Warp, a lightweight implementation of an HTTP server
 - Warp operates though "filters", patterns that match requests and can generate a reply
 - Filters can be chained and composed to produce the final application, enabling different subsystems to each produce filters which add together to produce an application
-### 3.3.1 Modules
+### 3.2.1 Modules
 - `lib` - top-level code including composition of filters and shared object declarations
 - `upload` - filters for storing and serving media files
 - `client` - filters for establishing a connection between client and server
@@ -394,15 +364,15 @@ Serving pages and communicating with clients is done through Warp, a lightweight
 	- `manager` - keeping track of active boards and loading/saving as necessary
 	- `active` - processing messages and actually maintaining a board
 		- Several sub-modules for implementation of different components of this
-### 3.3.2 Compilation targets
+### 3.2.2 Compilation targets
 The project has two different compilation outputs:
 - `codegen` - building TypeScript declaration files
 	- Collects types and outputs them to a configurable location
 - `main` - running a server
 	- Handles command-line arguments and initialising the server
-## 3.4 Data Structures
-### 3.4.1 Canvas items
-#### 3.4.1.1 Basic structures
+## 3.3 Data Structures
+### 3.3.1 Canvas items
+#### 3.3.1.1 Basic structures
 Aliases for specific uses of types:
 ```ts
 type Color = string;
@@ -436,7 +406,7 @@ interface SplineNode {
 	velocity: Point;
 }
 ```
-#### 3.4.1.2 Item types
+#### 3.3.1.2 Item types
 Common properties of items:
 ```ts
 interface TransformItem {
@@ -494,7 +464,7 @@ interface LinkItem extends TransformItem {
 	url: string;
 }
 ```
-#### 3.4.1.3 Other supporting types
+#### 3.3.1.3 Other supporting types
 Location update - change in the position of an item:
 ```ts
 type LocationUpdate = { "Transform": Transform } | { "Points": Point[]};
@@ -507,9 +477,1030 @@ interface BatchChanges {
 }
 ```
 
+## 3.4 Client-side code
+### 3.4.1 The property system
+In several places the application needs to display and store attributes of things, and so to avoid repetition this is described in terms of properties, which are a representation of a data structure along with how it should be displayed.
+
+The first component of this is a `PropKey`, which is a unique identifier for a piece of data stored by a property, along with other information such as a default value and/or data validators.
+
+As a convenience feature, a `CompositeKey` allows bundling the components of a composite data structure into a function which composes the values returned by sub-keys into a single output
+
+The second component is `PropertySchema`, which describes a property with its type, key, and other attributes such as display name and constraints
+
+Finally, the abstract type `PropertyStore` defines the interface for getting and setting properties by key
+
+Alongside this is a basic implementation of a property store, `SingletonPropertyStore`, which simply stores properties in a key-value map
+
+To make properties easier to work with, two systems are implemented:
+- Property templates, which build the keys and schema for common properties such as stroke or points
+- property builders, which accumulate multiple sets of keys and schemas in a single object to enable properties to be more concisely defined
+#### 3.4.1.1 Class tables
+(note that in this section "value" refers to the value type corresponding to a key)
+PropKey:
+
+| Field | Type |
+| ---- | ---- |
+| validator | (value) => bool |
+| defaultVal? | (value) |
+| type | string |
+CompositeKey\<T>
+
+| Field | Type |
+| ----- | ---- |
+| extractor      | (property getter) => T     |
+PropertyStore
+
+| Method | Type |
+| ---- | ---- |
+| read(PropKey) | value |
+| read\<T>(CompositeKey\<T>) | T |
+| store(PropKey, value) | bool |
+| abstract get(PropKey) | value \| NoValue |
+| abstract set(PropKey, value) | void |
+
+### 3.4.2 State
+The state mechanism prevents manual updates to parts of the application by creating a wrapper with two fundamental operations:
+- Read the current value
+- Attach a callback to be notified when the value changes
+
+This is then used to implement other operations such as:
+- Create a derived state from a function mapping the current value to a new one
+- Combining multiple states together in order to create a state derived from multiple inputs
+
+The core of this is the abstract `State<T>` class, which implements the basic operations and has operations for creating derived instances
+
+The other key component is `MutableState<T>`, which is used to provide a source of state and includes several means of modifying the contained value
+
+Most of the other subclasses of `State` wrap one or more source states and produce a new value from them.
+
+#### 3.4.2.1 Class tables
+The following shorthand applies to this section:
+- action(T) is a function taking a readonly value of T and returning nothing
+- map(T, U) is a function taking a readonly value of T and returning a value of U
+
+State\<T>
+
+| Field            | Type                               |
+| ---------------- | ---------------------------------- |
+| private watchers | Map\<number, action(T)> |
+| private weakWatchers                 | Map\<number, WeakRef\<action(T)>>                                   |
+
+| Method | Parameters | Return Type | Notes |
+| ---- | ---- | ---- | ---- |
+| get |  | readonly T |  |
+| getSnapshot |  | T | returns a clone of the held value |
+| protected update | T | void | Updates the held value and runs update callbacks |
+| watch | action(T) | WatchHandle |  |
+| watchWeak | action(T) | WatchHandle |  |
+| watchOn | object, action(T) | void | Will run the callback for as long as the object is alive |
+| private removeWatcher, private removeWeak | number | void |  |
+| derived\<U> | map(T, U) | State\<U> |  |
+| derivedI | string, ... | State | Creates a derived state from calling an instance method of the held value with the specified parameters |
+| derivedT |  | State | For tuple states, like derived but the callback receives each element of the tuple as a separate parameter |
+| flatten |  | State | Flattens a state of a state into a single state |
+| inspect\<U> | map(T, U) | U | calls the function on the contained value and returns its result |
+| with | ...state | State | Collects a tuple of states together and returns a state of a tuple |
+| debug | Logger, string? | this | Watches the state with the provided logger for debugging |
+
+MutableState\<T>
+
+| Method | Parameters | Return | Notes |
+| ---- | ---- | ---- | ---- |
+| set | T | void |  |
+| updateBy | T => T | void | Shorthand for setting a new value based on the old one |
+| mutate | T => void | void | Allows the held value to be mutated in-place |
+| derivedM\<U> | MutableTransformer\<T, U> | MutableState\<U> | Creates a new mutable state from a two-way mapping |
+| extract\<U> | (field name) \| MutableExtractor\<T, U> | MutableState\<U> | Creates a new mutable state extracting a component of the wrapped value, with a shorthand for a field of the value |
+### 3.4.3 Channels
+A channel consists of a sender and a receiver and is used for asynchronous data streams
+
+#### 3.4.3.1 Class table
+Channel\<T>
+
+| Field           | Type                 |
+| --------------- | -------------------- |
+| private queue   | T\[]                 |
+| private handles | PromiseHandle\<T>\[] |
+| private closed                | bool                     |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private handlePromises |  | void |
+| public push | T | void |
+| private pop |  | Promise\<T> |
+| public close |  | void |
+| internal getIter |  | AsyncIterator\<T> |
+### 3.4.4 Communication with the server
+Communication is split into three components:
+
+RawClient, which handles the WebSocket communication and protocol
+
+HttpApi, which is a collection of static methods for the other server APIs
+
+SessionClient, which handles the connection logic and provides an abstract interface to the server protocol
+
+
+In addition, the IterateReceiver helper type handles decoding multi-part responses from the server
+
+#### 3.4.4.1 Class tables
+IterateReceiver
+
+| Field | Type |
+| ---- | ---- |
+| private futureParts | Record\<number, item\[]> |
+| private nextPart | number |
+| private lastPart | number |
+| finished | bool |
+
+HttpApi
+
+| Name | Type | Description |
+| ---- | ---- | ---- |
+| openSession(string, ClientInfo) | Promise\<Result\<ConnectionInfo>> | Calls the HTTP api to open a new session on a board |
+| uploadFile(File) | Promise\<URL> | Uploads a file to the server |
+| startTime | Promise\<number> | The UNIX timestamp when the server was launched |
+
+RawClient
+
+| Field (private) | Type |
+| ---- | ---- |
+| callId | number |
+| socket | WebSocket |
+| calls | Record\<number, CallRecord> |
+| notifyCHandlers | callback for each type of Notify-C |
+| iterateReceivers | Record\<number, IterateReceiver> |
+| messageQueue | Channel\<string> |
+| messageStream | AsyncIter\<string> |
+| url | URL |
+
+| Method | Parameters | Return | Notes |
+| ---- | ---- | ---- | ---- |
+| private bindSocket |  | void |  |
+| private sendPayload | string | void |  |
+| callMethod | name: string, args | Promise\<return type> |  |
+| callIterate | name: string, args | AsyncIter\<item type\[]> |  |
+| setNotifyHandler | name: string, callback: (notify args) => void | void |  |
+| private handleMessageObject | MsgRecv | void |  |
+| private onSocketOpen | Event | void |  |
+| private onSocketError | Event | void |  |
+| private onSocketMessage | MessageEvent | void |  |
+| private onSocketClose | CloseEvent | void |  |
+
+SessionClient
+
+| Field | Type |
+| ---- | ---- |
+| private rawClient | RawClient |
+| readonly socketUrl | URL |
+| readonly boardName | string |
+| private sessionCode | number |
+| readonly clientID | number |
+| readonly info | ClientInfo  |
+### 3.4.5 Tools
+Tools can be divided into three categories:
+
+- Instantaneous tools, which perform a single action when activated
+	- The interface for this is a single `execute` method
+- Mode tools, which stay active until deselected
+	- This is represented by `bind` and `unbind` methods
+- Action tools, which stay active until the user completes a single action
+	- This is represented by a `bind` method which takes a callback, which in turn receives an `Action` object when the action starts
+	- An `Action` contains two fields, a Promise for the completion of the action and a method to cancel it
+
+Additionally, each tool can have a set of properties connected to it
+
+To support this a set of abstract base classes are defined
+- `ToolBase`, which adds a few helper properties for accessing parts of the board
+- `InteractiveToolBase`, which builds on `ToolBase` to automatically build a gesture filter from optional virtual methods
+- `ActionToolBase`, which builds on `InteractiveToolBase` to implement the action tool interface
+- `ModeToolBase`, which similarly builds on `InteractiveToolBase`
+- `InstantaneousToolBase`, which directly extends `ToolBase`
+
+#### 3.4.5.1 Class Tables
+Aliases
+
+| Name | Type |
+| ---- | ---- |
+| OnBegin | (Action) => void |
+| Action | { cancel(): void, completion: Promise\<void> } |
+
+ToolBase
+
+| Field (protected) | Type |
+| ---- | ---- |
+| board | Board |
+| canvas | CanvasController |
+| ctx | CanvasContext |
+
+InteractiveToolBase
+
+| Field | Type |
+| ----- | ---- |
+| gestureFilter      | FilterHandle     |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private makeFilter |  | FilterHandle |
+| protected onDragGesture? | DragGestureState | void |
+| protected onPressGesture? | PressGesture | void |
+| protected onLongPressGesture? | LongPressGesture | void |
+
+ActionToolBase
+
+| Field | Type |
+| ---- | ---- |
+| private onBegin? | OnBegin |
+| private completionResolve? | () => void |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| bind | OnBegin | void |
+| protected start |  | void |
+| protected end |  | void |
+| protected abstract cancel |  | void |
+
+ModeToolBase
+
+| Method | Parameters | Type |
+| ------ | ---------- | ---- |
+| bind   |            | void     |
+| unbind       |            | void     |
+
+InstantaneousToolBase
+
+ | Method | Type |
+ | ------ | ---- |
+ | abstract execute       | void     |
+### 3.4.6 UI
+The structure of the UI is based primarily around icons and panels:
+- A `SimpleIcon` loads an SVG icon file and renders it as an image
+- A `ToolIcon` wraps a `SimpleIcon` and connects it to a tool as well as showing whether it is selected
+- A `VisibilityButton` also wraps a `SimpleIcon` and updates its display to reflect a panel's state
+- A `PanelController` wraps an element and adds a `VisibilityButton` along with the logic to show/hide the contents
+
+Finally, the `UIManager` wraps all of these and ties them together
+
+#### 3.4.6.1 Class tables
+Aliases
+
+| Name             | Type           |
+| ---------------- | -------------- |
+| ToolIconCallback | (Tool) => void |
+| PanelEvents                 | { cancel(): void }               |
+
+SimpleIcon
+
+| Field | Type |
+| ----- | ---- |
+| readonly element      | HTMLImageElement     |
+
+ToolIcon
+
+| Field | Type |
+| ---- | ---- |
+| private icon | SimpleIcon |
+| readonly element | HTMLElement |
+| private toolState | DeferredState\<ToolState> |
+| readonly active | State\<boolean> |
+| onselect? | ToolIconCallback |
+| ondeselect? | ToolIconCallback |
+
+VisibilityButton
+
+| Field | Type |
+| ---- | ---- |
+| private container | HTMLDivElement |
+| private icon | SimpleIcon |
+| readonly openState | MutableState\<boolean> |
+| readonly events | EventProvider\<PanelEvents> |
+
+PanelController
+
+| Field | Type |
+| ---- | ---- |
+| private visibility | VisibilityButton |
+| readonly contents | HTMLElement |
+| readonly openState | State\<boolean> |
+| readonly events | MultiTargetDispatcher\<PanelEvents> |
+| private containerElement | HTMLElement |
+
+| Method | Type |
+| ------ | ---- |
+| private getContents       | HTMLElement     |
+
+UIManager
+
+| Field | Type |
+| ---- | ---- |
+| readonly containerElement | HTMLDivElement |
+| readonly viewPanel | PanelController |
+| readonly toolPanel | PanelController |
+| readonly propertiesPanel | PanelController |
+| readonly properties | PropertyEditor |
+| private toolState | MutableState\<ToolState> |
+| readonly toolState | State\<ToolState> |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| addToolIcon | ToolIcon, "edit" \| "view" | void |
+| private cancelTool |  | void |
+| private onIconSelect | Tool | void |
+| private onIconDeselect | Tool | void |
+| private createPanel | string, State\<EnabledState>, ...string\[] | PanelController |
+
+### 3.4.7 Basic canvas structure and utilities
+The canvas is laid out in SVG as follows:
+```xml
+<svg>
+  <g class="scaled-root" transform="...">
+    <!-- ... -->
+  </g>
+  <g class="unscaled-root">
+    <!-- ... -->
+  </g>
+</svg>
+```
+The hierarchy is split into two parts:
+- Scaled content, such as items, which should zoom uniformly with the canvas
+- Unscaled content, such as UI, which should move to follow the board but not change in size
+
+This structure is implemented by `CanvasContext`, which is the foundation of most SVG manipulation and provides a wide collection of helper methods
+
+To group unscaled elements, `CanvasContext` has an inner class, `UnscaledHandle` that stores a group of elements and enables them to be removed together
+
+Alongside this is a set of small helper types:
+- `MatrixHelper` - maintains an SVG transformation from a state of a matrix
+- `TranslateHelper` - similar but only does translation
+- `TransformHelper` - works with Transform instances along with extra helper methods
+- `StrokeHelper` and `FillHelper` - applies properties to an item, including static methods
+- `CenterHelper` - wraps an element in a container that translates it to its centre
+- `PathHelper` - builds a list of `SplineNodes` and concatenates them into an SVG path string
+
+#### 3.4.7.1 Class tables
+CoordinateMapping
+
+| Field | Type |
+| ---- | ---- |
+| screenOrigin | Point |
+| stretch | number |
+| targetOffset | Point |
+
+CanvasContext
+
+| Field | Type |
+| ---- | ---- |
+| private svgroot | SVGSVGElement |
+| private scaledRoot | SVGGElement |
+| private unscaledRoot | SVGGElement |
+| readonly coordMapping | State\<CoordinateMapping> |
+| readonly cursorPosition | State\<Point> |
+| private gestures | GestureHandler |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| createGestureFilter | GestureLayer | FilterHandle |
+| createElement | tag name string | corresponding SVGElement |
+| createTransform | DOMMatrixReadOnly? | SVGTransform |
+| createPoint | Point? | SVGPoint |
+| createPointBy | State\<Point> | SVGPoint |
+| createRect | Point, Point | SVGRect |
+| createRootElement | tag name string | corresponding SVGElement |
+| insertScaled | SVGElement | SVGElement |
+| getUnscaledHandle |  | CanvasContext.UnscaledHandle |
+| getUnscaledPos | State\<Point> | State\<Point> |
+| createUnscaledElement | tag name string, State\<Point> | corresponding SVGElement |
+| insertUnscaled | SVGElement, State\<Point> | SVGElement |
+| translate | Point, CoordinateMapping? | Point |
+|  |  |  |
+
+CanvasContext.UnscaledHandle
+
+| Field | Name |
+| ----- | ---- |
+| private elements      | Set\<SVGElement>     |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| insert | SVGGraphicsElement, State\<Point> | SVGGraphicsElement |
+| insertStatic | SVGGraphicsElement | SVGGraphicsElement |
+| create | tag name string, State\<Point> | SVGGraphicsElement |
+| getPoint | State\<Point> | SVGPoint |
+| clear |  | void |
+
+### 3.4.8 Canvas Items
+Rendering canvas items to the board is done through the `CanvasItem` abstract class, which provides an API for drawing and manipulating items, including editing and moving.
+
+Since some items have many details in common, some additional abstract classes are defined:
+- `StrokeItem` and `FillItem`, which automatically handle stroke and fill respectively
+- `TransformMixin`, which wraps around any class deriving from `CanvasItem` to produce a new class which additionally handles transformations
+
+The other key component is properties, so `ItemPropertyStore` is an implementation of `PropertyStore` which holds functions to extract and store keys in items of a specific type, and also references a set of currently selected items.
+
+#### 3.4.8.1 Class Tables
+CanvasItem
+
+| Field | Type |
+| ---- | ---- |
+| readonly element | SVGGElement |
+| protected abstract innerElement | SVGGraphicsElement |
+| protected abstract item | Item |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| update | Item | void |
+| protected abstract updateItem | Item | void |
+| static schemaFor | CanvasItem, ItemPropertyStore | PropertySchema\[] |
+| protected getBounds |  | Bounds |
+| testIntersection | Point | bool |
+| abstract getLocationUpdate | DOMMatrix | LocationUpdate |
+| abstract applyLocationUpdate | LocationUpdate | void |
+| protected checkType | Item, string | void |
+
+ItemPropertyStore
+
+| Field | Type |
+| ---- | ---- |
+| private currentItems | ItemEntry\[] |
+| private accessorTable | Mapping from item types to key-accessor table |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private getAccessor | ItemType, PropKey | ItemAcc |
+| bindEntries | Iterable\<ItemEntry> | void |
+| getter | ItemType, PropKey, (item) => value | void |
+| setter | ItemType, PropKey, (item, value) => void | void |
+### 3.4.9 Gesture handling
+To enable easy handling of user input, screen interaction is modelled as gestures such as a press or drag.
+
+These are then processed by attempting to match them to filters, which include a test function to check if a gesture is in range, and handlers for one or more gesture types.
+
+To enable more fine-grained control, filters are also divided into priority layers, where the highest-priority layers are checked first.
+
+Filters can also be enabled and disabled freely, so something like a tool can build its filter once and pause it when not active
+
+This system is implemented in terms of three types
+- `GestureHandler`, which handles decoding pointer events and dispatching events
+- The `FilterHandle` interface, which is the public API for manipulating filters
+- The private `FilterImpl` class, which implements `FilterHandle` and communicates information to the `GestureHandler`
+
+#### 3.4.9.1 Class tables
+FilterHandle (all methods return the same instance they are called from)
+
+| Method | Parameters |
+| ---- | ---- |
+| pause |  |
+| resume |  |
+| setTest | (Point) => bool |
+| setMode | FilterMode |
+| addHandler | GestureType, (Gesture) => void |
+| removeHandler | GestureType |
+
+FilterImpl (excluding FilterHandle methods)
+
+| Field | Type |
+| ---- | ---- |
+| active | boolean |
+| types | GestureType bitflags |
+| mode | FilterMode |
+| check | (Point) => bool |
+| handlers | Map from GestureType to handler function |
+
+FilterLayer
+
+| Field | Type |
+| ---- | ---- |
+| active | Set\<FilterImpl> |
+| inactive | WeakSet\<FilterImpl> |
+
+GestureHandler
+
+| Field | Type |
+| ----- | ---- |
+| filterLayers      | Record\<GestureLayer, FilterLayer>     |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| processEvents | PointerEventStream | void |
+| private handleGesture | Gesture | void |
+| private updateActive | FilterImpl | void |
+| makeFilter | GestureLayer | FilterHandle |
+
+### 3.4.10 Selection
+The selection algorithms are described elsewhere, so this section will just list the classes used:
+- `ItemHolder` wraps an item and applies a SIT
+- `SelectionBorder` draws an outline around a selection
+- `HandleBase` and derived classes implement stretch and rotation handles
+- `SelectionBox` has code common between both types of selection box
+- `RemoteSelection` implements other client's selection
+- `LocalSelection` implements the current user selection
+
+#### 3.4.10.1 Class Tables
+ItemHolder
+
+| Field | Type |
+| ---- | ---- |
+| readonly element | SVGGElement |
+| readonly sit | SVGMatrix |
+| private transform | SVGTransform |
+
+| Method | Parameters | Type |
+| ------ | ---------- | ---- |
+| updateSit       | DOMMatrixReadOnly           | void     |
+
+SelectionBorder
+
+| Field | Type |
+| ---- | ---- |
+| readonly element | SVGPolygonElement |
+| points | SVGPointList<br>(only stored to work around a GC bug causing a crash in firefox) |
+
+HandleBase
+
+| Field | Type |
+| ---- | ---- |
+| protected handle | FilterHandle |
+| readonly element | SVGGraphicsElement |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| protected abstract getElement | CanvasContext | SVGGraphicsElement |
+| protected abstract handleGesture | DragGestureState, srt: DOMMatrixReadOnly | void |
+
+StretchHandle and RotateHandle add no new fields/methods
+
+StretchHandleSet
+
+| Field | Type |
+| ----- | ---- |
+| handles      | StretchHandle\[]     |
+
+SelectionBox
+
+| Field | Type |
+| ---- | ---- |
+| protected rootElement | SVGGElement |
+| protected itemContainer | SVGGElement |
+| protected rootTransform | SVGGElement |
+| private stagingContainer | SVGGElement |
+| protected unscaled | UnscaledHandle |
+| protected srt | MutableState\<DOMMatrix> |
+| protected size | State\<Point> |
+| protected items | Map\<ItemID, ItemHolder> |
+| protected ctx | CanvasContext |
+| protected table | BoardTable |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| addFromTransforms | TransformRecord\[], Transform | void |
+| addFromCanvas | ItemEntry\[] | arguments for SelectionAddItems |
+
+RemoteSelection
+
+| Field | Type |
+| ----- | ---- |
+| private border      | SelectionBorder     |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| addItems | TransformRecord\[], Transform | void |
+| moveItems | Transform, TransformRecord[] | void |
+
+LocalSelection
+
+| Field (private) | Type |
+| ---- | ---- |
+| border | SelectionBorder |
+| rotateHandle | RotateHandle |
+| stretchHandles | StretchHandleSet |
+| srtUpdateSent | bool |
+| \_sendSrtUpdate | OwnedInterval (small helper type that cancels a periodic function after it has been freed) |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private updateSrt | DOMMatrix | void |
+| private handleDrag | DragGestureState | void |
+| createAddPayload | ItemEntry\[] | SelectionAddItems |
+| getFinalTransforms |  | Iterable\<\[ItemId, DOMMatrix]> |
+| clear |  | void |
+### 3.4.11 Managing the canvas
+The `CanvasController` class manages the displayed canvas and selection
+
+#### 3.4.11.1 Class tables
+CanvasController
+
+| Field | Type |
+| ---- | ---- |
+| private gestures | GestureHandler |
+| private coordMapping | MutableState\<CoordinateMapping> |
+| private cursorPos | MutableState\<Point> |
+| readonly ctx | CanvasContext |
+| readonly svgElement | SVGSVGElement |
+| private targetRect | DOMRect |
+| readonly elementBounds | State\<DOMRect> |
+| private activeGestures | ... |
+| private cursorTimeouts | TimeoutMap\<number> |
+| private currentCursors | MutableState\<Set\<number>> |
+| readonly isGesture | State\<bool> |
+| readonly propertyStore | ItemPropertyStore |
+| readonly origin | MutableState\<Point> |
+| readonly zoom | MutableState\<number> |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| probePoint | Point | Iterable\<ItemEntry> |
+| getPropertyInstance | ReadonlySet\<ItemEntry> | PropertyInstance |
+| private pointerDown | PointerEvent | void |
+| private pointerUp | PointerEvent | void |
+| private pointerMove | PointerEvent | void |
+
+### 3.4.12 Tracking board state
+The `BoardTable` class is the core of the system, keeping track of the board state and relaying events to and from other parts of the client.
+
+The other key process is the bootstrap routine, which incrementally fetches data from the server and synchronises the local state with it.
+
+Linked to this is the `ItemEntry`, `RemoteEntry`, and `SelfEntry` types, which track individual pieces of board state and link them to their local representation.
+
+#### 3.4.12.1 Class tables
+ItemEntry
+
+| Field | Type |
+| ---- | ---- |
+| id | ItemID |
+| item | Item |
+| canvasItem | CanvasItem |
+| selection | Option\<ItemID> |
+
+RemoteEntry
+
+| Field | Type |
+| ---- | ---- |
+| id | ClientID |
+| items | Set\<ItemID> |
+| info | ClientInfo |
+| connection | ConnectionState |
+| box | Option\<RemoteSelection> |
+
+SelfEntry
+
+| Field | Type |
+| ---- | ---- |
+| id | ClientID |
+| items | MutableStateSet\<ItemID> |
+| info | ClientInfo |
+| connection | ConnectionState |
+| box | Option\<LocalSelection> |
+
+BoardTable
+
+| Field | Type |
+| ---- | ---- |
+| private items | Map\<ItemID, ItemEntry> |
+| private clients | Map\<ClientID, RemoteEntry> |
+| private self | SelfEntry |
+| readonly ownID | ClientID |
+| readonly selectedItems | StateSet\<ItemEntry> |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private bootstrap |  | void |
+| private bindClientEvents |  | void |
+| private bindSelectionEvents |  | void |
+| private addClient | ClientID | Promise\<void> |
+| addItem | ItemID, Item | void |
+| get | Iterable\<ItemID> | Iterable\<Option\<ItemEntry>> |
+| get | Iterable\<ItemID>, true | Iterable\<ItemEntry> |
+| get | ItemID | Option\<ItemEntry> |
+| entries |  | Iterable\<ItemEntry> |
+| private ensureLocalBox |  | SelfEntry which definitely has a box |
+| addOwnSelection | ItemID\[] | void |
+| moveOwnSelection | Transform | void |
+| cancelSelection |  | void |
+| editSelectedItem | ItemEntry | void |
+
+### 3.4.13 Combining everything together
+The `Board` class contains each of the subsystems and setup logic
+
+#### 3.4.13.1 Class Tables
+BoardInfo : ClientInfo
+
+| Field | Type |
+| ---- | ---- |
+| boardName | string |
+| clientID | ClientID |
+
+Board
+
+| Field | Type |
+| ---- | ---- |
+| readonly ui | UIManager |
+| readonly client | SessionClient |
+| readonly canvas | CanvasController |
+| readonly table | BoardTable |
+| readonly info | BoardInfo |
+
+| Method | Parameters | Type |
+| ---- | ---- | ---- |
+| private init |  | void |
+| private handlePath | ClientID, Stroke, PathID | void |
+## 3.5 Server-side code
+### 3.5.1 The canvas
+The canvas is tracked using two datastructures:
+- A read-write locked set of ItemIDs which can be sequentially iterated over
+- A concurrent map from ItemIDs to Items which enables parallel access but cannot be iterated over
+
+Additionally, an atomic counter is used to generate new IDs for every item
+
+Additionally, the ItemRef struct holds a locked entry and dereferences to the held item, allowing items to be retrieved and edited in-place
+
+#### 3.5.1.1 module crate::canvas::active
+ItemRef\<'a>
+
+| Field | Type |
+| ---- | ---- |
+| 0 | OccupiedEntry\<'a, ItemID, Item><br>(locked reference to an ItemID:Item HashMap entry valid for 'a) |
+| 1 | &'a CounterU64<br>(reference to an atomic U64 valid for 'a) |
+
+ActiveCanvas
+
+| Field | Type |
+| ---- | ---- |
+| next_id | AtomicU32 |
+| item_ids | RwLock\<BTreeSet\<ItemID>> |
+| items | scc::HashMap\<ItemID, Item> |
+| edit_count | CounterU64 |
+
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| pub | new_empty |  |  | Self |
+|  | get_id | &self |  | ItemID |
+| pub async | get_ref | &self | ItemID | Option\<ItemRef> |
+| pub async | get_item | &self | ItemID | Option\<Item> |
+| pub async | add_item | &self | Item | ItemID |
+| pub | add_item_owned | &mut self | Item | ItemID |
+| pub async | scan_items | &self | impl FnMut(ItemID, &Item)<br>(function taking an ItemID and a reference to an item which can be called from an exclusive reference) | () |
+| pub async | get_item_ids | &self |  | Vec\<ItemID> |
+| pub | get_item_ids_sync | &self |  | Result\<Vec\<ItemID>,()> |
+
+### 3.5.2 Communicating with clients
+#TODO
+#### 3.5.2.1 module crate::client
+pub MessagePayload 
+
+| Field | Type |
+| ----- | ---- |
+| 0      | Vec\<u8>     |
+
+ClientMessage
+
+| Variant | Fields |
+| ------- | ------ |
+| Payload        | (Vec\<u8>)       |
+
+ClientHandle
+
+| Field | Type |
+| ----- | ---- |
+| message_pipe      | UnboundedSender\<ClientMessage>     |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+|  | new |  |  | (Self, UnboundedReceiver\<ClientMessage>) |
+|  | send | &self | ClientMessage | () |
+|  | send_data | &self | Vec\<u8> | () |
+| pub | send_message | &self | MsgSend | () |
+| pub | send_payload | &self | &MessagePayload | () |
+
+Session
+
+| Field | Type |
+| ---- | ---- |
+| client_id | ClientID |
+| handle | BoardHandle |
+
+| Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- |
+| connect | &self | ClientHandle |  |
+| disconnect | &self |  |  |
+| message | &self | MsgRecv |  |
+
+pub SessionRegistry - alias of RwLock\<HashMap\<SessionID, Session>>
+
+Module-level functions
+
+|  | Name | Parameters | Return |
+| ---- | ---- | ---- | ---- |
+| pub | create_client_filter | GlobalRes | BoxedFilter |
+| async | handle_session | Session, WebSocket | () |
+### 3.5.3 Interface with board
+#### 3.5.3.1 module crate::board
+BoardMessage
+
+| Variant | Fields |
+| ---- | ---- |
+| ClientMessage | ClientID, MsgRecv |
+| SessionRequest | ClientInfo, oneshot::Sender\<Result\<ConnectionInfo, Error>> |
+| ClientConnected | ClientID, ClientHandle |
+| ClientDisconnected | ClientID |
+
+pub BoardHandle
+
+| Field | Type |
+| ----- | ---- |
+| message_pipe      | async_channel::Sender\<BoardMessage>     |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+|  | send_msg | &self | BoardMessage | () |
+| pub async | create_session | &self | ClientInfo | Result\<ConnectionInfo, Error> |
+| pub | client_msg | &self | ClientID, MsgRecv | () |
+| pub | client_connected | &self | ClientID, ClientHandle | () |
+| pub | client_disconnected | &self | ClientID | () |
+|  | downgrade | &self |  | WeakHandle |
+
+WeakHandle
+
+| Field | Type |
+| ----- | ---- |
+| 0      | async_channel::WeakSender\<BoardMessage>     |
+
+| Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- |
+| upgrade | &self |  | Option\<BoardHandle> |
+
+### 3.5.4 Saving and loading
+#### 3.5.4.1 module crate::board::file
+
+BoardFileAttrs
+
+| Field | Type |
+| ----- | ---- |
+| readonly      | bool     |
+
+BoardFile
+
+| Field | Type |
+| ---- | ---- |
+| items | Vec\<Item> |
+| (flattened)<br>attrs | BoardFileAttrs |
+
+pub BoardFileHandle
+
+| Field | Type |
+| ---- | ---- |
+| file_path | PathBuf |
+| temp_path | PathBuf |
+| attrs | BoardFileAttrs |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| pub | from_path |  | PathBuf | Self |
+| pub async | load_canvas | &mut self |  | io::Result\<ActiveCanvas> |
+| pub async | save_canvas | &mut self | &ActiveCanvas | io::Result\<()> |
+
+Module-level methods
+
+|  | Name | Parameters | Return |
+| ---- | ---- | ---- | ---- |
+|  | try_get_board | DirEntry | Option\<(String, BoardFileHandle)> |
+| pub | get_boards | &Path | io::Result\<Vec\<(String, BoardFileHandle)>> |
+
+### 3.5.5 Managing boards
+#### 3.5.5.1 module crate::board::manager
+LoadedState
+
+| Field | Type |
+| ---- | ---- |
+| handle | WeakHandle |
+| canvas | Arc\<ActiveCanvas> |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| async | get_or_refresh | &mut self |  | BoardHandle |
+
+ActiveState
+
+| Variant | Fields |
+| ---- | ---- |
+| Loaded | LoadedState |
+| Unloaded |  |
+
+BoardRef
+
+| Field | Type |
+| ---- | ---- |
+| file | BoardFileHandle |
+| state | ActiveState |
+
+pub BoardManager
+
+| Field | Type |
+| ----- | ---- |
+| boards      | scc::HashMap\<String, BoardRef>     |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| pub | new |  | &Path | Self |
+| pub async | load_board | &self | String | Option\<BoardHandle> |
+| pub async | autosave | &self |  |  |
+
+### 3.5.6 Active Boards
+#### 3.5.6.1 module crate::board::active
+ActivePath
+
+| Field | Type |
+| ---- | ---- |
+| client | ClientID |
+| nodes | Vec\<SplineNode> |
+| listeners | Vec\<IterateHandle\<GetActivePath>> |
+| stroke | Stroke |
+| last_flush | Instant |
+
+SelectionState
+
+| Field | Type |
+| ---- | ---- |
+| items | BTreeMap\<ItemID, Transform> |
+| own_transform | Transform |
+
+ClientState
+
+| Field | Type |
+| ---- | ---- |
+| info | ClientInfo |
+| handle | Option\<ClientHandle> |
+| active_paths | Vec\<PathID> |
+| selection | SelectionState |
+
+Board
+
+| Field | Type |
+| ---- | ---- |
+| client_ids | RwLock\<BTreeSet\<ClientID>> |
+| clients | scc::HashMap\<ClientID, ClientState> |
+| canvas | Arc\<ActiveCanvas> |
+| selected_items | scc::HashMap\<ItemID, Option\<ClientID>> |
+| active_paths | scc::HashMap\<PathID, ActivePath> |
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+|  | new_from_canvas |  | Arc\<ActiveCanvas> | Self |
+|  | launch | self | tasks: usize | BoardHandle |
+| async | handle_message | &self | BoardMessage | () |
+| async | handle_client_message | &self | ClientID, MsgRecv | () |
+
+Module-level functions
+
+|  | Name | Parameters | Return |
+| ---- | ---- | ---- | ---- |
+| pub | from_canvas | Arc\<ActiveCanvas>, tasks: usize | BoardHandle |
+#### 3.5.6.2 module crate::board::active::active_helpers
+pub TakeResult
+
+| Variant |
+| ---- |
+| Successful |
+| NonExistent |
+| Occupied |
+| AlreadyOwned |
+
+impl Board
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| pub<span>&nbsp;</span>async | check_owned | &self | &ClientID, &Handle, ItemID | bool |
+| pub async | take_item | &self | &ClientID, &Handle, ItemID | TakeResult |
+| pub async | get_client | &self | &ClientID | OccupiedEntry\<ClientID, ClientState> |
+| pub async | get_handle | &self | &ClientID | Option\<ClientHandle> |
+| pub async | send_notify_c | &self | NotifyCType | () |
+
+impl ClientState
+
+|  | Name | Receiver | Parameters | Return |
+| ---- | ---- | ---- | ---- | ---- |
+| pub | try_send | &self | MsgSend | () |
+| pub | try_send_payload | &self | &MessagePayload | () |
 # 4 Technical Solution
-## 4.1 Server-side code
-### 4.1.1 main.rs
+## 4.1 Skills Used
+### 4.1.1 Data structures
+| Structure | Location |
+| ---- | ---- |
+| Asynchronous Queue | Used in several places:<br>(server) client.rs<br>(server) board/active.rs<br>(client) canvas/Canvas.ts<br>Custom implementation in TypeScript:<br>(client) util/Channel.ts |
+| Object-oriented mechanism for automatically propagating change of state | Implemented in:<br>(client) util/State.ts<br>Used throughout most of client |
+### 4.1.2 Algorithms
+| Algorithm | Location |
+| ---- | ---- |
+| Dynamic generation of objects based on the OOP model | Dynamically choosing a class based on item type<br>(client) canvas/items/ItemBuilder.ts<br>Instantiating property UI classes<br>(client) ui/PropertyEditor.ts |
+| Server-side scripting with request and response objects to service a complex client-server model | Used throughout most of the server but particularly (server) client.rs |
+| Calling parameterised Web service APIs and parsing JSON to service a complex client-server model | (client) client/HttpApi.ts<br>(client) client/RawClient.ts<br>(server) client.rs to some extent |
+### 4.1.3 Other techniques
+| Technique | Location | Description |
+| ---- | ---- | ---- |
+| Writing to a temporary file to prevent data loss | (server) board/file.rs | Writing to a temporary file and renaming it over the main file ensures that the saved data is never in an incomplete state |
+| Automatically generating bindings for other languages | (server) codegen.rs<br>type definitions in message/\* | To ensure consistency between the client and server code, TypeScript definitions are generated directly from Rust source code |
+
+## 4.2 Server-side code
+### 4.2.1 main.rs
 ```rust
 use std::time::Duration;
 
@@ -580,7 +1571,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	runtime.block_on(async move {
 		info!("Loading boards");
 		// The board manager should stay alive for the lifetime of the program
-		let boards = BoardManager::new_debug(&args.board_root.as_std_path());
+		let boards = BoardManager::new(&args.board_root.as_std_path());
 		
 		let res = GlobalResources::new(boards, config).as_static();
 		
@@ -624,8 +1615,8 @@ fn create_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
 }
 
 ```
-## 4.2 Client-side code
-### 4.2.1 Board.ts
+## 4.3 Client-side code
+### 4.3.1 Board.ts
 ```typescript
 import { Logger } from "./Logger.js";
 import { CanvasController } from "./canvas/Canvas.js";
@@ -637,7 +1628,6 @@ import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
 import { createEditToolList, createViewToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
-import { AsyncIter } from "./util/AsyncIter.js";
 import { None } from "./util/Utils.js";
 
 const logger = new Logger("board");
@@ -666,7 +1656,7 @@ export class Board {
 		public readonly ui: UIManager,
 		public readonly client: SessionClient,
 		public readonly canvas: CanvasController,
-		public readonly items: BoardTable,
+		public readonly table: BoardTable,
 		public readonly info: BoardInfo,
 	) { }
 	
@@ -699,10 +1689,9 @@ export class Board {
 		
 		if (first === None) return;
 		
-		const pathElem = this.canvas.ctx.createElement("path");
+		const pathElem = this.canvas.ctx.createRootElement("path");
 		pathElem.setAttribute("fill", "none");
 		
-		this.canvas.addRawElement(pathElem);
 		
 		const helper = new PathHelper(pathElem, first.shift()!.position);
 		new StrokeHelper(pathElem.style, stroke);
@@ -721,5 +1710,46 @@ export class Board {
 ## 5.1 Test Plan
 ### 5.1.1 Layout and interface
 - Open program
-- Verify that basic layout is as described in [Layout and Interface](#  1 Layout and Interface)
+- Verify that basic layout is as described in objectives
+	- (1.1, 1.2.1, 1.3, 1.4, 1.5)
+### 5.1.2 Items and Tools
+#### 5.1.2.1 Creation tools
+For each of the following tools, perform the following steps:
+- Select the tool from the tool panel
+- If the tool has properties, change the values of them
+- Attempt to use the tool with a press or drag as appropriate
+- Verify that the item created reflects the property values set
+- If the tool is supposed to support both drag and press inputs, deselect the item and create another with the other input mode
+- Attempt to set properties of the created item and verify that they are immediately reflected on the board
+Tools with only drag input:
+- Pen
+- Line
+Tools with only click input:
+- Image
+- Text
+- Link
+- Polygon
+Tools with both click and drag input:
+- Rectangle
+- Ellipse
+#### 5.1.2.2 Selection tool
+- Using the selection tool, select one item and verify that its specific properties can be edited
+- Select more items and verify that fill and stroke can be edited for multiple items simultaneously
+- When selecting and deselecting items, verify that items never move during these operations
+#### 5.1.2.3 View tools
+- While using other tools, occasionally verify that the following tools may be used and behave appropriately:
+	- Pan
+	- Zoom In
+	- Reset Zoom
+	- Zoom Out
+### 5.1.3 Synchronisation and reliability
+#### 5.1.3.1 Basic synchronisation
+- Open the board on multiple different devices
+- Create and edit several items simultaneously
+- Verify that the board state is shared correctly
+#### 5.1.3.2 Consistency and reliability
+Verify that the following do not cause any significant loss of data
+- Reloading a client while editing the board
+- Disconnecting a client from the network while editing the board
+- Restarting the server while editing the board
 # 6 Evaluation
