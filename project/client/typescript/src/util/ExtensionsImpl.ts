@@ -181,7 +181,7 @@ SVGGraphicsElement.prototype.getFinalTransform = function (current?) {
 	}
 };
 
-const bboxStateTable = new WeakMap<SVGGraphicsElement, WeakRef<MutableState<DOMRect>>>();
+const bboxStateTable = new WeakMap<SVGGraphicsElement, WeakRef<MutableState<SVGRect>>>();
 
 const bboxStateObserver = new ResizeObserver((entries, observer) => {
 	for (const entry of entries) {
@@ -200,7 +200,9 @@ const bboxStateObserver = new ResizeObserver((entries, observer) => {
 });
 
 SVGGraphicsElement.prototype.getBBoxState = function () {
-	const state = mutableStateOf(this.getBBox());
+	const state = mutableStateOf(this.getBBox({
+		stroke: true,
+	}));
 	bboxStateTable.set(this, new WeakRef(state));
 	bboxStateObserver.observe(this);
 	return state;

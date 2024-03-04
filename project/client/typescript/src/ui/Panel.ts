@@ -1,6 +1,6 @@
 import { Logger } from "../Logger.js";
 import { mutableStateOf, type State } from "../util/State.js";
-import { SvgIcon, SimpleIcon } from "./Icon.js";
+import { SimpleIcon } from "./Icon.js";
 import "../util/ExtensionsImpl.js";
 import type { Color } from "../gen/Types.js";
 import { multiTargetProvider, type MultiTargetDispatcher } from "../util/Events.js";
@@ -106,11 +106,6 @@ class VisibilityButton {
 
 		this.icon = new SimpleIcon(iconState);
 		this.container.appendChild(this.icon.element);
-
-		// this.icon.svgElement.then(el => {
-		// 	Object.setPrototypeOf(el.classList, DOMTokenList.prototype);
-		// 	el.classList.selectBy("open", "closed", iconState);
-		// });
 
 		this.container.onclick = () => {
 			switch (enabledState.get()) {

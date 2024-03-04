@@ -156,16 +156,11 @@ macro_rules! method_declarations {
 
 			#[cfg(feature = "codegen")]
 			#[allow(non_snake_case, unused)]
-			#[cfg_attr(feature = "codegen", derive(TS))]
+            #[derive(TS)]
 			pub struct $spec_name {
 				$(
 					$name: ($name, $rtype),
 				)*
-			}
-
-			#[cfg(feature = "codegen")]
-			impl $spec_name {
-				pub const NAMES: &'static [&'static str] = &[$(stringify!($name)),*];
 			}
 		}
 		$(
@@ -197,15 +192,10 @@ macro_rules! method_declarations {
 pub use _methods::*;
 #[allow(non_snake_case, missing_docs)]
 mod _methods {
-    use std::collections::BTreeMap;
-
     use super::*;
     use crate::{
         canvas::{Item, SplineNode, Stroke, Transform},
-        message::{
-            self as m, BatchChanges, ClientID, ClientInfo, ClientState, ItemID, LocationUpdate,
-            PathID,
-        },
+        message::{self as m, BatchChanges, ClientID, ClientState, ItemID, LocationUpdate, PathID},
     };
 
     method_declarations! {
@@ -229,14 +219,14 @@ mod _methods {
             new_sits: Option<Vec<(ItemID, Transform)>>,
         ) => ()
 
-        /// Apply a [`BatchChanges`] to the set of items
-        fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
+        // /// Apply a [`BatchChanges`] to the set of items
+        // fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
 
         /// Replace/Merge \[TODO: Clarify/decide] an item with a new item
         fn EditSingleItem(item_id: ItemID, item: Item,) => m::Result
 
         /// Delete multiple items from the board
-        fn DeleteItems(ids: Vec<ItemID>,) => Vec<m::Result>
+        fn DeleteItems(ids: Vec<ItemID>,) => ()
 
         /// Create a new item
         fn CreateItem(item: Item,) => ItemID

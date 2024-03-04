@@ -15,7 +15,7 @@ pub mod tags;
 pub mod upload;
 mod utils;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, time::SystemTime};
 
 use board::BoardManager;
 use client::{create_client_filter, SessionRegistry};
@@ -67,11 +67,26 @@ impl GlobalResources {
     }
 }
 
+fn create_start_time_filter() -> BoxedFilter<(impl Reply,)> {
+    let time = SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .to_string()
+        .into_boxed_str();
+
+    // Leak and reborrow immutably
+    let time = &*Box::leak(time);
+
+    warp::path("start_time").map(move || time).boxed()
+}
+
 /// Create a warp [`Filter`] handling all dynamic paths
 pub fn create_api_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
-    let client_filter = create_client_filter(res);
-    let upload_filter = create_upload_filter(res);
-    client_filter.or(upload_filter).boxed()
+    create_start_time_filter()
+        .or(create_client_filter(res))
+        .or(create_upload_filter(res))
+        .boxed()
 }
 
 /// Create a warp [`Filter`] serving static files

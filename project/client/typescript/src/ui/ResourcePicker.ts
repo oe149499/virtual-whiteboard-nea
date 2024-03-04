@@ -9,13 +9,13 @@ export class ResourcePicker {
 
 	constructor(
 		target: HTMLElement,
-		private callback: (_: Option<URL>) => void,
+		private callback: (_: Option<string>) => void,
 	) {
 		const urlInput = buildUrlDisplay(target);
 		this.input = urlInput;
 
 		urlInput.onchange = () => {
-			if (urlInput.value) this.callback(new URL(urlInput.value));
+			if (urlInput.value) this.callback(urlInput.value);
 			else this.callback(None);
 		};
 
@@ -27,9 +27,9 @@ export class ResourcePicker {
 		});
 	}
 
-	public load(value: Option<URL>) {
+	public load(value: Option<string>) {
 		if (value === None) this.input.value = "";
-		else this.input.value = value.toString();
+		else this.input.value = value;
 	}
 }
 
@@ -67,7 +67,7 @@ function buildFileArea(target: HTMLElement): State<Option<File>> {
 	return state;
 }
 
-function buildUploadArea(target: HTMLElement, fileState: State<Option<File>>, cb: (url: URL) => void) {
+function buildUploadArea(target: HTMLElement, fileState: State<Option<File>>, cb: (url: string) => void) {
 	const btn = target.createChild("button")
 		.addClasses("property-file-upload-button")
 		.setContent("Upload");

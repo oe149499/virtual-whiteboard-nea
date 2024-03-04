@@ -1,0 +1,1628 @@
+
+classDiagram
+class Board{
+            #ui: UIManager*
+#client: SessionClient*
+#canvas: CanvasController*
+#table: BoardTable*
+#info: BoardInfo*
+            #new() Promise~Board~
++init() Promise~void~
++handlePath() Promise~void~
+        }
+class BoardTable{
+            +items: any
++clients: any
++self: SelfEntry
+#ownID: number*
+#selectedItems: StateSet~ItemEntry~"Rectangle" | "Ellipse" | "Line" | "Polygon" | "Path" | "Image" | "Text" | "Link" | "Tag"~~*
++_events: { selection: EventProvider~KeyedSchema~SelectionHandlersT, number~, KeyedDispatcher~SelectionHandlersT, number~~; items: EventProvider~...~; itemCreate: ExclusiveProvider~...~; remoteSelectionCreate: ExclusiveProvider~...~; ownSelectionCreate: ExclusiveProvider~...~; }
+#events: Readonly~{ selection: KeyedDispatcher~SelectionHandlersT, number~; items: MultiTargetDispatcher~ItemHandlers~; itemCreate: ExclusiveDispatcher~...~; remoteSelectionCreate: ExclusiveDispatcher~...~; ownSelectionCreate: ExclusiveDispatcher~...~; }~*
++client: SessionClient
+            +bootstrap() Promise~void~
++bindClientEvents() void
++bindSelectionEvents() void
++addClient() Promise~void~
+#addItem() void
+#get() any
+#entries() any
++ensureLocalBox() SelfEntry & { box: LocalSelection; }
+#addOwnSelection() void
+#moveOwnSelection() void
+#cancelSelection() void
+#editSelectedItem() void
+        }
+class ItemEntry~T~ {
+            <<interface>>
+            +id: number
++item: SpecificItem~T~ & ReadonlyAs~SpecificItem~T~~
++canvasItem: CanvasItem
++selection: any
+            
+        }
+class RemoteEntry {
+            <<interface>>
+            +id: number
++items: Set~number~
++info: ClientInfo
++connection: ConnectionState
++box: any
+            +__computed() RemoteEntry
+        }
+class SelfEntry {
+            <<interface>>
+            +id: number
++items: MutableStateSet~number~
++info: ClientInfo
++connection: ConnectionState
++box: any
+            
+        }
+class SelectionHandlers {
+            <<interface>>
+            
+            +add() void
++move() void
+        }
+class ConnectionState {
+        <<enumeration>>
+        Unknown
+Disconnected
+Connected
+Exited
+      }
+class LocalSelectionCount {
+        <<enumeration>>
+        None
+One
+Multiple
+      }
+class ItemHandlers {
+            <<type>>
+            
+            +insert() void
++deselect() void
+        }
+class Bounds{
+            +inner: MaybeState~BoundsTester~
++transform: any
+            #testIntersection() boolean
+#transformed() Bounds
+#of() Bounds
+#by() State~Bounds~
+        }
+class BoundsTester {
+            <<interface>>
+            
+            +testIntersection() boolean
+        }
+BoundsTester<|..Bounds
+class State{
+            +callback?: WeakRef~(_: Point) =~ void~
++WatchOnMap: any
+#value: Point
+            #get() Point
+#update() void
+#watchOn() void
+#__computed() (this | ((_: Point) =~ void))[]
+#derived() State
+        }
+class DerivedState{
+            +#_c: unknown
++source: State
++map: (_: Point) =~ Point
+            
+        }
+class WatchHandle {
+            <<interface>>
+            
+            +end() void
++poll() this
+        }
+class Point {
+            <<type>>
+            +x: number
++y: number
+            
+        }
+State<|--DerivedState
+class ExportList {
+            <<type>>
+            
+            
+        }
+class HasTransform {
+            <<interface>>
+            +transform: Transform
+            
+        }
+class HasStroke {
+            <<interface>>
+            +stroke: Stroke
+            
+        }
+class HasFill {
+            <<interface>>
+            +fill: string
+            
+        }
+class MResponse~M~ {
+            <<type>>
+            +protocol: "Response"
++id: number
++value: MRet~M~
+            
+        }
+class IResponse~I~ {
+            <<type>>
+            +protocol: "Response-Part"
++id: number
++part: number
++complete: boolean
++items: IItem~I~[]
+            
+        }
+class Logger{
+            +module: string
+            #log() void
+#trace() void
+#info() void
+#debug() void
+#warn() void
+#error() void
+#throw() never
+#reject() void
+        }
+class LogLevel {
+        <<enumeration>>
+        Trace
+Info
+Debug
+Warn
+Error
+      }
+class PropKey~N~{
+            #validator: (val: PropValue~N~) =~ boolean*
+#defaultVal?: PropValue~N~*
+#type: N*
+            
+        }
+class CompositeKey~T~{
+            #extractor: (get: PropertyGetter) =~ T*
+            
+        }
+class PropertyStore{
+            #NoValue: any*
+            +__computed() void
+#read() any
+#store() boolean
++get() any$
++set() void$
+        }
+class SingletonPropertyStore{
+            #Empty: SingletonPropertyStore*
++dataStore: any
+#schema: PropertySchema[]*
+            +get() any
++set() void
+        }
+class PropertyInstance {
+            <<interface>>
+            +schema: PropertySchema[] & ReadonlyAs~PropertySchema[]~
++store: PropertyStore
+            
+        }
+class PropKeyInit~N~ {
+            <<type>>
+            +validator?: PropertyValidator~N~
++defaultValue?: PropValue~N~
+            
+        }
+class PropertySchemaBase {
+            <<type>>
+            +displayName?: string
+            
+        }
+class ValuePropertyTypes {
+            <<type>>
+            +number: { valType: number; min?: number; max?: number; step?: number; }
++color: { valType: string; }
++text: { valType: string; display?: "short" | "long"; }
++resource: { valType: any; accept?: string[]; }
+            
+        }
+PropertyStore<|--SingletonPropertyStore
+class Builder~TKeys~{
+            +keys: TKeys
++schemas: PropertySchema[]
+            #empty() Builder~object~
+#add() Builder~TKeys & TAdd~ | Builder~TKeys & Record~Name, PropKey~N~~~
++build() TemplateArray~TKeys~
+        }
+class Template~TKeys~ {
+            <<type>>
+            +keys: TKeys
++schema: PropertySchema
+            
+        }
+class TemplateArray~TKeys~ {
+            <<type>>
+            +keys: TKeys
++schema: PropertySchema[]
+            
+        }
+class UserTransform {
+            <<type>>
+            +origin: Point
++rotation: number
++stretch: Point
++skew: number
+            
+        }
+class PointInput{
+            #value: State~Point~*
+            
+        }
+class MatrixInput{
+            #value: State~DOMMatrix~*
+            
+        }
+class PointDisplay{
+            #value: State~Point~*
+            
+        }
+class MatrixDisplay{
+            +_: unknown[]
+#value: State~DOMMatrix~*
+            
+        }
+class NumberInput{
+            #value: State~number~*
+            
+        }
+class CanvasController{
+            +gestures: GestureHandler
++coordMapping: MutableState~CoordinateMapping~
++cursorPos: MutableState~Point~
++#svg: SVGSVGElement
+#ctx: CanvasContext*
+#svgElement: SVGSVGElement*
++targetRect: DOMRect
+#elementBounds: State~DOMRect~*
++activeGestures: { [key: number]: { move: Channel~PointerEvent~; end: (_: PointerEvent) =~ void; }; }
++cursorTimeouts: TimeoutMap~number~
++currentCursors: MutableState~any~
+#isGesture: State~boolean~*
+#propertyStore: ItemPropertyStore*
+#origin: MutableState~Point~*
+#zoom: MutableState~number~*
+#boardTable: BoardTable*
+            #probePoint() Iterable~ItemEntry~"Rectangle" | "Ellipse" | "Line" | "Polygon" | "Path" | "Image" | "Text" | "Link" | "Tag"~~
+#getPropertyInstance() PropertyInstance
++pointerDown() void
++pointerUp() void
++pointerMove() void
+        }
+class CanvasContext{
+            +svgroot: SVGSVGElement
++scaledRoot: SVGGElement
++unscaledRoot: SVGGElement
+#cursorPosition: State~Point~*
++gestures: GestureHandler
+#createPointBy: (s: State~Point~) =~ DOMPoint
+#insertScaled: any
+#getUnscaledPos: (pos: State~Point~) =~ State~{ x: number; y: number; }~
++UnscaledHandleFinalizer: any
++UnscaledHandle: typeof UnscaledHandle
+#coordMapping: State~CoordinateMapping~*
+            #createGestureFilter() FilterHandle
+#createElement() SVGElementTagNameMap[N]
+#createTransform() SVGTransform
+#createPoint() DOMPoint
+#createRect() DOMRect
+#createRootElement() SVGElementTagNameMap[N]
+#getUnscaledHandle() UnscaledHandle
+#createUnscaledElement() SVGGraphicsElement
+#insertUnscaled() E
+#translate() { x: any; y: any; }
+        }
+class MatrixHelper{
+            +svgTransform: SVGTransform
++matrix: State~DOMMatrix~
+            
+        }
+class TranslateHelper{
+            +svgTransform: SVGTransform
++position: State~Point~
+            
+        }
+class TransformHelper{
+            +svgTransform: SVGTransform
++matrix: DOMMatrix
++ctx: CanvasContext
++list: SVGTransformList
+            #update() void
+#updateOrigin() void
+#createExtra() SVGTransform
+        }
+class StrokeHelper{
+            +style: CSSStyleDeclaration
+            #update() void
+#apply() void
+        }
+class FillHelper{
+            +style: CSSStyleDeclaration
+            #update() void
+#apply() void
+        }
+class CenterHelper{
+            +parentMap: any
++observer: ResizeObserver
+            +of() SVGGElement
+        }
+class CoordinateMapping {
+            <<interface>>
+            +screenOrigin: Point
++stretch: number
++targetOffset: Point
+            
+        }
+class CanvasContextInit {
+            <<interface>>
+            +cursorPos: State~Point~
++exec: CanvasContextExecutor
+            
+        }
+class FilterImpl{
+            #active: boolean
+#types: GestureType
+#mode: FilterMode
+#check: (_: Point) =~ boolean
+#handlers: { 1?: (_: Required~DragGestureState~) =~ void; 2?: (_: Required~PressGesture~) =~ void; 4?: (_: Required~LongPressGesture~) =~ void; }
+#layer: GestureLayer*
++updateActive: (_: FilterImpl) =~ void
+            #handle() void
++pause() this
++resume() this
++setTest() this
++setMode() this
++addHandler() this
++removeHandler() this
+        }
+class GestureHandler{
+            +filterLayers: Record~GestureLayer, FilterLayer~
++updateActive: (handle: FilterImpl) =~ void
++ctx: CanvasContext*
+            #processEvents() Promise~void~
++handleGesture() void
+#makeFilter() FilterHandle
+        }
+class DragGestureState {
+            <<interface>>
+            +type?: GestureType.Drag
++initialOrigin: Point
++location: Point
++points: AsyncIter~Point~
+            
+        }
+class PressGesture {
+            <<interface>>
+            +type?: GestureType.Click
++location: Point
+            
+        }
+class LongPressGesture {
+            <<interface>>
+            +type?: GestureType.LongClick
++location: Point
+            
+        }
+class FilterHandle {
+            <<interface>>
+            
+            +pause() this
++resume() this
++setTest() this
++setMode() this
++addHandler() this
++removeHandler() this
+        }
+class GestureType {
+        <<enumeration>>
+        Drag
+Click
+LongClick
+      }
+class GestureLayer {
+        <<enumeration>>
+        Lowest
+BelowItems
+Items
+AboveItems
+Selection
+SelectionHandle
+Highest
+      }
+class FilterMode {
+        <<enumeration>>
+        Capture
+Passthrough
+      }
+class PointerEventStream {
+            <<type>>
+            +start: PointerEvent
++moves: AsyncIter~PointerEvent~
++end: Promise~PointerEvent~
+            
+        }
+class FilterLayer {
+            <<type>>
+            +active: Set~FilterImpl~
++inactive: WeakSet~FilterImpl~
+            
+        }
+FilterHandle<|..FilterImpl
+class PathHelper{
+            +nodes: SplineNode[]
++currentValue: string
++elem: SVGPathElement
+            #addNode() void
+#addNodes() void
+        }
+class ItemHolder{
+            #element: SVGGElement*
+#sit: DOMMatrix*
++transform: SVGTransform
+#inner: SVGElement*
+            #updateSit() void
+        }
+class SelectionBox{
+            +rootElement: SVGGElement
++itemContainer: SVGGElement
++rootTransform: SVGGElement
++stagingContainer: SVGGElement
++unscaled: UnscaledHandle
++srt: MutableState~DOMMatrix~
++size: State~Point~
++items: any
++ctx: CanvasContext
++table: BoardTable
+            +addFromTransforms() void
++addFromCanvas() SelectionAddItems
+        }
+class RemoteSelection{
+            +border: SelectionBorder
+            #addItems() void
+#moveItems() void
+        }
+class LocalSelection{
+            +border: SelectionBorder
++rotateHandle: RotateHandle
++stretchHandles: StretchHandleSet
++srtUpdateSent: boolean
++_sendSrtUpdate: OwnedInterval
++updateSrt: (m: DOMMatrix) =~ void
+            +handleDrag() Promise~void~
+#createAddPayload() SelectionAddItems
+#getFinalTransforms() Iterable~[number, DOMMatrix]~
+#clear() void
+        }
+class RemoteSelectionInit {
+            <<interface>>
+            +id: number
++srt: Transform
++items: TransformRecord[]
+            
+        }
+class LocalSelectionInit {
+            <<interface>>
+            +srt: Transform
++items: TransformRecord[]
+            
+        }
+SelectionBox<|--RemoteSelection
+SelectionBox<|--LocalSelection
+class SelectionBorder{
+            #element: SVGPolygonElement*
++points: SVGPointList
+            
+        }
+class HandleBase{
+            +handle: FilterHandle
+#element: SVGGraphicsElement*
+            +getElement() SVGGraphicsElement$
++handleGesture() void$
+        }
+class RotateHandle{
+            +updateSrt: (_: DOMMatrix) =~ void
+            +getElement() SVGGraphicsElement
++handleGesture() Promise~void~
+        }
+class StretchHandle{
+            +offset: State~Point~
++updateSrt: (_: DOMMatrix) =~ void
+            +getElement() SVGGraphicsElement
++handleGesture() Promise~void~
+        }
+class StretchHandleSet{
+            +Directions: Point[]
+#handles: StretchHandle[]*
+            
+        }
+HandleBase<|--RotateHandle
+HandleBase<|--StretchHandle
+class SessionClient{
+            +rawClient: RawClient
++methodDispatcher?: MethodDispatcher
++iterateDispatcher?: IterateDispatcher
++socketUrl: URL*
++boardName: string*
++sessionCode: number
++clientID: number*
++info: ClientInfo*
+            +new() Promise~SessionClient~
+#bindNotify() void
+        }
+class SessionCache {
+            <<interface>>
+            +startTime: number
++info: ClientInfo
++connnection: ConnectionInfo
+            
+        }
+class IterateReceiver~I~{
+            +futureParts: { [k: number]: IItem~I~[]; }
++nextPart: number
++lastPart: number
++channel: Channel~IItem~I~[]~
+            #handlePayload() void
+        }
+class RawClient{
+            +callId: number
++socket: WebSocket
++calls: Record~number, CallRecord~
++notifyCHandlers: { ClientJoined?: (_: ClientJoined) =~ void; ClientConnected?: (_: ClientConnected) =~ void; ClientDisconnected?: (_: ClientDisconnected) =~ void; ... 8 more ...; PathStarted?: (_: PathStarted) =~ void; }
++iterateReceivers: { [n: number]: IterateReceiver~keyof IterateSpec~; }
++messageQueue: Channel~string~
++messageStream: AsyncIter~string~
++url: URL
+            +bindSocket() void
++sendPayload() void
+#callMethod() Promise~MRet~M~~
+#callIterate() AsyncIter~IItem~I~[]~
+#setNotifyHandler() void
++handleMessageObject() void
++onSocketOpen() Promise~void~
++onSocketError() void
++onSocketMessage() void
++onSocketClose() void
++handleNotifyC() void
+        }
+class CallRecord {
+            <<type>>
+            +resolve: (_: number | { status: "Ok"; value: null; } | { status: "Err"; value: ErrMsg; } | Result[] | { status: "Ok"; value: number; } | number[] | ClientState) =~ void
++reject: (_: unknown) =~ void
+            
+        }
+class GetPartialItems {
+            <<interface>>
+            +ids: number[]
+            
+        }
+class GetFullItems {
+            <<interface>>
+            +ids: number[]
+            
+        }
+class GetActivePath {
+            <<interface>>
+            +path: number
+            
+        }
+class Count {
+            <<interface>>
+            +from: number
++to: number
+            
+        }
+class IterateSpec {
+            <<interface>>
+            +Count: [Count, number]
++GetPartialItems: [GetPartialItems, Result~Item~]
++GetFullItems: [GetFullItems, Result~[number, Item]~]
++GetActivePath: [GetActivePath, SplineNode]
+            
+        }
+class SelectionAddItems {
+            <<interface>>
+            +newSrt: Transform
++oldSits: [number, Transform][]
++newSits: [number, Transform][]
+            
+        }
+class SelectionRemoveItems {
+            <<interface>>
+            +items: [number, LocationUpdate][]
+            
+        }
+class SelectionMove {
+            <<interface>>
+            +newSrt: Transform
++newSits?: [number, Transform][]
+            
+        }
+class EditBatchItems {
+            <<interface>>
+            +ids: number[]
++changes: BatchChanges
+            
+        }
+class EditSingleItem {
+            <<interface>>
+            +itemId: number
++item: Item
+            
+        }
+class DeleteItems {
+            <<interface>>
+            +ids: number[]
+            
+        }
+class CreateItem {
+            <<interface>>
+            +item: Item
+            
+        }
+class BeginPath {
+            <<interface>>
+            +stroke: Stroke
+            
+        }
+class ContinuePath {
+            <<interface>>
+            +pathId: number
++points: SplineNode[]
+            
+        }
+class EndPath {
+            <<interface>>
+            +pathId: number
+            
+        }
+class GetClientState {
+            <<interface>>
+            +clientId: number
+            
+        }
+class MethodSpec {
+            <<interface>>
+            +SelectionAddItems: [SelectionAddItems, Result[]]
++SelectionRemoveItems: [SelectionRemoveItems, Result]
++SelectionMove: [SelectionMove, null]
++EditBatchItems: [EditBatchItems, Result[]]
++EditSingleItem: [EditSingleItem, Result]
++DeleteItems: [DeleteItems, Result[]]
++CreateItem: [CreateItem, number]
++BeginPath: [BeginPath, number]
++ContinuePath: [ContinuePath, null]
++EndPath: [EndPath, Result~number~]
++GetAllItemIDs: [GetAllItemIDs, number[]]
++GetAllClientIDs: [GetAllClientIDs, number[]]
++GetClientState: [GetClientState, ClientState]
+            
+        }
+class ClientJoined {
+            <<interface>>
+            +id: number
++info: ClientInfo
+            
+        }
+class ClientConnected {
+            <<interface>>
+            +id: number
+            
+        }
+class ClientDisconnected {
+            <<interface>>
+            +id: number
+            
+        }
+class ClientExited {
+            <<interface>>
+            +id: number
+            
+        }
+class SelectionItemsAdded {
+            <<interface>>
+            +id: number
++items: number[]
++newSrt: Transform
+            
+        }
+class SelectionItemsRemoved {
+            <<interface>>
+            +id: number
++items: [number, LocationUpdate][]
+            
+        }
+class SelectionMoved {
+            <<interface>>
+            +id: number
++transform: Transform
++newSits?: [number, Transform][]
+            
+        }
+class BatchItemsEdited {
+            <<interface>>
+            +ids: number[]
++changes: BatchChanges
+            
+        }
+class SingleItemEdited {
+            <<interface>>
+            +id: number
++item: Item
+            
+        }
+class ItemsDeleted {
+            <<interface>>
+            +ids: number[]
+            
+        }
+class ItemCreated {
+            <<interface>>
+            +id: number
++client: number
++item: Item
+            
+        }
+class PathStarted {
+            <<interface>>
+            +client: number
++stroke: Stroke
++path: number
+            
+        }
+class NotifyCSpec {
+            <<interface>>
+            +ClientJoined: ClientJoined
++ClientConnected: ClientConnected
++ClientDisconnected: ClientDisconnected
++ClientExited: ClientExited
++SelectionItemsAdded: SelectionItemsAdded
++SelectionItemsRemoved: SelectionItemsRemoved
++SelectionMoved: SelectionMoved
++BatchItemsEdited: BatchItemsEdited
++SingleItemEdited: SingleItemEdited
++ItemsDeleted: ItemsDeleted
++ItemCreated: ItemCreated
++PathStarted: PathStarted
+            
+        }
+class ErrMsg {
+            <<interface>>
+            +code: ErrorCode
++msg: string
+            
+        }
+class ClientInfo {
+            <<interface>>
+            +name: string
+            
+        }
+class ClientState {
+            <<interface>>
+            +info: ClientInfo
++paths: number[]
++selectedItems: [number, Transform][]
++selectionTransform: Transform
+            
+        }
+class ConnectionInfo {
+            <<interface>>
+            +clientId: number
++sessionId: number
+            
+        }
+class BatchChanges {
+            <<interface>>
+            +fill: string
++stroke: Stroke
+            
+        }
+class RejectMessage {
+            <<interface>>
+            +requestProtocol: string
++requestId?: number
++level: RejectLevel
++reason: RejectReason
+            
+        }
+class Point {
+            <<interface>>
+            +x: number
++y: number
+            
+        }
+class Stroke {
+            <<interface>>
+            +width: number
++color: string
+            
+        }
+class Transform {
+            <<interface>>
+            +origin: Point
++basisX: Point
++basisY: Point
+            
+        }
+class SplineNode {
+            <<interface>>
+            +position: Point
++velocity: Point
+            
+        }
+class Spline {
+            <<interface>>
+            +points: SplineNode[]
+            
+        }
+class RectangleItem {
+            <<interface>>
+            +transform: Transform
++stroke: Stroke
++fill: string
+            
+        }
+class EllipseItem {
+            <<interface>>
+            +transform: Transform
++stroke: Stroke
++fill: string
+            
+        }
+class LineItem {
+            <<interface>>
+            +start: Point
++end: Point
++stroke: Stroke
+            
+        }
+class PolygonItem {
+            <<interface>>
+            +points: Point[]
++stroke: Stroke
++fill: string
+            
+        }
+class PathItem {
+            <<interface>>
+            +transform: Transform
++path: Spline
++stroke: Stroke
+            
+        }
+class ImageItem {
+            <<interface>>
+            +transform: Transform
++url: string
++description: string
+            
+        }
+class TextItem {
+            <<interface>>
+            +transform: Transform
++text: string
+            
+        }
+class LinkItem {
+            <<interface>>
+            +transform: Transform
++url: string
++text: string
+            
+        }
+class TagItem {
+            <<interface>>
+            +transform: Transform
++id: number
++data: string
+            
+        }
+class ImageTool{
+            #properties: SingletonPropertyStore*
+            +cancel() void
++onPressGesture() Promise~void~
+        }
+ActionToolBase<|--ImageTool
+class LineTool{
+            #properties: SingletonPropertyStore*
+            +onDragGesture() Promise~void~
++cancel() void
+        }
+ActionToolBase<|--LineTool
+class PathTool{
+            #properties: SingletonPropertyStore*
+            +onDragGesture() Promise~void~
++cancel() void
+        }
+ActionToolBase<|--PathTool
+class PolygonTool{
+            #properties: SingletonPropertyStore*
++builder?: PolygonBuilder
++startPos?: Point
+            +onPressGesture() void
++onDragGesture() void
++processPoint() void
++startPolygon() void
++finish() void
++cancel() void
+        }
+class PolygonBuilder{
+            +elem: SVGPolygonElement
++list: SVGPointList
++points: Point[]
++ctx: CanvasContext
+            #addPoint() void
+#finish() Point[]
+        }
+ActionToolBase<|--PolygonTool
+class SelectionTool{
+            
+            +onPressGesture() void
+        }
+ModeToolBase<|--SelectionTool
+class ShapeToolBase{
+            +properties: SingletonPropertyStore*
++itemType: "Rectangle" | "Ellipse"$
+            +sendItem() void
++onDragGesture() Promise~void~
++onPressGesture() void
++cancel() void
+        }
+class RectangleTool{
+            +itemType: "Rectangle"
+            
+        }
+class EllipseTool{
+            +itemType: "Ellipse"
+            
+        }
+ActionToolBase<|--ShapeToolBase
+ShapeToolBase<|--RectangleTool
+ShapeToolBase<|--EllipseTool
+class TextToolBase~T~{
+            
+            +onPressGesture() Promise~void~
++makeItem() Omit~SpecificItem~T~, "transform"~$
++cancel() void
+        }
+class TextTool{
+            
+            +makeItem() Omit~{ type: "Text"; } & TextItem, "transform"~
+        }
+class LinkTool{
+            
+            +makeItem() Omit~{ type: "Link"; } & LinkItem, "transform"~
+        }
+ActionToolBase<|--TextToolBase~T~
+TextToolBase~T~<|--TextTool
+TextToolBase~T~<|--LinkTool
+class ToolBase{
+            +board: Board
+            
+        }
+class InteractiveToolBase{
+            +gestureFilter: FilterHandle
+            +makeFilter() FilterHandle
+        }
+class ActionToolBase{
+            +onBegin?: OnBegin
++completionResolve?: () =~ void
+            #bind() void
++start() void
++end() void
++cancel() void$
+        }
+class ModeToolBase{
+            
+            #bind() void
+#unbind() void
+        }
+class InstantaneousToolBase{
+            
+            #execute() void$
+        }
+class _Tool {
+            <<interface>>
+            +properties?: SingletonPropertyStore
+            +__computed() unknown
+        }
+class ModeTool {
+            <<interface>>
+            +type: ToolType.Mode
+            +bind() void
++unbind() void
+        }
+class Action {
+            <<interface>>
+            +completion: Promise~void~
+            +cancel() void
+        }
+class ActionTool {
+            <<interface>>
+            +type: ToolType.Action
+            +bind() void
+        }
+class InstantaneousTool {
+            <<interface>>
+            +type: ToolType.Instantaneous
+            +execute() void
+        }
+class ToolBase {
+            <<interface>>
+            +properties?: SingletonPropertyStore*
+            
+        }
+class ToolType {
+        <<enumeration>>
+        Action
+Mode
+Instantaneous
+      }
+_Tool<|..ToolBase
+ToolBase<|--InteractiveToolBase
+InteractiveToolBase<|--ActionToolBase
+ActionTool<|..ActionToolBase
+InteractiveToolBase<|--ModeToolBase
+ModeTool<|..ModeToolBase
+ToolBase<|--InstantaneousToolBase
+InstantaneousTool<|..InstantaneousToolBase
+_Tool<|..ModeTool
+_Tool<|..ActionTool
+class ViewTool{
+            
+            #onDragGesture() Promise~void~
+        }
+ModeToolBase<|--ViewTool
+class SimpleIcon{
+            #element: HTMLImageElement*
+            
+        }
+class ToolIcon{
+            +icon: SimpleIcon
+#element: HTMLElement*
++toolState: DeferredState~any~
+#active: State~boolean~*
+#onselect?: ToolIconCallback
+#ondeselect?: ToolIconCallback
+#tool: Tool*
+            #bind() void
+        }
+class PanelController{
+            +visibility: VisibilityButton
+#contents: HTMLElement*
+#openState: State~boolean~*
+#events: MultiTargetDispatcher~PanelEvents~*
++containerElement: HTMLElement
+            +getContents() HTMLElement
+        }
+class VisibilityButton{
+            +container: HTMLDivElement
++icon: SimpleIcon
+#openState: MutableState~boolean~*
+#events: EventProvider~PanelEvents, MultiTargetDispatcher~PanelEvents~~*
+            
+        }
+class EnabledState {
+        <<enumeration>>
+        Active
+Inactive
+Cancellable
+      }
+class PanelEvents {
+            <<type>>
+            
+            +cancel() void
+        }
+class ObjectCacheMap~K,V~{
+            +idMap: any
+            #get() V
+        }
+class PropertyEditor{
+            +propertyCache: ObjectCacheMap~PropertySchema[], RootPropertyUI~
++currentElement?: HTMLElement
++container: HTMLElement
+            #loadProperties() void
+        }
+class PropertyUI{
+            
+            #reload() void$
+#create() PropertyUI
+        }
+class RootPropertyUI{
+            #element: HTMLElement*
++children: PropertyUI[]
+#schema: PropertySchema[]*
+            #reload() void
+        }
+class ValuePropertyUI~N~{
+            +key: PropKey~N~*
++store: any
++prop: ValuePropertyType~N~*
+            +buildUI() void$
++update() void
++load() void$
+#reload() void
+        }
+class ShortPropertyUI~N~{
+            +input: HTMLInputElement
+            +buildUI() void
++init() void$
+        }
+class WidePropertyUI~N~{
+            
+            +buildUI() void
++build() void$
+        }
+class NumberPropertyUI{
+            
+            +init() void
++load() void
+        }
+class ColorPropertyUI{
+            
+            +init() void
++load() void
+        }
+class ShortTextPropertyUI{
+            
+            +init() void
++load() void
+        }
+class LongTextPropertyUI{
+            +area: HTMLTextAreaElement
+            +build() void
+#load() void
+        }
+class ResourcePropertyUI{
+            +picker: ResourcePicker
+            +build() void
++load() void
+        }
+class StructPropertyUI{
+            +children: PropertyUI[]
++prop: StructPropertySchema
+            #reload() void
+        }
+PropertyUI<|--RootPropertyUI
+PropertyUI<|--ValuePropertyUI~N~
+ValuePropertyUI~N~<|--ShortPropertyUI~N~
+ValuePropertyUI~N~<|--WidePropertyUI~N~
+ShortPropertyUI~N~<|--NumberPropertyUI
+ShortPropertyUI~N~<|--ColorPropertyUI
+ShortPropertyUI~N~<|--ShortTextPropertyUI
+WidePropertyUI~N~<|--LongTextPropertyUI
+WidePropertyUI~N~<|--ResourcePropertyUI
+PropertyUI<|--StructPropertyUI
+class ResourcePicker{
+            +input: HTMLInputElement
++callback: (_: any) =~ void
+            #load() void
+        }
+class UIManager{
+            #containerElement: HTMLDivElement*
+#viewPanel: PanelController*
+#toolPanel: PanelController*
+#propertiesPanel: PanelController*
+#properties: PropertyEditor*
++_toolState: MutableState~any~*
+#toolState: unknown*
++onIconSelect: ToolIconCallback*
++onItemDeselect: ToolIconCallback*
+            #addToolIcon() void
++cancelTool() void
++createPanel() PanelController
+        }
+class AsyncIter~T~{
+            +isEnd: boolean
++iterator: AsyncIterator~T~*
++peekCache: any
+            +__computed() Promise~any~$
++__computed() Promise~any~
+#__computed() AsyncIterator~T~
+#next() Promise~any~
+#peek() Promise~any~
+#map() AsyncIter~U~
+#dechunk() AsyncIter~T~
+#zipWith() AsyncIter~[T, U]~
+#collect() Promise~T[]~
+#last() Promise~any~
+#of() AsyncIter~T~
+#zip() AsyncIter~T~
+        }
+class Wrapped~T~{
+            +inner: AsyncIterator~T~
+            +__computed() Promise~any~
+        }
+class Mappped~T,U~{
+            +source: AsyncIter~T~
++fn: (_: T) =~ U
+            +__computed() any
+        }
+class Dechunked~T~{
+            +currentChunk: any
++source: AsyncIter~T[]~
+            +__computed() Promise~any~
+        }
+class Zipped~T~{
+            +source: TupleIter~T~
+            +__computed() Promise~any~
+        }
+AsyncIterable<|..AsyncIter~T~
+AsyncIter~T~<|--Wrapped~T~
+AsyncIter~T~<|--Mappped~T,U~
+AsyncIter~T~<|--Dechunked~T~
+AsyncIter~T~<|--Zipped~T~
+class Channel~T~{
+            +queue: T[]
++handles: PromiseHandle~T~[]
++closed: boolean
+            +handlePromises() void
+#push() void
++pop() Promise~T~
+#close() void
+#__computed() AsyncIterator~T~
+        }
+class EventProvider~T,D~{
+            #dispatcher: D*
+            #emit() void
+        }
+class EventDispatcherBase~T~{
+            
+            #__computed() void$
+        }
+class SingleTargetDispatcher~T~{
+            +callbacks: any
+            #__computed() void
+#bind() void
+        }
+class MultiTargetDispatcher~T~{
+            +callbacks: { [K in keyof T]?: T[K][]; }
+            #__computed() void
+#connect() void
+        }
+class KeyedDispatcher~T,TKey~{
+            +callbacks: any
+            #__computed() void
+#register() void
+        }
+class ExclusiveProvider~Params,Return~{
+            #dispatcher: ExclusiveDispatcher~Params, Return~*
+            #call() Return
+        }
+class ExclusiveDispatcher~Params,Return~{
+            +handler: any
+            #__computed() any
+#bind() void
+        }
+class EventSchema {
+            <<interface>>
+            
+            
+        }
+EventDispatcherBase~T~<|--SingleTargetDispatcher~T~
+EventDispatcherBase~T~<|--MultiTargetDispatcher~T~
+EventDispatcherBase~T~<|--KeyedDispatcher~T,TKey~
+class AutoMap~K,V~{
+            +fallback: (_: K) =~ V
+            +get() V
+        }
+class PrototypeMap~K,V~{
+            +inner: any
+            +setProto() void
++addProto() void
++getProto() {}
+#set() void
+#setClass() void
+#add() void
+#addClass() void
+#get() {}
+#getClass() {}
+        }
+class HookMap~T,P,R~{
+            +inner: PrototypeMap~T, HookCb~T, P, R~~
++chainCache: any
+            #add() void
++getChain() any
+#trigger() void
+#collect() {}
+        }
+class KeySet~K,V~{
+            +map: ReadonlyMap~K, V~
+            +forEach() void
++has() boolean
++entries() IterableIterator~[K, K]~
++keys() IterableIterator~K~
++values() IterableIterator~K~
++__computed() any
+        }
+ReadonlySet~T~<|..KeySet~K,V~
+class State~T~{
+            +watchers: any
++weakWatchers: any
++WatchOnMap: any
++value: T
+            #get() DeepReadonly~T~
+#getSnapshot() T
++update() void
+#watch() WatchHandle
+#watchOn() void
+#__computed() WatchHandle
++removeWatcher() void
++removeWeak() void
+#derived() State~U~
+#derivedI() State~MaybeReturnType~T[N]~~
+#derivedT() State~U~
+#flatten() State~T~
+#inspect() U
+#with() State~[T, ...U]~
+#debug() this
+        }
+class DerivedState~T,U~{
+            +#_c: unknown
++source: State~T~
++map: ROMap~T, U~
+            
+        }
+class MutableTransformer~T,U~{
+            
+            #forwards() U$
+#backwards() T$
+#inverse() MutableTransformer~U, T~
+        }
+class InverseTransformer~T,U~{
+            +inner: MutableTransformer~T, U~
+            #forwards() T
+#backwards() U
+        }
+class MutableExtractor~T,U~{
+            
+            #get() U$
+#patch() T$
+        }
+class FieldExtractor~T,N~{
+            +field: N
+            #get() T[N]
+#patch() T
+        }
+class MutableState~T~{
+            
+            #set() void
+#updateBy() void
+#mutate() void
+#derivedM() MutableState~U~
+#extract() MutableExtracted~T, U~ | MutableExtracted~T, T[N]~
+        }
+class MutableDerived~T,U~{
+            +#handle: unknown
++source: MutableState~T~
++transformer: MutableTransformer~T, U~
+            #set() void
+        }
+class MutableExtracted~T,U~{
+            +#handle: unknown
++source: MutableState~T~
++extractor: MutableExtractor~T, U~
+            #set() void
+        }
+class DeadState~T~{
+            
+            #watch() WatchHandle
+#derived() State~U~
+        }
+class DeferredState~T~{
+            +#_c?: unknown
+            #bind() void
+        }
+class _DeferredState~T~{
+            
+            
+        }
+class CombinedState~T~{
+            +#handles: unknown[]
+            
+        }
+class FlattenedState~T~{
+            +#outerHandle: WatchHandle
++handle: WatchHandle
++source: State~State~T~~
+            
+        }
+class BlockReadonly {
+            <<interface>>
+            +__computed?: unknown
+            
+        }
+class ReadonlyAs~T~ {
+            <<interface>>
+            
+            +__computed() T
+        }
+class WatchHandle {
+            <<interface>>
+            
+            +end() void
++poll() this
+        }
+State~T~<|--DerivedState~T,U~
+MutableTransformer~T,U~<|--InverseTransformer~T,U~
+MutableExtractor~T,U~<|--FieldExtractor~T,N~
+State~T~<|--MutableState~T~
+MutableState~T~<|--MutableDerived~T,U~
+MutableState~T~<|--MutableExtracted~T,U~
+State~T~<|--DeadState~T~
+State~T~<|--DeferredState~T~
+DeferredState~T~<|--_DeferredState~T~
+MutableState~T~<|--CombinedState~T~
+State~T~<|--FlattenedState~T~
+class _StateSet~T~{
+            #size: State~any~*
+            #has() State~never~
+#map() _StateSet~U~
+        }
+class DerivedStateSet~T,U~{
+            +#handle: unknown
+            
+        }
+class MutableStateSet~T~{
+            
+            #add() void
+#delete() any
+#clear() void
+        }
+State~T~<|--_StateSet~T~
+_StateSet~T~<|--DerivedStateSet~T,U~
+_StateSet~T~<|--MutableStateSet~T~
+class TimeoutMap~TKey~{
+            +map: any
++delay: number
++callback: (_: TKey) =~ void
+            #add() void
+#push() void
+#clear() void
+        }
+class OwnedInterval{
+            +fn: () =~ void
+            
+        }
+class PromiseHandle~T~ {
+            <<type>>
+            +resolve: (_: T) =~ void
++reject: (_: unknown) =~ void
+            
+        }
+class CanvasItem{
+            +InitHook: HookMap~CanvasItem, CanvasContext, void~*
++UpdateHook: HookMap~CanvasItem, void, void~*
++PropertiesHook: HookMap~CanvasItem, ItemPropertyStore, PropertySchema~*
+#element: SVGGElement*
++item: Item$
++schemas: { Rectangle?: PropertySchema[]; Ellipse?: PropertySchema[]; Line?: PropertySchema[]; Polygon?: PropertySchema[]; Path?: PropertySchema[]; Image?: PropertySchema[]; Text?: PropertySchema[]; Link?: PropertySchema[]; Tag?: PropertySchema[]; }
++#bounds: any
+            #update() void
++updateItem() void$
+#schemaFor() any
++getBounds() Bounds
+#testIntersection() boolean
+#getLocationUpdate() LocationUpdate$
+#applylocationUpdate() void$
++checkType() void
+#create() CanvasItem
+        }
+class ItemPropertyStore{
+            +currentItems: ItemEntry~"Rectangle" | "Ellipse" | "Line" | "Polygon" | "Path" | "Image" | "Text" | "Link" | "Tag"~[]
++accessorTable: { Rectangle?: AccMap~"Rectangle"~; Ellipse?: AccMap~"Ellipse"~; Line?: AccMap~"Line"~; Polygon?: AccMap~"Polygon"~; Path?: AccMap~"Path"~; Image?: AccMap~...~; Text?: AccMap~...~; Link?: AccMap~...~; Tag?: AccMap~...~; }
++table: BoardTable
+            +getAccessor() ItemAcc~T, N~
+#bindEntries() void
+#getter() this
+#setter() this
++get() any
++set() void
+        }
+class StrokeItem{
+            +item: ({ type: "Rectangle"; } & RectangleItem) | ({ type: "Ellipse"; } & EllipseItem) | ({ type: "Line"; } & LineItem) | ({ type: "Polygon"; } & PolygonItem) | ({ ...; } & PathItem)$
++#stroke?: StrokeHelper
++schema: PropertySchema[]
+            
+        }
+class FillItem{
+            +item: ({ type: "Rectangle"; } & RectangleItem) | ({ type: "Ellipse"; } & EllipseItem) | ({ type: "Polygon"; } & PolygonItem)$
++#fill?: FillHelper
++schema: PropertySchema[]
+            
+        }
+class Image{
+            +elem: SVGGraphicsElement
++item: { type: "Image"; } & ImageItem
+            #updateItem() void
+        }
+class ItemAcc~T,N~ {
+            <<interface>>
+            
+            +getter() PropValue~N~
++setter() void
+        }
+PropertyStore<|--ItemPropertyStore
+CanvasItem<|--StrokeItem
+StrokeItem<|--FillItem
+class Line{
+            +elem: SVGLineElement
++item: { type: "Line"; } & LineItem
+            #updateItem() void
+#getLocationUpdate() LocationUpdate
+#applylocationUpdate() void
+        }
+class Polygon{
+            +elem: SVGPolygonElement
++item: { type: "Polygon"; } & PolygonItem
+            +updatePoints() void
+#updateItem() void
+#getLocationUpdate() LocationUpdate
+#applylocationUpdate() void
+        }
+class Path{
+            +elem: SVGPathElement
++pathHelper: PathHelper
++item: { type: "Path"; } & PathItem
+            #updateItem() void
+        }
+StrokeItem<|--Line
+FillItem<|--Polygon
+class ShapeItem{
+            +innerElem: SVGGraphicsElement
++item: ({ type: "Rectangle"; } & RectangleItem) | ({ type: "Ellipse"; } & EllipseItem)
+            +createElement() SVGGraphicsElement$
+#updateItem() void
+        }
+class Rectangle{
+            
+            +createElement() SVGGraphicsElement
+        }
+class Ellipse{
+            
+            +createElement() SVGGraphicsElement
+        }
+ShapeItem<|--Rectangle
+ShapeItem<|--Ellipse
+class TextRenderer{
+            +lineCache: any
++_lineCache: any
++updateCount: number
++ctx: CanvasContext
++container: SVGTextElement
+            #update() void
++getLine() SVGTSpanElement
++renderLine() SVGTSpanElement
+        }
+class Text{
+            #innerElement: SVGGraphicsElement*
++renderer: TextRenderer
++item: { type: "Text"; } & TextItem
+            #updateItem() void
+        }
+class Link{
+            #innerElement: SVGGElement*
++textElement: SVGTextElement
++item: { type: "Link"; } & LinkItem
+            #updateItem() void
+        }
+class LineEntry {
+            <<type>>
+            +free: Set~SVGTSpanElement~
++used: Set~SVGTSpanElement~
++lastUse: number
+            
+        }

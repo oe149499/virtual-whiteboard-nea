@@ -36,7 +36,7 @@ The full program area should be covered by the **board**
 The program must display a "Toolbox" **panel** which consists of a grid of **tool** icons:
 1. When clicked, the corresponding **tool** will be activated
 2. The icon corresponding to the active **tool** must be indicated or otherwise highlighted
-3. During a **multi-press action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **multi-press action**.
+3. During an **action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **action**.
 ## 1.4 Properties
 The program must display a "Properties" **panel** which contains a list of **properties** relevant to the currently **selected** **item**(s):
 1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited
@@ -97,23 +97,17 @@ The following types of **item** exist:
 		- Description: **string**
 			- An optional description of the image, for screen readers
 5. Text: a text box
-	- The text should be rendered using Markdown to enable formatting
-	- Transform is applied to the text box, not the text itself, so font sizing is unaffected by scaling
-	- If the text can no longer fit in the box after editing, the box should be automatically stretched vertically to accommodate this.
+	- The text should be able to have some basic formatting such as bold/italics
+	- The text should be centred on its origin and each line should be centre-justified
 	- **Properties**: Transform
-		- Font style: Enumeration of a small selection of fonts
-		- Font size: Number (standard font size unit)
 		- Text: **text**
 			- If the **item** is **deselected** while the property consists only of whitespace it should be deleted
-1. Link: a hyperlink
+6. Link: a hyperlink
 	- Displays a clickable link which opens in a new tab 
+	- If no text is entered the URL should be displayed as a fallback
 	- **Properties**: Transform
 		- Text: **string**
 		- URL: **string**
-- Tag: an indexed searchable identifier
-	- **Properties**: Transform
-		- Name: **string**
-		- Data: **string**
 # 3 Tools
 The following **tools** should be available:
 ## 3.1 Selection
@@ -149,15 +143,16 @@ The following **tools** should be available:
 	- On **drag**, draws a path **item**
 	- **Properties**: Stroke (defaults)
 6. Image
-	- On activation, prompts the user to either upload an image or input a URL, then places it at the centre of the screen
-		- The image is then **selected** and the **tool** is then immediately deactivated
+	- On **click**, inserts an Image **item**.
+	- **Properties**
+		- URL: **string** (upload box)
+		- description: **string**
 7. Text
-	- On **click**, creates a Text **item** and moves keyboard focus to editing the text **property**
+	- On **click**, creates an empty Text **item** at the cursor
 8. Link
-	- On **click**, prompts the user to input a description and URL, and places a Link **item** at the cursor
+	- On **click**, places a Link **item** at the cursor
 
 # 4 Editing
-## 4.1 Controls
 The **board** should display an **transform box** around the currently **selected** **item**(s)
 1. The box should consist of non-filled rectangle around the bounding box of the **item**s
 	- If a single **item** is **selected**, and that **item** has a Transform **property**, the bounding box should be rotated and scaled to match the transform
@@ -191,8 +186,7 @@ The board state must be the same across all clients:
 	3. When a client creates an **item**, it will immediately be **selected** and the client may assume this
 ## 5.3 Reliability
 The program must function as expected whenever possible
-1. In the case of network failure, the program should quietly alert the user and enable changes to be made client-side where possible
-	1. The program should attempt to reconnect periodically and notify the user when it is successful
-	2. If a client loses connection while an **item** is **selected**, the **item** will stay **selected**
-	3. Extension - **items** can be reclaimed by the server and **selected** by other clients
+1. In the case of client-side interruption, a session should be able to be resumed where possible
+	1. If a client loses connection while an **item** is **selected**, the **item** will stay **selected**
+	2. Extension - **items** can be reclaimed by the server and **selected** by other clients
 2. In the case of a power failure or unexpected termination of the host, the board should *always* be restorable to a state less than 10 seconds (or a configurable duration) old

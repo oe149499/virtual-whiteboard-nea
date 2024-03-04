@@ -17,8 +17,7 @@ const ItemBuilders = {
 } as { [K in ItemType]?: new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem };
 
 CanvasItem.create = function <K extends ItemType>(ctx: CanvasContext, item: SpecificItem<K>): CanvasItem {
-	const builder = ItemBuilders[item.type];
+	const builder = ItemBuilders[item.type] as undefined | (new (_: CanvasContext, __: SpecificItem<K>) => CanvasItem);
 	if (!builder) throw new Error("unimplemented item type");
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	else return new (builder as any)(ctx, item);
+	else return new builder(ctx, item);
 };

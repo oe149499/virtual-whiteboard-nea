@@ -1,8 +1,8 @@
 import { Logger } from "../Logger.js";
-import { Item, ItemID, Point } from "../gen/Types.js";
+import { Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
-import { MutableState, State, mutableStateOf, stateBy } from "../util/State.js";
-import { CanvasContext, CoordinateMapping, SVGNS } from "./CanvasBase.js";
+import { mutableStateOf, stateBy } from "../util/State.js";
+import { CanvasContext, CoordinateMapping } from "./CanvasBase.js";
 import { CanvasItem, FillItem, ItemPropertyStore, StrokeItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
 import { GestureHandler } from "./Gesture.js";
@@ -10,7 +10,7 @@ import { BoardTable, type ItemEntry } from "../BoardTable.js";
 import { TimeoutMap } from "../util/TimeoutMap.js";
 import { LocalSelection, RemoteSelection } from "./Selection.js";
 import type { PropertyInstance, PropertySchema } from "../Properties.js";
-import { None, anyOf, instanceOf, point } from "../util/Utils.js";
+import { None, anyOf, point } from "../util/Utils.js";
 
 
 const PX_PER_CM = 37.8;
@@ -28,7 +28,7 @@ export class CanvasController {
 	private cursorPos = mutableStateOf(point());
 
 	#svg!: SVGSVGElement;
-	public readonly ctx = new CanvasContext(this.coordMapping, {
+	public readonly ctx: CanvasContext = new CanvasContext(this.coordMapping, {
 		exec: ({ gestures, svg }) => {
 			this.gestures = gestures;
 			this.#svg = svg;
@@ -61,7 +61,7 @@ export class CanvasController {
 		this.currentCursors.mutate(c => c.delete(id));
 	});
 
-	private currentCursors = mutableStateOf(new Set());
+	private currentCursors = mutableStateOf(new Set<number>());
 	public readonly isGesture = this.currentCursors.derived(s => s.size !== 0);
 
 	public readonly propertyStore: ItemPropertyStore;
@@ -102,10 +102,6 @@ export class CanvasController {
 			logger.debug("bounds: ", entry.canvasItem.bounds);
 			if (entry.canvasItem.bounds.testIntersection(target)) yield entry;
 		}
-	}
-
-	public addRawElement(elem: SVGElement) {
-		this.svgElement.appendChild(elem);
 	}
 
 	public readonly origin = this.coordMapping.extract("targetOffset");

@@ -53,13 +53,13 @@ export enum FilterMode {
 	Passthrough,
 }
 
-export interface GestureFilter {
-	layer: GestureLayer;
-	types: GestureType;
-	mode: FilterMode;
-	check(canvasLocation: Point): boolean;
-	handle(gesture: Gesture): void;
-}
+// export interface FilterImpl {
+// 	layer: GestureLayer;
+// 	types: GestureType;
+// 	mode: FilterMode;
+// 	check(canvasLocation: Point): boolean;
+// 	handle(gesture: Gesture): void;
+// }
 
 export interface FilterHandle {
 	pause(): this;
@@ -70,7 +70,7 @@ export interface FilterHandle {
 	removeHandler(type: GestureType): this;
 }
 
-class FilterImpl implements FilterHandle, GestureFilter {
+class FilterImpl implements FilterHandle {
 	public constructor(public readonly layer: GestureLayer, private updateActive: (_: FilterImpl) => void) { }
 
 	public active = true;
@@ -120,8 +120,8 @@ class FilterImpl implements FilterHandle, GestureFilter {
 }
 
 type FilterLayer = {
-	active: Set<GestureFilter>,
-	inactive: WeakSet<GestureFilter>,
+	active: Set<FilterImpl>,
+	inactive: WeakSet<FilterImpl>,
 }
 
 type FilterLayers = Record<GestureLayer, FilterLayer>;

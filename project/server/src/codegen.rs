@@ -3,7 +3,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use std::fs;
+use std::{format, fs, string::String};
 use ts_rs::TS;
 use virtual_whiteboard::message::{
     iterate::IterateSpec, method::MethodSpec, notify_c::NotifyCSpec,
@@ -79,83 +79,99 @@ fn export(target: ExportTarget, content: String) {
     }
 }
 
-macro_rules! export_str {
-	( [
-		$($type:ty,)*
-	] with $param:ident : $ptype:ident => $func:expr ) => {{
-		fn export<$param: $ptype>() -> String {
-			{
-				$func
-			}.into()
-		}
+fn make_spec_export<Spec: TS>(type_imports: &str, exports: String, names: Vec<String>) -> String {
+    let spec_name = Spec::name();
+    let spec_export = Spec::decl();
+    let names_str = names.iter().map(|s| format!("\"{s}\"")).join(", ");
+    format!(
+        r#"
+// @ts-ignore this is generated code
+{type_imports}
 
-		[$(export::<$type>()),*].join("\n")
-	}}
+{exports}
+
+export {spec_export}
+
+export const {spec_name}Names: (keyof {spec_name})[] = {{
+    {names_str}
+}};
+"#
+    )
+}
+
+macro_rules! export_scanner {
+    ( [
+        $($type:ty,)*
+    ] with $param:ident => $func:expr) => {{
+        fn scan<$param: TS>() -> String {$func}
+
+        let mut items = Vec::new();
+
+        let str_data = [$(
+            {
+                items.push(<$type>::name());
+                scan::<$type>()
+            }
+        ),*].join("\n");
+
+        (str_data, items)
+    }}
 }
 
 fn main() {
-    #[allow(non_upper_case_globals)] // Static is only used so that it can be modified in the export macro
-    static mut names: Vec<String> = Vec::new();
-
-    let type_export = {
+    let (type_export, names) = {
         use virtual_whiteboard::{
             canvas as c, canvas::item as i, message as m, message::reject as r,
         };
-        export_str! {
-            [
-            m::ErrorCode,
-            m::Error,
-            m::Result,
-            m::ClientInfo,
-            m::ClientState,
-            m::ConnectionInfo,
-            m::SessionID,
-            m::ClientID,
-            m::ItemID,
-            m::PathID,
-            m::LocationUpdate,
-            m::BatchChanges,
-            r::RejectLevel,
-            r::RejectMessage,
-            r::RejectReason,
+        export_scanner! {
+                [
+                m::ErrorCode,
+                m::Error,
+                m::Result,
+                m::ClientInfo,
+                m::ClientState,
+                m::ConnectionInfo,
+                m::SessionID,
+                m::ClientID,
+                m::ItemID,
+                m::PathID,
+                m::LocationUpdate,
+                m::BatchChanges,
+                r::RejectLevel,
+                r::RejectMessage,
+                r::RejectReason,
 
-            c::Point,
-            c::Color,
-            c::Stroke,
-            c::Angle,
-            c::Transform,
-            c::SplineNode,
-            c::Spline,
+                c::Point,
+                c::Color,
+                c::Stroke,
+                c::Angle,
+                c::Transform,
+                c::SplineNode,
+                c::Spline,
 
-            i::RectangleItem,
-            i::EllipseItem,
-            i::LineItem,
-            i::PolygonItem,
-            i::PathItem,
-            i::ImageItem,
-            i::TextItem,
-            i::LinkItem,
-            i::TagItem,
-            i::Item,
+                i::RectangleItem,
+                i::EllipseItem,
+                i::LineItem,
+                i::PolygonItem,
+                i::PathItem,
+                i::ImageItem,
+                i::TextItem,
+                i::LinkItem,
+                i::TagItem,
+                i::Item,
 
-            virtual_whiteboard::tags::TagID,
-        ] with T : TS => {
-            unsafe { // This is only ever going to run single-threaded so this is OK
-                names.push(T::name());
-            }
-            format!("export {}", T::decl())
-        }}
+                virtual_whiteboard::tags::TagID,
+            ] with T =>format!("export {}", T::decl())
+        }
     };
 
     export(ExportTarget::Types, type_export);
 
-    let names_import = format!(r#"import type {{ {} }} from "./Types";"#, unsafe {
-        names.join(", ")
-    });
+    let names_import = format!(r#"import type {{ {} }} from "./Types";"#, names.join(", "));
 
-    let method_export = {
+    let (method_export, method_names) = {
         use virtual_whiteboard::message::method::*;
-        export_str! {[
+        export_scanner! {[
             SelectionAddItems,
             SelectionRemoveItems,
             SelectionMove,
@@ -169,37 +185,17 @@ fn main() {
             GetAllItemIDs,
             GetAllClientIDs,
             GetClientState,
-        ] with T : TS => {
-            T::decl()
-        }}
+        ] with T => T::decl()}
     };
 
     export(
         ExportTarget::Methods,
-        format!(
-            r#"// @ts-ignore: Generated code
-{names_import}
-
-{}
-
-export {}
-
-export const MethodNames: (keyof MethodSpec)[] = [
-	{}
-];
-"#,
-            method_export,
-            MethodSpec::decl(),
-            MethodSpec::NAMES
-                .iter()
-                .map(|s| format!("\"{}\"", s))
-                .join(", "),
-        ),
+        make_spec_export::<MethodSpec>(&names_import, method_export, method_names),
     );
 
-    let notify_c_export = {
+    let (notify_c_export, notify_c_names) = {
         use virtual_whiteboard::message::notify_c::*;
-        export_str!([
+        export_scanner!([
             ClientJoined,
             ClientConnected,
             ClientDisconnected,
@@ -212,66 +208,25 @@ export const MethodNames: (keyof MethodSpec)[] = [
             ItemsDeleted,
             ItemCreated,
             PathStarted,
-        ] with T : TS => {
-            T::decl()
-        })
+        ] with T => T::decl())
     };
 
     export(
         ExportTarget::NotifyC,
-        format!(
-            r#"// @ts-ignore: Generated code
-{}
-
-{}
-
-export {}
-
-export const NotifyCNames: (keyof NotifyCSpec)[] = [
-	{}
-]"#,
-            names_import,
-            notify_c_export,
-            NotifyCSpec::decl(),
-            NotifyCSpec::NAMES
-                .iter()
-                .map(|s| format!("\"{s}\""))
-                .join(", ")
-        ),
+        make_spec_export::<NotifyCSpec>(&names_import, notify_c_export, notify_c_names),
     );
 
-    let iterate_export = {
+    let (iterate_export, iterate_names) = {
         use virtual_whiteboard::message::iterate::*;
-        export_str!([
+        export_scanner!([
             GetPartialItems,
             GetFullItems,
             GetActivePath,
-            Count,
-        ] with T : TS => {
-            T::decl()
-        })
+        ] with T => T::decl())
     };
 
     export(
         ExportTarget::Iterate,
-        format!(
-            r#"// @ts-ignore: Generated code
-{}
-
-{}
-
-export {}
-
-export const IterateNames: (keyof IterateSpec)[] = [
-    {}
-]"#,
-            names_import,
-            iterate_export,
-            IterateSpec::decl(),
-            IterateSpec::NAMES
-                .iter()
-                .map(|n| format!("\"{n}\""))
-                .join(", "),
-        ),
-    )
+        make_spec_export::<IterateSpec>(&names_import, iterate_export, iterate_names),
+    );
 }

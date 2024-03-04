@@ -24,11 +24,9 @@ const toolBuilder = (list: ConstructorList) =>
 
 
 const EditConstructors: ConstructorList = [
-	["up-down-left-right", ViewTool],
 	["pen", PathTool],
 	["image", ImageTool],
-	["object-group", SelectionTool],
-	["", LineTool],
+	["slash", LineTool],
 	["draw-polygon", PolygonTool],
 	["square", RectangleTool],
 	["circle", EllipseTool],
@@ -40,6 +38,8 @@ const ViewConstructors: ConstructorList = [
 	["magnifying-glass-plus", ZoomTool(zoom => zoom * 1.2)],
 	["magnifying-glass", ZoomTool(_ => PX_PER_CM)],
 	["magnifying-glass-minus", ZoomTool(zoom => zoom / 1.2)],
+	["up-down-left-right", ViewTool],
+	["object-group", SelectionTool],
 ];
 
 export const createEditToolList = toolBuilder(EditConstructors);

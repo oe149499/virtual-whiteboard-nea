@@ -1,26 +1,22 @@
-use std::collections::{self, BTreeMap};
-
-use itertools::Itertools;
 use log::debug;
 use scc::hash_map::Entry;
 use tokio::time::Instant;
 
 use crate::{
     canvas::{item::PathItem, Spline, Transform},
-    client,
     message::{
         self as m,
         method::*,
         notify_c::{
-            ItemCreated, PathStarted, SelectionItemsAdded, SelectionItemsRemoved, SelectionMoved,
-            SingleItemEdited,
+            ItemCreated, ItemsDeleted, PathStarted, SelectionItemsAdded, SelectionItemsRemoved,
+            SelectionMoved, SingleItemEdited,
         },
         reject::helpers::{non_existent_id, resource_not_owned},
         ClientID, ErrorCode, PathID,
     },
 };
 
-use super::{ActivePath, Board, SelectionState};
+use super::{ActivePath, Board};
 
 impl Board {
     pub async fn handle_method(&self, id: ClientID, method: Methods) {
@@ -30,7 +26,6 @@ impl Board {
                 self.handle_selection_remove_items(id, call).await
             }
             Methods::SelectionMove(call) => self.handle_selection_move(id, call).await,
-            Methods::EditBatchItems(call) => self.handle_edit_batch_items(id, call).await,
             Methods::EditSingleItem(call) => self.handle_edit_single_item(id, call).await,
             Methods::DeleteItems(call) => self.handle_delete_items(id, call).await,
             Methods::CreateItem(call) => self.handle_create_item(id, call).await,
@@ -41,6 +36,14 @@ impl Board {
             Methods::GetAllClientIDs(call) => self.handle_get_all_client_ids(id, call).await,
             Methods::GetClientState(call) => self.handle_get_client_state(id, call).await,
         }
+    }
+
+    async fn make_handle<T: MethodType>(
+        &self,
+        id: ClientID,
+        call: Call<T>,
+    ) -> (T, MethodHandle<T>) {
+        call.create_handle(self.get_handle(&id).await)
     }
 
     async fn handle_selection_add_items(&self, id: ClientID, call: Call<SelectionAddItems>) {
@@ -199,8 +202,6 @@ impl Board {
         handle.respond(());
     }
 
-    async fn handle_edit_batch_items(&self, id: ClientID, call: Call<EditBatchItems>) {}
-
     async fn handle_edit_single_item(&self, id: ClientID, call: Call<EditSingleItem>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
 
@@ -230,7 +231,32 @@ impl Board {
         .await;
     }
 
-    async fn handle_delete_items(&self, id: ClientID, call: Call<DeleteItems>) {}
+    async fn handle_delete_items(&self, id: ClientID, call: Call<DeleteItems>) {
+        let (params, handle) = self.make_handle(id, call).await;
+
+        let mut removed = Vec::with_capacity(params.ids.len());
+
+        for item_id in params.ids {
+            if self.check_owned(&id, &handle, item_id).await {
+                self.selected_items.remove_async(&item_id).await;
+                removed.push(item_id);
+            }
+        }
+
+        let mut client = self.get_client(&id).await;
+        for item_id in removed.iter() {
+            client.get_mut().selection.items.remove(&item_id);
+        }
+        drop(client);
+
+        for &item_id in removed.iter() {
+            self.canvas.delete_item(item_id).await;
+        }
+
+        handle.respond(());
+
+        self.send_notify_c(ItemsDeleted { ids: removed }).await;
+    }
 
     async fn handle_create_item(&self, id: ClientID, call: Call<CreateItem>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
@@ -373,16 +399,6 @@ impl Board {
         handle.respond(ids);
     }
 
-    // async fn handle_get_all_client_info(&self, id: ClientID, call: Call<GetAllClientInfo>) {
-    //     let (_, handle) = call.create_handle(self.get_handle(&id).await);
-    //     let mut out = std::collections::BTreeMap::new();
-    //     let client_ids = self.client_ids.read().await;
-    //     for id in client_ids.iter() {
-    //         let info = self.get_client(id).await.get().info.clone();
-    //         out.insert(*id, info);
-    //     }
-    //     handle.respond(out);
-    // }
     async fn handle_get_client_state(&self, id: ClientID, call: Call<GetClientState>) {
         let (params, handle) = call.create_handle(self.get_handle(&id).await);
 

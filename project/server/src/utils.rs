@@ -1,9 +1,4 @@
-use std::hash::Hash;
-
-pub use super::counter;
-
 /// Creates an atomic counter at each invocation site that evaluates to a new value each time
-#[macro_export]
 macro_rules! counter {
     ($tname:ident) => {{
         static COUNTER: std::sync::atomic::$tname = std::sync::atomic::$tname::new(0);
@@ -11,31 +6,23 @@ macro_rules! counter {
     }};
 }
 
-#[allow(unused)]
-macro_rules! counter_impl {
-    ($tname:ident is $pname:ident) => {
-        paste::paste! {
-            pub struct [<Counter $tname>](std::sync::atomic:: [<Atomic $tname>]);
+pub(crate) use counter;
 
-            impl [<Counter $tname>] {
-                pub fn new() -> Self {
-                    Self(0.into())
-                }
+pub struct CounterU64(std::sync::atomic::AtomicU64);
 
-                pub fn next(&self) -> $pname {
-                    self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-                }
+impl CounterU64 {
+    pub fn new() -> Self {
+        Self(0.into())
+    }
 
-                pub fn get(&self) -> $pname {
-                    self.0.load(std::sync::atomic::Ordering::Relaxed)
-                }
-            }
-        }
-    };
+    pub fn next(&self) -> u64 {
+        self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub fn get(&self) -> u64 {
+        self.0.load(std::sync::atomic::Ordering::Relaxed)
+    }
 }
-
-counter_impl! {U32 is u32}
-counter_impl! {U64 is u64}
 
 pub struct ResultIter<T, E, TIter: Iterator<Item = Result<T, E>>>(TIter);
 
@@ -63,5 +50,3 @@ pub trait IterExt: Iterator {
 }
 
 impl<T: Iterator> IterExt for T {}
-
-// struct ErrLogger<T, E, F: Fn(E) -> T>(F);

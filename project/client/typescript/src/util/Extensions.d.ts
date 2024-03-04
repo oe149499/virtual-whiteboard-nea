@@ -62,6 +62,17 @@ declare global {
 		addHandlers(handlers: EventMap<this>): this;
 	}
 
+	interface PromiseWithResolvers<T> {
+		promise: Promise<T>;
+		resolve: (value: T | PromiseLike<T>) => void;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		reject: (reason?: any) => void;
+	}
+
+	interface PromiseConstructor {
+		withResolvers<T>(): PromiseWithResolvers<T>;
+	}
+
 	interface Promise<T> {
 		maxTimeout(time: number): Promise<Result<T, number>>;
 	}

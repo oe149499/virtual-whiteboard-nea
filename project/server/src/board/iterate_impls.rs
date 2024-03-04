@@ -1,6 +1,6 @@
 use crate::message::{
     self,
-    iterate::{Count, GetActivePath, GetFullItems, IterateCall, Iterates},
+    iterate::{GetActivePath, GetFullItems, IterateCall, Iterates},
     ClientID,
 };
 
@@ -9,23 +9,10 @@ use super::Board;
 impl Board {
     pub async fn handle_iterate(&self, id: ClientID, call: Iterates) {
         match call {
-            Iterates::Count(call) => self.handle_count(id, call).await,
             Iterates::GetPartialItems(_) => todo!(),
             Iterates::GetFullItems(call) => self.handle_get_full_items(id, call).await,
             Iterates::GetActivePath(call) => self.handle_get_active_path(id, call).await,
         }
-    }
-
-    async fn handle_count(&self, id: ClientID, call: IterateCall<Count>) {
-        let (params, mut handle) = call.get_handle(self.get_client(&id).await.get().handle.clone());
-
-        for i in params.from..=params.to {
-            handle.add_item(i);
-            if rand::random::<u8>() < 16 {
-                handle.flush_response();
-            }
-        }
-        handle.finalize();
     }
 
     async fn handle_get_full_items(&self, id: ClientID, call: IterateCall<GetFullItems>) {

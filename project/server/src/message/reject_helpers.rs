@@ -2,12 +2,14 @@
 
 use super::RejectReason;
 
+/// An ID linking to some sort of thing on the server
 trait ResourceType {
     const NAME: &'static str;
 
     fn value(&self) -> u32;
 }
 
+/// Helper to generate the repetitive implementations
 macro_rules! resource_types {
     (
 		$($target:ty: $name:literal)*
@@ -16,7 +18,7 @@ macro_rules! resource_types {
 			impl ResourceType for $target {
 				const NAME: &'static str = $name;
 
-				fn value(&self) ->  u32 {
+				fn value(&self) -> u32 {
 					**self
 				}
 			}

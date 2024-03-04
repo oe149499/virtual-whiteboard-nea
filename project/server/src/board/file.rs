@@ -1,11 +1,9 @@
 //! Implementation of boards stored on disk;
 
-use clap::builder::Str;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
-    ffi::{OsStr, OsString},
     fs::DirEntry,
     io::{self, Seek, Write},
     path::{Path, PathBuf},
@@ -14,9 +12,9 @@ use std::{
 use crate::{
     canvas::{ActiveCanvas, Item},
     utils::IterExt,
-    GlobalRes,
 };
 
+/// Helper for `serde(default)`
 const fn _true() -> bool {
     true
 }
@@ -50,7 +48,6 @@ impl BoardFileHandle {
     }
 
     pub async fn load_canvas(&mut self) -> io::Result<ActiveCanvas> {
-        // let mut data = String::new();
         let data = tokio::fs::read(&self.file_path).await?;
 
         let parsed = serde_json::from_slice::<BoardFile>(&data).map_err(|e| {
@@ -74,18 +71,18 @@ impl BoardFileHandle {
 
         let mut file = std::fs::File::create(&self.temp_path)?;
 
-        serde_json::to_writer(&file, &self.attrs).expect("Failed to serialize attrs");
-        file.seek(io::SeekFrom::Current(-1))
-            .expect("Failed to seek to after attrs");
-        file.write(br#","items":["#).unwrap();
+        serde_json::to_writer(&file, &self.attrs)?;
+        // Clear the closing brace and start the item list
+        file.seek(io::SeekFrom::Current(-1))?;
+        file.write(br#","items":["#)?;
 
         canvas
             .scan_items(|id, item| {
                 if !seen_ids.contains(&id) {
                     trace!("Serialising item {id:?} during autosave");
                     seen_ids.insert(id);
-                    serde_json::to_writer(&file, item).expect("Failed to serialize item");
-                    file.write(b",").unwrap();
+                    serde_json::to_writer(&file, item);
+                    file.write(b",");
                 }
             })
             .await;
@@ -97,8 +94,6 @@ impl BoardFileHandle {
         file.sync_all().unwrap();
 
         drop(file);
-
-        std::fs::remove_file(&self.file_path);
 
         std::fs::rename(&self.temp_path, &self.file_path).expect("Failed to overwrite board file");
 

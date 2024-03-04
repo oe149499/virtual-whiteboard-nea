@@ -3,8 +3,6 @@ mod active;
 mod file;
 mod manager;
 
-use std::sync::{Arc, Weak};
-
 pub use manager::BoardManager;
 
 use crate::{
@@ -14,6 +12,7 @@ use crate::{
 use log::{error, warn};
 use tokio::sync::oneshot;
 
+/// All of the types of events the board can receive
 enum BoardMessage {
     ClientMessage(ClientID, MsgRecv),
     SessionRequest(

@@ -1,15 +1,18 @@
 import { ClientInfo, ConnectionInfo, Result } from "../gen/Types";
 
-const API_ROOT = new URL("/api/", window.location.href);
-const MEDIA_ROOT = new URL("/media/", window.location.href);
+function API_URL(name: string, ...parts: (string | number)[]) {
+	return `/api/${name}/${parts.join("/")}`;
+}
 
-const FILE_URL = new URL("upload", API_ROOT);
-const START_TIME_URL = new URL("start_time", API_ROOT);
+const MEDIA_URL = (path: string) => `/media/${path}`;
+
+const UPLOAD_URL = API_URL("upload");
+const START_TIME_URL = API_URL("start_time");
 
 
 export const API = Object.freeze({
 	openSession(boardName: string, info: ClientInfo): Promise<Result<ConnectionInfo>> {
-		const url = new URL(`board/${boardName}`, API_ROOT);
+		const url = API_URL("board", boardName);//new URL(`board/${boardName}`, API_ROOT);
 		const response = fetch(url, {
 			method: "POST",
 			body: JSON.stringify(info),
@@ -25,11 +28,11 @@ export const API = Object.freeze({
 	uploadFile(file: File) {
 		const formData = new FormData();
 		formData.set("file", file);
-		return fetch(FILE_URL, {
+		return fetch(UPLOAD_URL, {
 			method: "POST",
 			body: formData,
 		}).then(response => response.text())
-			.then(name => new URL(name, MEDIA_ROOT));
+			.then(name => MEDIA_URL(name));
 	},
 
 	startTime: fetch(START_TIME_URL)

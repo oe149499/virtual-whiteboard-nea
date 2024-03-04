@@ -122,10 +122,10 @@ The full program area should be covered by the **board**
 The program must display a "Toolbox" **panel** which consists of a grid of **tool** icons:
 1. When clicked, the corresponding **tool** will be activated
 2. The icon corresponding to the active **tool** must be indicated or otherwise highlighted
-3. During a **multi-press action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **multi-press action**.
+3. During an **action**, the toolbox should be **disabled** and its **visibility button** replaced with a button to cancel the **action**.
 ###  1.4 Properties
 The program must display a "Properties" **panel** which contains a list of **properties** relevant to the currently **selected** **item**(s):
-1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited, any **item**-specific actions, along with the ability to delete the **item**
+1. When a single **item** is **selected**, each of the **properties** of the **item** are listed and can be edited
 2. The following **properties** should be omitted as they can be edited interactively with the **selection box**:
 	1. Transform
 	2. Start/End points for Line
@@ -138,8 +138,10 @@ The program must display a "Properties" **panel** which contains a list of **pro
 ###  1.5 View controls
 The program must display a "View" **panel** with the following buttons:
 1. Zoom in
-2. Zoom out
-3. Reset zoom
+2. Reset zoom
+3. Zoom out
+4. Pan
+5. Select Items
 
 ##  2 Items
 A **board** may contain any number of **item**s, which are the basic visual pieces of the board
@@ -165,7 +167,6 @@ The following types of **item** exist:
 		- **Properties**: Stroke
 			- Start: **point**
 			- End: **point**
-		- Actions: Swap start/end
 	2. Polygon: a closed loop of points:
 		- **Properties**: Stroke, Fill
 			- Vertices: **list\[point\]**
@@ -182,26 +183,17 @@ The following types of **item** exist:
 		- Description: **string**
 			- An optional description of the image, for screen readers
 5. Text: a text box
-	- The text should be rendered using Markdown to enable formatting
-	- Transform is applied to the text box, not the text itself, so font sizing is unaffected by scaling
-	- If the text can no longer fit in the box after editing, the box should be automatically stretched vertically to accommodate this.
+	- The text should be able to have some basic formatting such as bold/italics
+	- The text should be centred on its origin and each line should be centre-justified
 	- **Properties**: Transform
-		- Font style: Enumeration of a small selection of fonts
-		- Font size: Number (standard font size unit)
 		- Text: **text**
 			- If the **item** is **deselected** while the property consists only of whitespace it should be deleted
-	- Actions:
-		- Bold, Italic, Strikethrough, Underline
-			- Apply the formatting options (through Markdown) around the cursor (or the whole field if nothing is selected)
-1. Link: a hyperlink
+6. Link: a hyperlink
 	- Displays a clickable link which opens in a new tab 
+	- If no text is entered the URL should be displayed as a fallback
 	- **Properties**: Transform
 		- Text: **string**
 		- URL: **string**
-- Tag: an indexed searchable identifier
-	- **Properties**: Transform
-		- Name: **string**
-		- Data: **string**
 ##  3 Tools
 The following **tools** should be available:
 ###  3.1 Selection
@@ -237,15 +229,16 @@ The following **tools** should be available:
 	- On **drag**, draws a path **item**
 	- **Properties**: Stroke (defaults)
 6. Image
-	- On activation, prompts the user to either upload an image or input a URL, then places it at the centre of the screen
-		- The image is then **selected** and the **tool** is then immediately deactivated
+	- On **click**, inserts an Image **item**.
+	- **Properties**
+		- URL: **string** (upload box)
+		- description: **string**
 7. Text
-	- On **click**, creates a Text **item** and moves keyboard focus to editing the text **property**
+	- On **click**, creates an empty Text **item** at the cursor
 8. Link
-	- On **click**, prompts the user to input a description and URL, and places a Link **item** at the cursor
+	- On **click**, places a Link **item** at the cursor
 
 ##  4 Editing
-###  4.1 Controls
 The **board** should display an **transform box** around the currently **selected** **item**(s)
 1. The box should consist of non-filled rectangle around the bounding box of the **item**s
 	- If a single **item** is **selected**, and that **item** has a Transform **property**, the bounding box should be rotated and scaled to match the transform
@@ -254,8 +247,9 @@ The **board** should display an **transform box** around the currently **selecte
 2. The box should be computed once at the beginning of the **selection** and not change relative to the **item**s while the **selection** is active
 	- The exception to this is Text and Link **items**, which may change size when edited. As such, no modification to any **item** which may change its size is permitted while multiple **item**s are selected
 3. At the corners and midpoints of the edges of the **transform box**, there should be square stretch handles:
-	- Midpoint handles stretch the **item**(s) only in the direction normal to the edge, such that the opposite edge is not affected by the movement
-	- Corner handles stretch the **item**(s) such that the opposite corner does not move and the aspect ratio of the **selection** is unchanged
+	- Both types of handle stretch the selection relative to its centre
+	- Midpoint handles stretch the **item**(s) only in the direction normal to the edge
+	- Corner handles stretch the **item**(s) in both axes evenly
 4. At the "top" of the **transform box** there should be a circular rotation handle
 	- Dragging the handle rotates the **selection** around its centre
 5. A drag action anywhere else in the **transform box** should translate the **item**(s) along the mouse movement
@@ -266,7 +260,7 @@ The program should enable multiple clients to edit and view a **board** simultan
 ###  5.1 Synchronicity
 Any edits made to the **board** should be displayed on other clients with minimal delay:
 1. The creation of simple **item**s should be immediately synchronised
-2. The beginning of path-like **item**s should be immediately synchronised, and any incremental stages should be shared within one second of the individual stage being sent. (This enables bundling of edits in the case of limited bandwidth)
+2. The beginning of path **item**s should be immediately synchronised, and any incremental stages should be shared within one second of the individual stage being sent.
 3. Any edits made to existing **item**s should be shared within one second of the edit
 ###  5.2 Consistency
 The board state must be the same across all clients:
@@ -278,10 +272,9 @@ The board state must be the same across all clients:
 	3. When a client creates an **item**, it will immediately be **selected** and the client may assume this
 ###  5.3 Reliability
 The program must function as expected whenever possible
-1. In the case of network failure, the program should quietly alert the user and enable changes to be made client-side where possible
-	1. The program should attempt to reconnect periodically and notify the user when it is successful
-	2. If a client loses connection while an **item** is **selected**, the **item** will stay **selected** for a configurable duration before other clients are able to **select** it
-	3. Conflicting changes made during the interruption should be resolved by following the most recent edit
+1. In the case of client-side interruption, a session should be able to be resumed where possible
+	1. If a client loses connection while an **item** is **selected**, the **item** will stay **selected**
+	2. Extension - **items** can be reclaimed by the server and **selected** by other clients
 2. In the case of a power failure or unexpected termination of the host, the board should *always* be restorable to a state less than 10 seconds (or a configurable duration) old
 # 3 Documented Design
 ## 3.1 Key algorithms
@@ -1570,8 +1563,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	
 	runtime.block_on(async move {
 		info!("Loading boards");
-		// The board manager should stay alive for the lifetime of the program
-		let boards = BoardManager::new(&args.board_root.as_std_path());
+		let boards = BoardManager::new(args.board_root.as_std_path());
 		
 		let res = GlobalResources::new(boards, config).as_static();
 		
@@ -1612,6 +1604,2123 @@ fn create_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
 		.or(script_filter)
 		.or(media_filter)
 		.boxed();
+}
+
+```
+### 4.2.2 codegen.rs
+```rust
+#![cfg(feature = "codegen")]
+use camino::Utf8PathBuf;
+use clap::Parser;
+use itertools::Itertools;
+use lazy_static::lazy_static;
+use std::{format, fs, string::String};
+use ts_rs::TS;
+use virtual_whiteboard::message::{
+	iterate::IterateSpec, method::MethodSpec, notify_c::NotifyCSpec,
+};
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+
+struct Args {
+	#[arg(short = 'o', long = "out-dir")]
+	output_root: Utf8PathBuf,
+	
+	#[arg(short = 't', long, default_value_t = false)]
+	types: bool,
+	
+	#[arg(short = 'm', long, default_value_t = false)]
+	methods: bool,
+	
+	#[arg(short = 'c', long = "notify-c", default_value_t = false)]
+	notify_c: bool,
+	
+	#[arg(short = 'i', long = "iterate", default_value_t = false)]
+	iterate: bool,
+	
+	#[arg(short = 'd', long, default_value_t = false)]
+	dry_run: bool,
+}
+
+enum ExportTarget {
+	Types,
+	Methods,
+	NotifyC,
+	Iterate,
+}
+
+impl ExportTarget {
+	fn to_str(&self) -> &'static str {
+		match self {
+			Self::Types => "Types",
+			Self::Methods => "Methods",
+			Self::NotifyC => "NotifyC",
+			Self::Iterate => "Iterate",
+		}
+	}
+	
+	fn is_enabled(&self) -> bool {
+		match self {
+			Self::Types => ARGS.types,
+			Self::Methods => ARGS.methods,
+			Self::NotifyC => ARGS.notify_c,
+			Self::Iterate => ARGS.iterate,
+		}
+	}
+}
+
+lazy_static! {
+	static ref ARGS: Args = Args::parse();
+}
+
+fn export(target: ExportTarget, content: String) {
+	if !target.is_enabled() {
+		return;
+	}
+	
+	let path = ARGS.output_root.join(format!("{}.ts", target.to_str()));
+	
+	if ARGS.dry_run {
+		println!("======== BEGIN [{}] ========", path,);
+		println!("{}", content);
+		println!("======== END [{}] ========", path);
+	} else {
+		fs::write(path, content).unwrap();
+	}
+}
+
+fn make_spec_export<Spec: TS>(type_imports: &str, exports: String, names: Vec<String>) -> String {
+	let spec_name = Spec::name();
+	let spec_export = Spec::decl();
+	let names_str = names.iter().map(|s| format!("\"{s}\"")).join(", ");
+	format!(
+		r#"
+// @ts-ignore this is generated code
+{type_imports}
+
+{exports}
+
+export {spec_export}
+
+export const {spec_name}Names: (keyof {spec_name})[] = {{
+	{names_str}
+}};
+"#
+	)
+}
+
+macro_rules! export_scanner {
+	( [
+		$($type:ty,)*
+	] with $param:ident => $func:expr) => {{
+		fn scan<$param: TS>() -> String {$func}
+		
+		let mut items = Vec::new();
+		
+		let str_data = [$(
+			{
+				items.push(<$type>::name());
+				scan::<$type>()
+			}
+		),*].join("\n");
+		
+		(str_data, items)
+	}}
+}
+
+fn main() {
+	let (type_export, names) = {
+		use virtual_whiteboard::{
+			canvas as c, canvas::item as i, message as m, message::reject as r,
+		};
+		export_scanner! {
+				[
+				m::ErrorCode,
+				m::Error,
+				m::Result,
+				m::ClientInfo,
+				m::ClientState,
+				m::ConnectionInfo,
+				m::SessionID,
+				m::ClientID,
+				m::ItemID,
+				m::PathID,
+				m::LocationUpdate,
+				m::BatchChanges,
+				r::RejectLevel,
+				r::RejectMessage,
+				r::RejectReason,
+				
+				c::Point,
+				c::Color,
+				c::Stroke,
+				c::Angle,
+				c::Transform,
+				c::SplineNode,
+				c::Spline,
+				
+				i::RectangleItem,
+				i::EllipseItem,
+				i::LineItem,
+				i::PolygonItem,
+				i::PathItem,
+				i::ImageItem,
+				i::TextItem,
+				i::LinkItem,
+				i::TagItem,
+				i::Item,
+				
+				virtual_whiteboard::tags::TagID,
+			] with T =>format!("export {}", T::decl())
+		}
+	};
+	
+	export(ExportTarget::Types, type_export);
+	
+	let names_import = format!(r#"import type {{ {} }} from "./Types";"#, names.join(", "));
+	
+	let (method_export, method_names) = {
+		use virtual_whiteboard::message::method::*;
+		export_scanner! {[
+			SelectionAddItems,
+			SelectionRemoveItems,
+			SelectionMove,
+			EditBatchItems,
+			EditSingleItem,
+			DeleteItems,
+			CreateItem,
+			BeginPath,
+			ContinuePath,
+			EndPath,
+			GetAllItemIDs,
+			GetAllClientIDs,
+			GetClientState,
+		] with T => T::decl()}
+	};
+	
+	export(
+		ExportTarget::Methods,
+		make_spec_export::<MethodSpec>(&names_import, method_export, method_names),
+	);
+	
+	let (notify_c_export, notify_c_names) = {
+		use virtual_whiteboard::message::notify_c::*;
+		export_scanner!([
+			ClientJoined,
+			ClientConnected,
+			ClientDisconnected,
+			ClientExited,
+			SelectionItemsAdded,
+			SelectionItemsRemoved,
+			SelectionMoved,
+			BatchItemsEdited,
+			SingleItemEdited,
+			ItemsDeleted,
+			ItemCreated,
+			PathStarted,
+		] with T => T::decl())
+	};
+	
+	export(
+		ExportTarget::NotifyC,
+		make_spec_export::<NotifyCSpec>(&names_import, notify_c_export, notify_c_names),
+	);
+	
+	let (iterate_export, iterate_names) = {
+		use virtual_whiteboard::message::iterate::*;
+		export_scanner!([
+			GetPartialItems,
+			GetFullItems,
+			GetActivePath,
+		] with T => T::decl())
+	};
+	
+	export(
+		ExportTarget::Iterate,
+		make_spec_export::<IterateSpec>(&names_import, iterate_export, iterate_names),
+	);
+}
+
+```
+### 4.2.3 lib.rs
+```rust
+//! The virtual whiteboard
+
+#![recursion_limit = "256"] // TT munching
+#![warn(missing_docs)]
+
+#[path = "board/board.rs"]
+pub mod board;
+#[path = "canvas/canvas.rs"]
+pub mod canvas;
+pub mod client;
+#[path = "message/message.rs"]
+pub mod message;
+#[path = "tags/tags.rs"]
+pub mod tags;
+pub mod upload;
+mod utils;
+
+use std::{path::PathBuf, time::SystemTime};
+
+use board::BoardManager;
+use client::{create_client_filter, SessionRegistry};
+use upload::create_upload_filter;
+use warp::{filters::BoxedFilter, reply::Reply, Filter};
+
+pub use upload::create_media_filter;
+
+/// Global options for the application
+#[derive(derive_builder::Builder)]
+pub struct Configuration {
+	/// Path to static files
+	pub static_root: PathBuf,
+	/// Path to script files
+	pub script_root: PathBuf,
+	/// Path to media files (upload and serving)
+	pub media_root: PathBuf,
+	/// Path to stored boards
+	pub board_root: PathBuf,
+	/// Whether or not to serve TypeScript files as well as generated JS
+	pub serve_ts: bool,
+}
+
+/// A container of all resources shared across parts of the application
+pub struct GlobalResources {
+	/// See [`BoardManager`]
+	pub boards: BoardManager,
+	sessions: SessionRegistry,
+	/// See [`Configuration`]
+	pub config: Configuration,
+}
+
+/// A reference-counted wrapper of [`GlobalResources`]
+pub type GlobalRes = &'static GlobalResources;
+
+impl GlobalResources {
+	/// Initialise the structure with the given fields
+	pub fn new(boards: BoardManager, config: Configuration) -> Self {
+		Self {
+			boards,
+			sessions: SessionRegistry::default(),
+			config,
+		}
+	}
+	
+	/// Move [`self`] into a leaked static reference
+	pub fn as_static(self) -> GlobalRes {
+		Box::leak(Box::new(self))
+	}
+}
+
+fn create_start_time_filter() -> BoxedFilter<(impl Reply,)> {
+	let time = SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis()
+		.to_string()
+		.into_boxed_str();
+		
+	// Leak and reborrow immutably
+	let time = &*Box::leak(time);
+	
+	warp::path("start_time").map(move || time).boxed()
+}
+
+/// Create a warp [`Filter`] handling all dynamic paths
+pub fn create_api_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	create_start_time_filter()
+		.or(create_client_filter(res))
+		.or(create_upload_filter(res))
+		.boxed()
+}
+
+/// Create a warp [`Filter`] serving static files
+pub fn create_static_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	warp::fs::dir(res.config.static_root.to_owned()).boxed()
+}
+
+/// Create a warp [`Filter`] serving scripts, and optionally the original source files
+pub fn create_script_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	let main_filter = warp::fs::dir(res.config.script_root.join("out"));
+	if res.config.serve_ts {
+		warp::path("source")
+			.and(warp::fs::dir(res.config.script_root.join("src")))
+			.or(main_filter)
+			.unify()
+			.boxed()
+	} else {
+		main_filter.boxed()
+	}
+}
+
+```
+### 4.2.4 utils.rs
+```rust
+/// Creates an atomic counter at each invocation site that evaluates to a new value each time
+macro_rules! counter {
+	($tname:ident) => {{
+		static COUNTER: std::sync::atomic::$tname = std::sync::atomic::$tname::new(0);
+		COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+	}};
+}
+
+pub(crate) use counter;
+
+pub struct CounterU64(std::sync::atomic::AtomicU64);
+
+impl CounterU64 {
+	pub fn new() -> Self {
+		Self(0.into())
+	}
+	
+	pub fn next(&self) -> u64 {
+		self.0.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+	}
+	
+	pub fn get(&self) -> u64 {
+		self.0.load(std::sync::atomic::Ordering::Relaxed)
+	}
+}
+
+pub struct ResultIter<T, E, TIter: Iterator<Item = Result<T, E>>>(TIter);
+
+impl<T, E, TIter: Iterator<Item = Result<T, E>>> Iterator for ResultIter<T, E, TIter> {
+	type Item = T;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		loop {
+			match self.0.next() {
+				Some(Ok(val)) => return Some(val),
+				Some(Err(_)) => continue,
+				None => return None,
+			}
+		}
+	}
+}
+
+pub trait IterExt: Iterator {
+	fn filter_ok<T, E>(self) -> ResultIter<T, E, Self>
+	where
+		Self: Iterator<Item = Result<T, E>> + Sized,
+	{
+		ResultIter(self)
+	}
+}
+
+impl<T: Iterator> IterExt for T {}
+
+```
+### 4.2.5 upload.rs
+```rust
+//! API routes for file uploads
+
+use std::{
+	io,
+	path::Path,
+	time::{SystemTime, UNIX_EPOCH},
+};
+
+use futures_util::StreamExt;
+use tokio::io::AsyncWriteExt;
+use warp::{
+	filters::{
+		multipart::{FormData, Part},
+		BoxedFilter,
+	},
+	reply::Reply,
+	Filter,
+};
+
+use crate::{utils::counter, GlobalRes};
+
+/// Get a semi-unique ID for a file by combining the current time with an execution-unique value
+///
+/// The only way collisions could occur would be if multiple instances were running in parallel, which would already be a bad idea
+fn get_file_id() -> String {
+	let time = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("This code should not be running before the UNIX epoch")
+		.as_micros();
+	let count = counter!(AtomicUsize);
+	format!("{time}-{count}")
+}
+
+async fn try_upload_part(target: &Path, mut part: Part) -> io::Result<String> {
+	// Attempt to extract just a filename from the provided input
+	let name = part
+		.filename()
+		.and_then(|n| Path::new(n).file_name())
+		.ok_or_else(|| io::Error::other("Unable to extract filename"))?;
+		
+	let id = get_file_id();
+	let mut path = target.join(&id);
+	tokio::fs::create_dir_all(&path).await?;
+	// The path returned to the client
+	let resource_path = format!(
+		"{id}/{}",
+		name.to_str()
+			.ok_or_else(|| io::Error::other("Unable to convert name to str"))?
+	);
+	path.push(name);
+	
+	let mut file = tokio::fs::File::create(&path).await?;
+	while let Some(Ok(mut buf)) = part.data().await {
+		file.write_all_buf(&mut buf).await?;
+	}
+	
+	file.flush().await?;
+	file.sync_all().await?;
+	return Ok(resource_path);
+}
+
+/// Create a filter that receives files and stores them
+pub fn create_upload_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	let target = &*res.config.media_root;
+	let form_options = warp::multipart::form().max_length(1024 * 1024 * 64);
+	warp::path("upload")
+		.and(warp::post())
+		.and(form_options)
+		.and_then(move |mut form: FormData| async move {
+			while let Some(Ok(part)) = form.next().await {
+				if part.name() == "file" {
+					if let Ok(name) = try_upload_part(target, part).await {
+						return Ok(name);
+					}
+				}
+			}
+			Err(warp::reject())
+		})
+		.boxed()
+}
+
+/// Create a filter for serving uploaded files
+pub fn create_media_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	warp::fs::dir(res.config.media_root.to_owned()).boxed()
+}
+
+```
+### 4.2.6 client.rs
+```rust
+//! Interfacing with clients
+//! The main interface of this module is [`create_client_filter`], which builds a filter to forward WebSocket requests to a board
+
+use futures_util::{SinkExt, StreamExt};
+use log::{error, info, warn};
+use tokio::sync::mpsc;
+use warp::{
+	filters::{
+		ws::{Message, WebSocket, Ws},
+		BoxedFilter,
+	},
+	reject::Rejection,
+	reply::Reply,
+	Filter,
+};
+
+use crate::{
+	board::BoardHandle,
+	message::{ClientID, ClientInfo, MsgRecv, MsgSend, SessionID},
+	GlobalRes,
+};
+
+/// An opaque payload that can be duplicated and sent to multiple clients
+pub struct MessagePayload(Vec<u8>);
+
+impl MessagePayload {
+	/// Create a new stored payload from the send message
+	pub fn new(msg: &MsgSend) -> Self {
+		Self(serde_json::to_vec(msg).expect("Failed to serialize payload"))
+	}
+}
+
+enum ClientMessage {
+	Payload(Vec<u8>),
+}
+
+/// A handle used to send messages mack to a client
+#[derive(Debug, Clone)]
+pub struct ClientHandle {
+	message_pipe: mpsc::UnboundedSender<ClientMessage>,
+}
+
+impl ClientHandle {
+	fn new() -> (Self, mpsc::UnboundedReceiver<ClientMessage>) {
+		let (sender, receiver) = mpsc::unbounded_channel();
+		(
+			Self {
+				message_pipe: sender,
+			},
+			receiver,
+		)
+	}
+	
+	fn send(&self, message: ClientMessage) {
+		self.message_pipe.send(message).unwrap_or_else(|e| {
+			warn!("Failed to dispatch message to client: {e}");
+		})
+	}
+	
+	fn send_data(&self, data: Vec<u8>) {
+		self.send(ClientMessage::Payload(data))
+	}
+	
+	/// Dispatch a message to a client
+	pub fn send_message(&self, message: MsgSend) {
+		let payload = MessagePayload::new(&message);
+		self.send_data(payload.0);
+	}
+	
+	/// Send a copy of an existing [`MessagePayload`]
+	pub fn send_payload(&self, payload: &MessagePayload) {
+		self.send_data(payload.0.clone())
+	}
+}
+
+/// Max request body length for session creation (1KiB but subject to change)
+pub static MAX_SESSION_CREATE_LENGTH: u64 = 1024;
+
+#[derive(Clone)]
+struct Session {
+	client_id: ClientID,
+	handle: BoardHandle,
+}
+
+impl Session {
+	fn connect(&self, handle: ClientHandle) {
+		self.handle.client_connected(self.client_id, handle)
+	}
+	
+	fn disconnect(&self) {
+		self.handle.client_disconnected(self.client_id)
+	}
+	
+	fn message(&self, msg: MsgRecv) {
+		self.handle.client_msg(self.client_id, msg)
+	}
+}
+
+type RegistryInner = tokio::sync::RwLock<std::collections::HashMap<SessionID, Session>>;
+
+/// Lookup table of session IDs
+#[derive(Default)]
+pub struct SessionRegistry(RegistryInner);
+
+fn create_session_filter(
+	registry: &'static RegistryInner,
+) -> impl Filter<Extract = impl Reply, Error = Rejection> {
+	warp::path("session")
+		.and(warp::path::param())
+		.and(warp::ws())
+		.and_then(move |id: SessionID, ws: Ws| async move {
+			let sessions = registry.read().await;
+			if let Some(session) = sessions.get(&id) {
+				let session = session.clone();
+				Ok(ws.on_upgrade(|ws| async { handle_session(session, ws).await }))
+			} else {
+				Err(warp::reject())
+			}
+		})
+}
+
+/// Create the board route as a [`Filter`]
+pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+	let session = create_session_filter(&res.sessions.0);
+	
+	let session_create: _ = warp::path!("board" / String)
+		.and(warp::body::content_length_limit(MAX_SESSION_CREATE_LENGTH))
+		.and(warp::body::json())
+		.and_then(|name, info: ClientInfo| async {
+			if let Some(handle) = res.boards.load_board(name).await {
+				let session = handle.create_session(info).await;
+				if let Ok(info) = &session {
+					if let Some(_) = res.sessions.0.write().await.insert(
+						info.session_id,
+						Session {
+							client_id: info.client_id,
+							handle,
+						},
+					) {
+						error!("Duplicate session ID: {:?}", info.session_id);
+					}
+				}
+				use crate::message::Result;
+				Ok(
+					serde_json::to_string(&Result::from(session)).unwrap_or_else(|e| {
+						error!("Failed to serialize response: {e}");
+						String::new()
+					}),
+				)
+			} else {
+				Err(warp::reject())
+			}
+		});
+	session.or(session_create).boxed()
+}
+
+async fn handle_session(session: Session, ws: WebSocket) {
+	let (mut tx, mut rx) = ws.split();
+	
+	let (handle, mut board_recv) = ClientHandle::new();
+	
+	session.connect(handle);
+	
+	tokio::task::spawn(async move {
+		while let Some(msg) = board_recv.recv().await {
+			match msg {
+				ClientMessage::Payload(msg) => {
+					tx.send(Message::binary(msg))
+						.await
+						.unwrap_or_else(|e| warn!("Failed to send WebSocket message: {e}"));
+				}
+			}
+		}
+	});
+	
+	while let Some(Ok(msg)) = rx.next().await {
+		if msg.is_close() {
+			session.disconnect();
+			info!("Socket closed");
+		} else {
+			match serde_json::from_slice(msg.as_bytes()) {
+				Ok(msg) => session.message(msg),
+				Err(e) => {
+					info!(
+						"Received malformed message from client: {e}\n{}",
+						msg.to_str().unwrap_or(""),
+					)
+				}
+			}
+		}
+	}
+}
+
+```
+### 4.2.7 canvas/canvas.rs
+```rust
+//! Collection of types relating to board objects
+
+pub mod active;
+pub mod item;
+
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+pub use active::ActiveCanvas;
+pub use item::Item;
+
+/// A global location on the board plane
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct Point {
+	x: f64,
+	y: f64,
+}
+
+/// A CSS-compatible color
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct Color(String);
+
+/// A descriptor for how to render a line
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct Stroke {
+	/// The thickness of the line, from one side to the other
+	pub width: f64,
+	/// The color of the line
+	pub color: Color,
+}
+
+/// An angle, measured in degrees clockwise
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct Angle(f64);
+
+/// A mapping used to position objects on the board
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename_all = "camelCase")]
+pub struct Transform {
+	/// The global coordinate which the object is centered on and which all other transformations are relative to
+	pub origin: Point,
+	
+	/// The basis vector of the original X-direction
+	pub basis_x: Point,
+	
+	/// The Y-direction basis vector
+	pub basis_y: Point,
+}
+
+impl Default for Transform {
+	fn default() -> Self {
+		Self {
+			origin: Point::default(),
+			basis_x: Point { x: 1.0, y: 0.0 },
+			basis_y: Point { x: 0.0, y: 1.0 },
+		}
+	}
+}
+
+/// A point along a [`Spline`]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct SplineNode {
+	/// The position of the node
+	pub position: Point,
+	/// The direction of the curve at the node
+	pub velocity: Point,
+}
+
+/// ### May change at a later date
+/// A curved path, currently represented as a series of [`SplineNode`]s
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[non_exhaustive]
+pub struct Spline {
+	/// The points the path travels through
+	pub points: Vec<SplineNode>,
+}
+
+```
+### 4.2.8 canvas/item.rs
+```rust
+//! The item types themselves
+
+use super::{Color, Point, Spline, Stroke, Transform};
+use crate::{
+	message::{reject::RejectReason, ItemID, LocationUpdate},
+	tags::TagID,
+};
+use paste::paste;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+macro_rules! item_enum {
+	{
+		$(#[$($attr:tt)*])*
+		enum $enum_name:ident { $($name:ident),* }
+	} => {
+		$(#[$($attr)*])*
+		pub enum $enum_name {
+			$(
+				$name(paste!([<$name Item>])),
+			)*
+		}
+		
+		$(
+			impl paste!([<$name Item>]) {
+				/// Wraps self in the Item enum
+				pub fn to_item(self) -> $enum_name {
+					$enum_name::$name(self)
+				}
+			}
+		)*
+	}
+}
+
+item_enum! {
+	/// A union of all Item types, see the individual types for more information
+	#[derive(Serialize, Deserialize, Debug, Clone)]
+	#[cfg_attr(feature = "codegen", derive(TS))]
+	#[serde(tag = "type")]
+	#[non_exhaustive]
+	#[allow(missing_docs)]
+	enum Item {
+		Rectangle,
+		Ellipse,
+		Line,
+		Polygon,
+		Path,
+		Image,
+		Text,
+		Link,
+		Tag
+	}
+}
+
+impl Item {
+	/// Attempt to update the position of an item, returning the original location if the update is invalid
+	pub fn apply_location_update(
+		&mut self,
+		id: ItemID,
+		update: &LocationUpdate,
+	) -> Result<(), (LocationUpdate, RejectReason)> {
+		macro_rules! transform_types {
+			{
+				$($name:ident),* ($item:ident) => $te:expr,
+				$(
+					$oname:ident($si:ident) => $e:expr
+				),*$(,)?
+			} => {
+				match self {
+					$(
+						Self::$name($item) => {
+							$te
+						},
+					)*
+					$(
+						Self::$oname($si) => $e,
+					)*
+				}
+			};
+		}
+		
+		let t = transform_types! {
+			Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
+				if let LocationUpdate::Transform(t) = update {
+					item.transform = t.clone();
+					Ok(())
+				} else { Err((
+					LocationUpdate::Transform(item.transform.clone()),
+					"Transform",
+					"Point[]"
+				))}
+			},
+			Line(item) => {
+				if let LocationUpdate::Points(p) = update {
+					if p.len() == 2 {
+						item.start = p[0];
+						item.end = p[1];
+						Ok(())
+					} else { Err((
+						LocationUpdate::Points(vec![item.start, item.end]),
+						"Point[2]",
+						"Point[]"
+					))}
+				} else { Err((
+					LocationUpdate::Points(vec![item.start, item.end]),
+					"Point[2]",
+					"Transform"
+				))}
+			},
+			Polygon(item) => {
+				if let LocationUpdate::Points(p) = update {
+					item.points = p.clone();
+					Ok(())
+				} else { Err((
+					LocationUpdate::Points(item.points.clone()),
+					"Point[]",
+					"Transform"
+				))}
+			},
+		};
+		
+		t.map_err(|(update, expected, received)| {
+			(
+				update,
+				RejectReason::IncorrectType {
+					key: Some(id.to_string()),
+					expected,
+					received: received.to_string(),
+				},
+			)
+		})
+	}
+}
+
+/// A rectangle.
+///
+/// NOTE: The size is implemented through the [`Transform`], instead of a separate property
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct RectangleItem {
+	pub transform: Transform,
+	pub stroke: Stroke,
+	pub fill: Color,
+}
+
+/// An ellipse
+///
+/// NOTE: The size is implemented through the [`Transform`], instead of a separate property
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct EllipseItem {
+	pub transform: Transform,
+	pub stroke: Stroke,
+	pub fill: Color,
+}
+
+/// A line segment between two points
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct LineItem {
+	pub start: Point,
+	pub end: Point,
+	pub stroke: Stroke,
+}
+
+/// A closed loop of points
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct PolygonItem {
+	pub points: Vec<Point>,
+	pub stroke: Stroke,
+	pub fill: Color,
+}
+
+/// A hand-drawn path between two points
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct PathItem {
+	pub transform: Transform,
+	pub path: Spline,
+	pub stroke: Stroke,
+}
+
+/// An image stored in a URL
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct ImageItem {
+	pub transform: Transform,
+	pub url: String,
+	pub description: String,
+}
+
+/// A text box, rendered with Markdown
+///
+/// NOTE: The [`Transform`] controls the text box, not the text itself
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct TextItem {
+	pub transform: Transform,
+	pub text: String,
+}
+
+/// A hyperlink
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+pub struct LinkItem {
+	pub transform: Transform,
+	pub url: String,
+	pub text: String,
+}
+
+/// An indexed tag
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct TagItem {
+	#[allow(missing_docs)]
+	pub transform: Transform,
+	/// The ID of the tag type
+	pub id: TagID,
+	/// The data associated with the tag
+	pub data: String,
+}
+
+```
+### 4.2.9 canvas/active.rs
+```rust
+//! An implementation of a currently active canvas
+
+use std::{
+	collections::BTreeSet,
+	ops::{Deref, DerefMut},
+	sync::atomic::{AtomicU32, Ordering},
+};
+
+use scc::hash_map::OccupiedEntry;
+use tokio::sync::RwLock;
+
+use crate::{message::ItemID, utils::CounterU64};
+
+use super::Item;
+
+/// An open canvas
+pub struct ActiveCanvas {
+	next_id: AtomicU32,
+	item_ids: RwLock<BTreeSet<ItemID>>,
+	items: scc::HashMap<ItemID, Item>,
+	edit_count: CounterU64,
+}
+
+/// A lock-holding reference to an item on the board
+pub struct ItemRef<'a>(OccupiedEntry<'a, ItemID, Item>, &'a CounterU64);
+
+impl<'a> Deref for ItemRef<'a> {
+	type Target = Item;
+	fn deref(&self) -> &Self::Target {
+		self.0.get()
+	}
+}
+
+impl<'a> DerefMut for ItemRef<'a> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		self.1.next();
+		self.0.get_mut()
+	}
+}
+
+impl ActiveCanvas {
+	/// Create a new empty canvas
+	pub fn new_empty() -> Self {
+		Self {
+			next_id: AtomicU32::new(1),
+			item_ids: Default::default(),
+			items: Default::default(),
+			edit_count: CounterU64::new(),
+		}
+	}
+	
+	fn get_id(&self) -> ItemID {
+		let val = self.next_id.fetch_add(1, Ordering::Relaxed);
+		ItemID(val)
+	}
+	
+	/// Get a reference to an item on the canvas
+	pub async fn get_ref(&self, id: ItemID) -> Option<ItemRef> {
+		Some(ItemRef(self.items.get_async(&id).await?, &self.edit_count))
+	}
+	
+	/// Retrieve the specified item if present
+	pub async fn get_item(&self, id: ItemID) -> Option<Item> {
+		Some(self.items.get_async(&id).await?.get().clone())
+	}
+	
+	/// Insert a new item on the canvas and return an ID for it
+	pub async fn add_item(&self, item: Item) -> ItemID {
+		let id = self.get_id();
+		self.items
+			.insert_async(id, item)
+			.await
+			.expect("Duplicate Item ID, something is wrong");
+		self.item_ids.write().await.insert(id);
+		self.edit_count.next();
+		id
+	}
+	
+	/// Insert a new item synchronously from an exclusive reference
+	pub fn add_item_owned(&mut self, item: Item) -> ItemID {
+		let id = self.get_id();
+		self.items
+			.insert(id, item)
+			.expect("Duplicate Item ID, something is wrong");
+		self.item_ids.get_mut().insert(id);
+		id
+	}
+	
+	/// Run the provided callback on each item in the canvas
+	pub async fn scan_items(&self, mut f: impl FnMut(ItemID, &Item)) {
+		self.items.scan_async(|&id, item| f(id, item)).await
+	}
+	
+	/// Get a vector of all current Item IDs
+	pub async fn get_item_ids(&self) -> Vec<ItemID> {
+		self.item_ids.read().await.iter().cloned().collect()
+	}
+	
+	/// Try to read the current ItemIDs without blocking
+	pub fn get_item_ids_sync(&self) -> Result<Vec<ItemID>, ()> {
+		let ids = self.item_ids.try_read().or(Err(()))?;
+		Ok(ids.iter().cloned().collect())
+	}
+}
+
+```
+### 4.2.10 message/message.rs
+```rust
+//! Types associated with communication between client and server
+
+pub mod iterate;
+pub mod method;
+pub mod notify_c;
+pub mod reject;
+use std::str::FromStr;
+
+use derive_more::Deref;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+use crate::canvas::{Color, Point, Stroke, Transform};
+
+#[derive(Deserialize, Debug)]
+#[serde(tag = "protocol")]
+/// A message received from a client
+pub enum MsgRecv {
+	/// A method call expecting a response
+	Method(method::Methods),
+	/// A method call expecting a streamed response
+	Iterate(iterate::Iterates),
+}
+
+/// A message sent to a client
+#[derive(Serialize, Debug)]
+#[serde(tag = "protocol")]
+pub enum MsgSend {
+	/// A response to a method call
+	Response(method::Responses),
+	
+	/// A notification for clients
+	#[serde(rename = "Notify-C")]
+	NotifyC(notify_c::NotifyC),
+	
+	/// A segment of an iteration response
+	#[serde(rename = "Response-Part")]
+	IterateResponse(iterate::IterateResponses),
+	
+	/// A failure message
+	Reject(reject::RejectMessage),
+}
+
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// A generic error code that indicates a problem with a request
+pub enum ErrorCode {
+	/// The request attempted to access a resource which is currently in use by another client
+	NotAvailable,
+	/// An internal server error happened, no further information is available
+	Internal,
+	/// The requested resource does not exist
+	NotFound,
+	/// The path was not created due to the length being 0
+	EmptyPath,
+	/// Data provided is incompatible with the target operation
+	BadData,
+}
+
+impl Into<Error> for ErrorCode {
+	fn into(self) -> Error {
+		Error::code(self)
+	}
+}
+
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename = "ErrMsg")]
+/// An error code with an explanation
+pub struct Error {
+	/// The error code
+	pub code: ErrorCode,
+	/// The error explanation
+	pub msg: Option<String>,
+}
+
+impl Error {
+	/// Preset for internal errors
+	pub fn internal() -> Self {
+		Self {
+			code: ErrorCode::Internal,
+			msg: None,
+		}
+	}
+	
+	/// Create an error from just a code
+	pub fn code(code: ErrorCode) -> Self {
+		Self { code, msg: None }
+	}
+}
+
+/// Copy of [`std::result::Result`] to enable generation of TS types.
+///
+/// Convenient default type parameters are also set.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(tag = "status", content = "value")]
+pub enum Result<T = (), TErr = Error> {
+	/// Success
+	Ok(T),
+	/// Failure
+	Err(TErr),
+}
+pub use self::Result::{Err, Ok};
+
+impl<T, E> From<core::result::Result<T, E>> for Result<T, E> {
+	fn from(value: core::result::Result<T, E>) -> Self {
+		match value {
+			core::result::Result::Ok(v) => Result::Ok(v),
+			core::result::Result::Err(v) => Result::Err(v),
+		}
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[non_exhaustive]
+/// The information describing a client
+pub struct ClientInfo {
+	/// The client's name
+	pub name: String,
+}
+
+/// Full representation of a client's status
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct ClientState {
+	pub info: ClientInfo,
+	pub paths: Vec<PathID>,
+	pub selected_items: Vec<(ItemID, Transform)>,
+	pub selection_transform: Transform,
+}
+
+/// Identification provided to clients
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionInfo {
+	/// See [`ClientID`]
+	pub client_id: ClientID,
+	/// See [`SessionID`]
+	pub session_id: SessionID,
+}
+
+#[derive(Serialize, Deserialize, Deref, PartialEq, Eq, Hash, Debug, Clone, Copy)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// A private ID used to verify reconnects
+pub struct SessionID(u32);
+
+impl SessionID {
+	/// Atomically create a new unique [`SessionID`]
+	pub fn new() -> Self {
+		Self(crate::utils::counter!(AtomicU32))
+	}
+}
+
+impl FromStr for SessionID {
+	type Err = <u32 as FromStr>::Err;
+	fn from_str(s: &str) -> core::result::Result<Self, Self::Err> {
+		core::result::Result::Ok(Self(s.parse()?))
+	}
+}
+
+#[derive(
+	Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// A public ID shared with other clients
+pub struct ClientID(u32);
+
+impl ClientID {
+	/// Atomically create a new uniquw [`ClientID`]
+	pub fn new() -> Self {
+		Self(crate::utils::counter!(AtomicU32))
+	}
+}
+
+#[derive(
+	Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// A board-unique ID for each [`crate::canvas::Item`]
+pub struct ItemID(pub u32);
+
+/// A unique ID for each active path
+#[derive(
+	Serialize, Deserialize, Deref, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Clone, Copy,
+)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct PathID(pub u32);
+
+impl PathID {
+	/// Atomically create a new unique [`PathID`]
+	pub fn new() -> Self {
+		Self(crate::utils::counter!(AtomicU32))
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// A piece of location data which could describe either a [`Transform`] or [`Point`]-based [`crate::canvas::Item`]
+pub enum LocationUpdate {
+	/// The new [`Transform`] of the item
+	Transform(Transform),
+	/// The new set of [`Point`]s of the item
+	Points(Vec<Point>),
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// The edits that can be made to multiple [`crate::canvas::Item`]s at the same time
+pub struct BatchChanges {
+	/// The new fill [`Color`] for the items
+	pub fill: Option<Color>,
+	/// The new [`Stroke`] information for the items
+	pub stroke: Option<Stroke>,
+}
+
+```
+### 4.2.11 message/method.rs
+```rust
+//! Method call signatures and helper types
+
+use std::marker::PhantomData;
+
+use crate::client::ClientHandle;
+
+use super::{
+	reject::{RejectLevel, RejectMessage, RejectReason},
+	MsgSend,
+};
+use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+/// The information describing a method call
+pub trait MethodType {
+	/// The name of the method
+	const NAME: &'static str;
+	
+	/// The type that should be sent back to the client
+	#[cfg(not(feature = "codegen"))]
+	type Response: Serialize + Sized;
+	
+	#[cfg(feature = "codegen")]
+	type Response: Serialize + Sized + TS;
+	
+	/// Wrap self in the [`Responses`] enum
+	fn wrap_response(data: Response<Self>) -> Responses;
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+/// An object representing a method call packet
+pub struct Call<T: MethodType> {
+	/// The call ID for the client to associate the response with the call
+	id: u32,
+	#[serde(flatten)]
+	/// The call parameters
+	pub params: T,
+}
+
+/// A reference to the information needed to reply to a method
+pub struct MethodHandle<T: MethodType> {
+	id: u32,
+	client: Option<ClientHandle>,
+	_t: PhantomData<T>,
+}
+
+impl<T: MethodType> Call<T> {
+	/// Deconstruct self into parameters and a [`MethodHandle`]
+	pub fn create_handle(self, client: Option<ClientHandle>) -> (T, MethodHandle<T>) {
+		(
+			self.params,
+			MethodHandle {
+				id: self.id,
+				client,
+				_t: PhantomData,
+			},
+		)
+	}
+}
+
+impl<T: MethodType> MethodHandle<T> {
+	/// Send a response to the client
+	pub fn respond(self, value: T::Response) {
+		if let Some(client) = self.client {
+			let response = T::wrap_response(Response { id: self.id, value });
+			client.send_message(MsgSend::Response(response));
+		}
+	}
+	
+	fn send_reject(&self, reason: RejectReason, level: RejectLevel) {
+		if let Some(client) = &self.client {
+			let message = RejectMessage {
+				request_protocol: T::NAME,
+				request_id: Some(self.id),
+				level,
+				reason,
+			};
+			client.send_message(MsgSend::Reject(message));
+		}
+	}
+	
+	/// Reply with an error rejection
+	pub fn error(self, reason: RejectReason) {
+		self.send_reject(reason, RejectLevel::Error)
+	}
+	
+	/// Reply with a warning rejection
+	pub fn warn(&self, reason: RejectReason) {
+		self.send_reject(reason, RejectLevel::Warning)
+	}
+}
+
+impl<T: MethodType<Response = super::Result<TOk, TErr>>, TOk, TErr> MethodHandle<T> {
+	/// Construct a return packet from a [`super::Result::Ok`] value
+	pub fn ok(self, value: TOk) {
+		self.respond(super::Result::Ok(value))
+	}
+	
+	/// Construct a return packet from a [`super::Result::Err`] value
+	pub fn err(self, value: TErr) {
+		self.respond(super::Result::Err(value))
+	}
+}
+
+/// An object representing a method return packet
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct Response<T: MethodType + ?Sized> {
+	/// See [`Call::id`]
+	id: u32,
+	/// The return value
+	pub value: T::Response,
+}
+
+macro_rules! method_declarations {
+	{
+		$(#[$($eattr:tt)*])*
+		enum $enum_name:ident => $response_enum_name:ident;
+		spec $spec_name:ident;
+		$(
+			$(#[$($attr:tt)*])*
+			fn $name:ident (
+				$(
+					$(#[$($pattr:tt)*])*
+					$pname:ident : $ptype:ty,
+				)*
+			) => $rtype:ty
+		)*
+	} => {
+		paste::paste!{
+			$(#[$($eattr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(tag = "name")]
+			#[allow(missing_docs)]
+			pub enum $enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name (Call<$name>),
+				)*
+			}
+			
+			#[derive(Serialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(untagged)]
+			#[allow(missing_docs)]
+			pub enum $response_enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name (Response<$name>),
+				)*
+			}
+			
+			#[cfg(feature = "codegen")]
+			#[allow(non_snake_case, unused)]
+			#[derive(TS)]
+			pub struct $spec_name {
+				$(
+					$name: ($name, $rtype),
+				)*
+			}
+		}
+		$(
+			$(#[$($attr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(rename_all = "camelCase")]
+			pub struct $name {
+				$(
+					$(#[$($pattr)*])*
+					pub $pname : $ptype,
+				)*
+			}
+			
+			
+			impl MethodType for $name {
+				type Response = $rtype;
+				
+				const NAME: &'static str = stringify!($name);
+				
+				fn wrap_response(r: Response<Self>) -> Responses {
+					Responses::$name(r)
+				}
+			}
+		)*
+	}
+}
+
+pub use _methods::*;
+#[allow(non_snake_case, missing_docs)]
+mod _methods {
+	use super::*;
+	use crate::{
+		canvas::{Item, SplineNode, Stroke, Transform},
+		message::{self as m, BatchChanges, ClientID, ClientState, ItemID, LocationUpdate, PathID},
+	};
+	
+	method_declarations! {
+		enum Methods => Responses;
+		spec MethodSpec;
+		/// Attempt to add a set of items to the client's selection
+		fn SelectionAddItems(
+			new_srt: Transform,
+			old_sits: Vec<(ItemID, Transform)>,
+			new_sits: Vec<(ItemID, Transform)>,
+		) => Vec<m::Result>
+		
+		/// Remove a set of items from the client's selection.
+		/// This operation should be either fully successful or fully unsuccessful
+		fn SelectionRemoveItems(items: Vec<(ItemID, LocationUpdate)>,) => m::Result
+		
+		fn SelectionMove(
+			new_srt: Transform,
+			#[serde(default)]
+			#[cfg_attr(feature = "codegen", ts(optional))]
+			new_sits: Option<Vec<(ItemID, Transform)>>,
+		) => ()
+		
+		/// Apply a [`BatchChanges`] to the set of items
+		fn EditBatchItems(ids: Vec<ItemID>, changes: BatchChanges,) => Vec<m::Result>
+		
+		/// Replace/Merge \[TODO: Clarify/decide] an item with a new item
+		fn EditSingleItem(item_id: ItemID, item: Item,) => m::Result
+		
+		/// Delete multiple items from the board
+		fn DeleteItems(ids: Vec<ItemID>,) => Vec<m::Result>
+		
+		/// Create a new item
+		fn CreateItem(item: Item,) => ItemID
+		
+		/// Start a new path
+		fn BeginPath(stroke: Stroke,) => PathID
+		
+		/// Continue the path
+		fn ContinuePath(path_id: PathID, points: Vec<SplineNode>,) => ()
+		
+		/// Close the path
+		fn EndPath(path_id: PathID,) => m::Result<ItemID>
+		
+		/// Get a list of every ID on the board
+		fn GetAllItemIDs() => Vec<ItemID>
+		
+		/// Get a list of every client ID
+		fn GetAllClientIDs() => Vec<ClientID>
+		
+		/// Get the state of a client
+		fn GetClientState(client_id: ClientID,) => ClientState
+	}
+}
+
+```
+### 4.2.12 message/iterate.rs
+```rust
+//! Multipart methods
+#![allow(missing_docs)]
+use std::mem;
+
+use paste::paste;
+use serde::{Deserialize, Serialize};
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+use crate::{
+	canvas::{Item, SplineNode},
+	client::ClientHandle,
+};
+
+use super::{
+	reject::{RejectLevel, RejectMessage, RejectReason},
+	ItemID, MsgSend, PathID,
+};
+
+pub trait IterateType: Sized {
+	/// The name of the call
+	const NAME: &'static str;
+	
+	#[cfg(not(feature = "codegen"))]
+	type Item: Serialize;
+	
+	#[cfg(feature = "codegen")]
+	type Item: Serialize + TS;
+	
+	fn make_response(r: IterateResponse<Self>) -> IterateResponses;
+}
+
+#[derive(Deserialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct IterateCall<M: IterateType> {
+	id: u32,
+	#[serde(flatten)]
+	pub params: M,
+}
+
+impl<M: IterateType> IterateCall<M> {
+	/// Extract parameters and convert into a response handle
+	pub fn get_handle(self, client: Option<ClientHandle>) -> (M, IterateHandle<M>) {
+		(
+			self.params,
+			IterateHandle {
+				id: self.id,
+				current_part: 0,
+				current_items: Vec::new(),
+				client,
+			},
+		)
+	}
+}
+
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub struct IterateResponse<M: IterateType> {
+	id: u32,
+	complete: bool,
+	part: u32,
+	items: Vec<M::Item>,
+}
+
+impl<M: IterateType> IterateResponse<M> {
+	/// Wrap [`Self`] in a [`MsgSend`]
+	pub fn to_msg(self) -> MsgSend {
+		MsgSend::IterateResponse(M::make_response(self))
+	}
+}
+
+#[derive(Debug)]
+pub struct IterateHandle<M: IterateType> {
+	id: u32,
+	current_part: u32,
+	current_items: Vec<M::Item>,
+	client: Option<ClientHandle>,
+}
+
+impl<M: IterateType> IterateHandle<M> {
+	pub fn add_item(&mut self, item: M::Item) -> &mut Self {
+		self.current_items.push(item);
+		self
+	}
+	
+	pub fn add_items(&mut self, items: &[M::Item]) -> &mut Self
+	where
+		M::Item: Clone,
+	{
+		self.current_items.extend_from_slice(items);
+		self
+	}
+	
+	pub fn flush_response(&mut self) {
+		let items = mem::replace(&mut self.current_items, Vec::new());
+		let response = IterateResponse::<M> {
+			id: self.id,
+			complete: false,
+			part: self.current_part,
+			items,
+		};
+		self.current_part += 1;
+		if let Some(client) = &self.client {
+			client.send_message(response.to_msg());
+		}
+	}
+	
+	pub fn finalize(self) {
+		if let Some(client) = self.client {
+			client.send_message(
+				IterateResponse::<M> {
+					id: self.id,
+					complete: true,
+					part: self.current_part,
+					items: self.current_items,
+				}
+				.to_msg(),
+			);
+		}
+	}
+	
+	fn send_reject(&self, reason: RejectReason, level: RejectLevel) {
+		if let Some(client) = &self.client {
+			let message = RejectMessage {
+				request_protocol: M::NAME,
+				request_id: Some(self.id),
+				level,
+				reason,
+			};
+			client.send_message(MsgSend::Reject(message));
+		}
+	}
+	
+	/// Reply with an error rejection
+	pub fn error(self, reason: RejectReason) {
+		self.send_reject(reason, RejectLevel::Error)
+	}
+	
+	/// Reply with a warning rejection
+	pub fn warn(&self, reason: RejectReason) {
+		self.send_reject(reason, RejectLevel::Warning)
+	}
+}
+
+macro_rules! iterate_declarations {
+	{
+		$(#[$($eattr:tt)*])*
+		enum $enum_name:ident => $response_enum_name:ident;
+		spec $spec_name:ident;
+		$(
+			$(#[$($attr:tt)*])*
+			$name:ident (
+				$(
+					$(#[$($pattr:tt)*])*
+					$pname:ident : $ptype:ty,
+				)*
+			) => $itype:ty
+		)*
+	} => {
+		paste!{
+			$(#[$($eattr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(tag = "name")]
+			pub enum $enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name (IterateCall<$name>),
+				)*
+			}
+			
+			#[derive(Serialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(untagged)]
+			pub enum $response_enum_name {
+				$(
+					#[doc = "See `[" $name "`] for more information"]
+					$name (IterateResponse<$name>),
+				)*
+			}
+			
+			#[allow(non_snake_case, unused)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			pub struct $spec_name {
+				$(
+					$name: ($name, $itype),
+				)*
+			}
+		}
+		$(
+			$(#[$($attr)*])*
+			#[derive(Deserialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			pub struct $name {
+				$(
+					$(#[$($pattr)*])*
+					pub $pname : $ptype,
+				)*
+			}
+			
+			
+			impl IterateType for $name {
+				const NAME: &'static str = stringify!($name);
+				type Item = $itype;
+				
+				fn make_response(r: IterateResponse<Self>) -> IterateResponses {
+					IterateResponses::$name(r)
+				}
+			}
+		)*
+	}
+}
+
+iterate_declarations! {
+	enum Iterates => IterateResponses;
+	spec IterateSpec;
+	
+	GetPartialItems(
+		ids: Vec<ItemID>,
+	) => super::Result<Item>
+	
+	GetFullItems(
+		ids: Vec<ItemID>,
+	) => super::Result<(ItemID, Item)>
+	
+	GetActivePath(
+		path: PathID,
+	) => SplineNode
+}
+
+```
+### 4.2.13 message/notify_c.rs
+```rust
+#![allow(missing_docs)] // API is documented in design section
+//! Types associated with server-to-client notification messages
+
+use crate::canvas::{Item, Stroke, Transform};
+
+use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend, PathID};
+use paste::paste;
+use serde::Serialize;
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+/// An individual Notify-C message type that can be converted into a message
+pub trait NotifyCType: Sized {
+	/// Wrap self into an instance of the [`NotifyC`] enumeration
+	fn as_notify(self) -> NotifyC;
+	
+	/// Wrap self fully into a sendable message
+	fn as_msg(self) -> MsgSend {
+		MsgSend::NotifyC(self.as_notify())
+	}
+}
+
+macro_rules! notify_c_declarations {
+	{
+		$(#[$($eattr:tt)*])*
+		enum $enum_name:ident;
+		spec $spec_name:ident;
+		$(
+			$(#[$($attr:tt)*])*
+			$name:ident (
+				$(
+					$(#[$($pattr:tt)*])*
+					$pname:ident : $ptype:ty,
+				)*
+			)
+		)*
+	} => {
+		paste!{
+			$(#[$($eattr)*])*
+			#[derive(Serialize, Debug)]
+			#[serde(tag = "name")]
+			pub enum $enum_name {
+				$(
+					#[doc = "See [`" $name "`] for more information"]
+					$name ($name),
+				)*
+			}
+			
+			#[cfg(feature = "codegen")]
+			#[derive(TS)]
+			#[allow(non_snake_case, unused)] // Special reflection structure
+			pub struct $spec_name {
+				$(
+					$name: $name,
+				)*
+			}
+		}
+		$(
+			$(#[$($attr)*])*
+			#[derive(Serialize, Debug)]
+			#[cfg_attr(feature = "codegen", derive(TS))]
+			#[serde(rename_all = "camelCase")]
+			pub struct $name {
+				$(
+					$(#[$($pattr)*])*
+					pub $pname : $ptype,
+				)*
+			}
+			
+			impl NotifyCType for $name {
+				fn as_notify(self) -> NotifyC {
+					NotifyC::$name(self)
+				}
+			}
+		)*
+	}
+}
+
+notify_c_declarations! {
+	/// The enumeration of all Notify-C types
+	enum NotifyC;
+	spec NotifyCSpec;
+	
+	/// A new client has joined the board (not necessarily connected)
+	ClientJoined (
+		/// The client's ID
+		id: ClientID,
+		/// The client's information
+		info: ClientInfo,
+	)
+	
+	/// A client has established a connection with the board
+	ClientConnected (
+		/// The client's ID
+		id: ClientID,
+	)
+	
+	ClientDisconnected (
+		id: ClientID,
+	)
+	
+	ClientExited (
+		id: ClientID,
+	)
+	
+	SelectionItemsAdded (
+		id: ClientID,
+		items: Vec<ItemID>,
+		new_srt: Transform,
+	)
+	
+	SelectionItemsRemoved (
+		id: ClientID,
+		items: Vec<(ItemID, LocationUpdate)>,
+	)
+	
+	SelectionMoved (
+		id: ClientID,
+		transform: Transform,
+		#[serde(skip_serializing_if = "Option::is_none")]
+		#[cfg_attr(feature = "codegen", ts(optional))]
+		new_sits: Option<Vec<(ItemID, Transform)>>,
+	)
+	
+	BatchItemsEdited (
+		ids: Vec<ItemID>,
+		changes: BatchChanges,
+	)
+	
+	SingleItemEdited (
+		id: ItemID,
+		item: Item,
+	)
+	
+	ItemsDeleted (
+		ids: Vec<ItemID>,
+	)
+	
+	ItemCreated (
+		id: ItemID,
+		client: ClientID,
+		item: Item,
+	)
+	
+	PathStarted (
+		client: ClientID,
+		stroke: Stroke,
+		path: PathID,
+	)
+}
+
+impl NotifyC {
+	/// Wrap self in [`MsgSend`]
+	pub fn as_msg(self) -> MsgSend {
+		MsgSend::NotifyC(self)
+	}
+}
+
+```
+### 4.2.14 message/reject.rs
+```rust
+//! Messages informing of illegal requests made by clients
+//! Only used when the client *could have* known that a request was guaranteed to fail, as opposed to failing based on simultaneous actions by other clients
+
+use serde::Serialize;
+#[cfg(feature = "codegen")]
+use ts_rs::TS;
+
+#[path = "./reject_helpers.rs"]
+pub mod helpers;
+
+/// A generic rejection message for any failed request
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[serde(rename_all = "camelCase")]
+pub struct RejectMessage {
+	/// The protocol used by the request
+	pub request_protocol: &'static str,
+	
+	#[serde(skip_serializing_if = "Option::is_none")]
+	/// The ID of the request, if applicable
+	pub request_id: Option<u32>,
+	
+	/// Whether or not the rejection should cause a client-side error
+	pub level: RejectLevel,
+	
+	/// The reason the request was bad
+	pub reason: RejectReason,
+}
+
+/// The severity of the error
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+pub enum RejectLevel {
+	/// The error does not obstruct further logic
+	Warning = 0,
+	/// The error obstructs further logic and is likely sent instead of a response
+	Error = 1,
+}
+
+/// Category of a rejection
+#[derive(Serialize, Debug)]
+#[cfg_attr(feature = "codegen", derive(TS))]
+#[allow(missing_docs)]
+#[serde(tag = "type")]
+pub enum RejectReason {
+	NonExistentID {
+		id_type: &'static str,
+		value: u32,
+	},
+	IncorrectType {
+		#[serde(skip_serializing_if = "Option::is_none")]
+		key: Option<String>,
+		expected: &'static str,
+		received: String,
+	},
+	MalformedMessage {
+		location: String,
+	},
+	ResourceNotOwned {
+		resource_type: &'static str,
+		target_id: u32,
+	},
+}
+
+```
+### 4.2.15 message/reject_helpers.rs
+```rust
+//! Helper functions to generate reject messages
+
+use super::RejectReason;
+
+/// An ID linking to some sort of thing on the server
+trait ResourceType {
+	const NAME: &'static str;
+	
+	fn value(&self) -> u32;
+}
+
+/// Helper to generate the repetitive implementations
+macro_rules! resource_types {
+	(
+		$($target:ty: $name:literal)*
+	) => {
+		$(
+			impl ResourceType for $target {
+				const NAME: &'static str = $name;
+				
+				fn value(&self) -> u32 {
+					**self
+				}
+			}
+		)*
+	};
+}
+
+resource_types! {
+	crate::message::ItemID: "Item"
+	crate::message::PathID: "Path"
+	crate::message::ClientID: "Client"
+}
+
+/// Shorthand for creating a [`RejectReason::ResourceNotOwned`]
+#[allow(private_bounds)]
+pub fn resource_not_owned<T: ResourceType>(res: T) -> RejectReason {
+	RejectReason::ResourceNotOwned {
+		resource_type: T::NAME,
+		target_id: res.value(),
+	}
+}
+
+/// Shorthand for creating a [`RejectReason::NonExistentID`]
+#[allow(private_bounds)]
+pub fn non_existent_id<T: ResourceType>(res: T) -> RejectReason {
+	RejectReason::NonExistentID {
+		id_type: T::NAME,
+		value: res.value(),
+	}
 }
 
 ```

@@ -29,17 +29,14 @@ export interface ModeTool extends _Tool {
 	unbind(): void;
 }
 
-export interface Action {
-	cancel(): void;
-	completion: Promise<void>;
-}
-
+export type Action = Promise<void>;
 type OnBegin = (_: Action) => void;
 
 export interface ActionTool extends _Tool {
 	type: ToolType.Action;
 
 	bind(onBegin: OnBegin): void;
+	cancel(): void;
 }
 
 export interface InstantaneousTool {
@@ -66,31 +63,24 @@ abstract class ToolBase implements _Tool {
 		return this.board.canvas.ctx;
 	}
 
-	protected init?(): void;
-
 	public constructor(
 		protected board: Board,
-	) {
-		this.init?.();
-	}
+	) { }
 }
 
 abstract class InteractiveToolBase extends ToolBase {
-	#filterHandle?: FilterHandle;
-
-	protected get gestureFilter(): FilterHandle {
-		if (!this.#filterHandle) {
-			const filter = this.ctx.createGestureFilter(GestureLayer.AboveItems).pause();
-			if (this.onDragGesture)
-				filter.addHandler(GestureType.Drag, this.onDragGesture.bind(this));
-			if (this.onPressGesture)
-				filter.addHandler(GestureType.Click, this.onPressGesture.bind(this));
-			if (this.onLongPressGesture)
-				filter.addHandler(GestureType.LongClick, this.onLongPressGesture.bind(this));
-			this.#filterHandle = filter;
-		}
-		return this.#filterHandle;
+	private makeFilter() {
+		const filter = this.ctx.createGestureFilter(GestureLayer.AboveItems).pause();
+		if (this.onDragGesture)
+			filter.addHandler(GestureType.Drag, this.onDragGesture.bind(this));
+		if (this.onPressGesture)
+			filter.addHandler(GestureType.Click, this.onPressGesture.bind(this));
+		if (this.onLongPressGesture)
+			filter.addHandler(GestureType.LongClick, this.onLongPressGesture.bind(this));
+		return filter;
 	}
+
+	protected gestureFilter = this.makeFilter();
 
 	protected onDragGesture?(gesture: DragGestureState): void;
 	protected onPressGesture?(gesture: PressGesture): void;
@@ -99,9 +89,9 @@ abstract class InteractiveToolBase extends ToolBase {
 
 export abstract class ActionToolBase extends InteractiveToolBase implements ActionTool {
 	public override get type(): ToolType.Action { return ToolType.Action; }
-	protected singleGesture = true;
 	private onBegin?: OnBegin;
 	private completionResolve?: (() => void);
+	private active = false;
 
 	public bind(onBegin: OnBegin) {
 		this.onBegin = onBegin;
@@ -109,23 +99,27 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 	}
 
 	protected start() {
-		this.onBegin?.({
-			cancel: () => {
-				this.gestureFilter.pause();
-				this.cancel();
-			},
-			completion: new Promise((resolve) => {
-				this.completionResolve = resolve;
-			}),
-		});
+		this.active = true;
+		const { promise, resolve } = Promise.withResolvers<void>();
+		this.completionResolve = resolve;
+		this.onBegin?.(promise);
 	}
 
 	protected end() {
 		this.gestureFilter.pause();
 		this.completionResolve?.();
+		this.active = false;
 	}
 
-	protected abstract cancel(): void;
+	public cancel(): void {
+		if (this.active) {
+			this.cancelAction();
+		}
+		this.gestureFilter.pause();
+		this.active = false;
+	}
+
+	protected abstract cancelAction(): void;
 }
 
 export abstract class ModeToolBase extends InteractiveToolBase implements ModeTool {

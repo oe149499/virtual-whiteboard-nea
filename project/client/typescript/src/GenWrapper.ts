@@ -1,5 +1,5 @@
-import { IterateNames, IterateSpec } from "./gen/Iterate.js";
-import { MethodNames, MethodSpec } from "./gen/Methods.js";
+import { IterateSpecNames, IterateSpec } from "./gen/Iterate.js";
+import { MethodSpecNames, MethodSpec } from "./gen/Methods.js";
 import { NotifyCSpec } from "./gen/NotifyC.js";
 import type { Color, Item, RejectMessage, Stroke, Transform } from "./gen/Types.js";
 import { AsyncIter } from "./util/AsyncIter.js";
@@ -54,7 +54,7 @@ export function createMethodReciever(handler: MethodHandler): MethodDispatcher {
 	// This should work but fails type checking
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const result = {} as any;
-	for (const name of MethodNames) {
+	for (const name of MethodSpecNames) {
 		result[name] = function (args: MArgs<typeof name>) {
 			return handler(name, args);
 		};
@@ -110,7 +110,7 @@ export function createIterateReciever(handler: IterateHandler): IterateDispatche
 	// This should work but fails type checking
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const result = {} as any;
-	for (const name of IterateNames) {
+	for (const name of IterateSpecNames) {
 		result[name] = function (args: IArgs<typeof name>) {
 			return handler(name, args);
 		};

@@ -78,7 +78,7 @@ export class PolygonTool extends ActionToolBase {
 		delete this.builder;
 	}
 
-	protected override cancel(): void {
+	protected override cancelAction(): void {
 		if (!this.builder) return;
 
 		this.finish();

@@ -51,7 +51,7 @@ type ValuePropertyTypes = {
 		display?: "short" | "long",
 	},
 	resource: {
-		valType: Option<URL>,
+		valType: Option<string>,
 		accept?: string[],
 	},
 };

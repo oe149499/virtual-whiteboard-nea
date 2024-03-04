@@ -1,12 +1,9 @@
 use std::{path::Path, sync::Arc};
 
-use futures::Future;
-use log::{debug, info, trace, warn};
+use log::{debug, trace};
 use scc::HashMap as AsyncHashMap;
 
-use tokio::sync::oneshot;
-
-use crate::{canvas::ActiveCanvas, GlobalRes};
+use crate::canvas::ActiveCanvas;
 
 use super::{
     active::from_canvas,
@@ -16,18 +13,13 @@ use super::{
 
 static BOARD_TASKS: usize = 4;
 
-enum _BoardRef {
-    Active(BoardHandle),
-    Inactive,
-}
-
 struct LoadedState {
     handle: WeakHandle,
     canvas: Arc<ActiveCanvas>,
 }
 
 impl LoadedState {
-    async fn get_or_refresh(&mut self) -> BoardHandle {
+    fn get_or_refresh(&mut self) -> BoardHandle {
         if let Some(handle) = self.handle.upgrade() {
             handle
         } else {
@@ -54,20 +46,10 @@ pub struct BoardManager {
 }
 
 impl BoardManager {
-    pub fn new() -> Self {
-        todo!()
-    }
-
-    /// Create a new manager for use during testing (no loading for now)
-    pub fn new_debug(path: &Path) -> Self {
-        // let debug_handle = debug_board();
+    /// Create a new manager
+    pub fn new(path: &Path) -> Self {
         let boards = AsyncHashMap::new();
-
-        let debug_board = BoardRef {
-            file: BoardFileHandle::from_path("test-boards/debug.json".into()),
-            state: ActiveState::Unloaded,
-        };
-
+        
         for (name, handle) in get_boards(path).unwrap() {
             debug!("name: {}", &name);
             boards
@@ -81,12 +63,6 @@ impl BoardManager {
                 .map_err(|(name, _)| name)
                 .unwrap();
         }
-
-        // boards
-        //     .insert("test".to_string(), debug_board)
-        //     .unwrap_or_else(|_| {
-        //         warn!("Failed to insert debug board");
-        //     });
         Self { boards }
     }
 
@@ -95,7 +71,7 @@ impl BoardManager {
         if let Some(mut board) = self.boards.get_async(&board_name).await {
             let board = board.get_mut();
             match &mut board.state {
-                ActiveState::Loaded(state) => Some(state.get_or_refresh().await),
+                ActiveState::Loaded(state) => Some(state.get_or_refresh()),
                 ActiveState::Unloaded => {
                     debug!("Trying to load a new board");
                     let canvas = board.file.load_canvas().await.ok()?;
@@ -137,24 +113,5 @@ impl BoardManager {
             None::<()>
         };
         fut.await;
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use crate::{board::file::BoardFileHandle, canvas::ActiveCanvas, GlobalResources};
-
-    use super::{BoardManager, BoardRef};
-
-    fn assert_send<T: Send>() {}
-    fn assert_sync<T: Sync>() {}
-
-    #[test]
-    fn assertions() {
-        assert_send::<BoardFileHandle>();
-        assert_send::<BoardRef>();
-        assert_send::<ActiveCanvas>();
-        assert_send::<BoardManager>();
-        assert_sync::<GlobalResources>();
     }
 }

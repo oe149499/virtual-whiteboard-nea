@@ -1,13 +1,13 @@
 import { ItemType, SpecificItem } from "./GenWrapper.js";
 import { ClientID, Item, ItemID, Transform, type ClientInfo, type LocationUpdate } from "./gen/Types.js";
 import { CanvasItem } from "./canvas/items/CanvasItems.js";
-import { None, Option, Some, ok, todo } from "./util/Utils.js";
+import { None, Option, Some, ok } from "./util/Utils.js";
 import { exclusiveProvider, keyedProvider, multiTargetProvider } from "./util/Events.js";
 import { SessionClient } from "./client/Client.js";
 import { Logger } from "./Logger.js";
 import { invertTransform } from "./Transform.js";
 import { LocalSelection, RemoteSelection, RemoteSelectionInit, TransformRecord } from "./canvas/Selection.js";
-import { mutableStateOf, type ReadonlyAs, type State } from "./util/State.js";
+import { type ReadonlyAs } from "./util/State.js";
 import { MutableStateSet, StateSet } from "./util/StateSet.js";
 
 const logger = new Logger("ItemTable");
@@ -26,15 +26,8 @@ export enum ConnectionState {
 	Exited,
 }
 
-export interface ClientEntry {
-	[ReadonlyAs]?(): ClientEntry;
-	readonly id: ClientID;
-	readonly items: ReadonlySet<ItemID>;
-	readonly info: Readonly<ClientInfo>;
-	readonly connection: ConnectionState;
-}
-
-interface RemoteEntry extends ClientEntry {
+interface RemoteEntry {
+	[ReadonlyAs]?(): RemoteEntry;
 	id: ClientID;
 	items: Set<ItemID>;
 	info: ClientInfo;
@@ -55,16 +48,6 @@ export enum LocalSelectionCount {
 	One,
 	Multiple,
 }
-
-type LocalSelectionState = {
-	type: LocalSelectionCount.None,
-} | {
-	type: LocalSelectionCount.One,
-	entry: ItemEntry,
-} | {
-	type: LocalSelectionCount.Multiple,
-	ids: ReadonlySet<ItemID>,
-};
 
 interface SelectionHandlers {
 	add(i: ItemEntry[]): void;
@@ -123,7 +106,7 @@ export class BoardTable {
 		this.client.bindNotify("ItemCreated", ({ id, item, client }) => {
 			if (this.items.has(id)) return;
 			this.addItem(id, item);
-			if (client == this.ownID && item.type !== "Path") this.addOwnSelection([id]);
+			if (client == this.ownID) setTimeout(this.addOwnSelection.bind(this), 0, [id]);
 		});
 
 		this.client.bindNotify("SingleItemEdited", ({ id, item }) => {
@@ -242,7 +225,6 @@ export class BoardTable {
 		const entry: ItemEntry = { id, item, canvasItem, selection: None };
 		this.items.set(id, entry);
 		this._events.items.emit("insert", entry);
-		return canvasItem;
 	}
 
 	private _events = {

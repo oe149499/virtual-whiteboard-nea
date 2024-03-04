@@ -10,12 +10,13 @@ use crate::{
             helpers::{non_existent_id, resource_not_owned},
             RejectReason,
         },
-        ClientID, ItemID, MsgSend,
+        ClientID, ItemID,
     },
 };
 
 use super::{Board, ClientState};
 
+/// Common interface of method and iterate handles
 trait Handle {
     fn send_error(self, reason: RejectReason);
     fn send_warn(&self, reason: RejectReason);
@@ -49,6 +50,7 @@ pub enum TakeResult {
 
 #[allow(private_bounds)]
 impl Board {
+    /// Check if the current item is already selected by the specified item and send a warning if it is not
     pub async fn check_owned(&self, id: &ClientID, handle: &impl Handle, item_id: ItemID) -> bool {
         let entry = self.selected_items.get_async(&item_id).await;
         if let Some(entry) = entry {
@@ -64,6 +66,7 @@ impl Board {
         }
     }
 
+    /// Attempt to mark the item as selected by the specified client
     pub async fn take_item(
         &self,
         id: &ClientID,
@@ -91,6 +94,7 @@ impl Board {
         }
     }
 
+    /// Assume the client is registered and retrieve the associated entry
     pub async fn get_client(&self, id: &ClientID) -> OccupiedEntry<'_, ClientID, ClientState> {
         self.clients
             .get_async(id)
@@ -112,13 +116,6 @@ impl Board {
 }
 
 impl ClientState {
-    /// Send a message to the client if it has a handle attached
-    pub fn try_send(&self, msg: MsgSend) {
-        if let Some(handle) = &self.handle {
-            handle.send_message(msg);
-        }
-    }
-
     pub fn try_send_payload(&self, payload: &MessagePayload) {
         if let Some(handle) = &self.handle {
             handle.send_payload(payload);

@@ -66,8 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     runtime.block_on(async move {
         info!("Loading boards");
-        // The board manager should stay alive for the lifetime of the program
-        let boards = BoardManager::new_debug(&args.board_root.as_std_path());
+        let boards = BoardManager::new(args.board_root.as_std_path());
 
         let res = GlobalResources::new(boards, config).as_static();
 

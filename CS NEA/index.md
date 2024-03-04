@@ -56,6 +56,28 @@
 .var cprefix={../project/server/src/} clang=rust
 
 .code ${main.rs}
+.code ${codegen.rs}
+.code ${lib.rs}
+.code ${utils.rs}
+.code ${upload.rs}
+.code ${client.rs}
+
+.code ${canvas/canvas.rs}
+.code ${canvas/item.rs}
+.code ${canvas/active.rs}
+
+.code ${message/message.rs}
+.code ${message/method.rs}
+.code ${message/iterate.rs}
+.code ${message/notify_c.rs}
+.code ${message/reject.rs}
+.code ${message/reject_helpers.rs}
+
+.code ${board/board.rs}
+.code ${board/file.rs}
+.code ${board/active.rs}
+.code ${board/active_helpers.rs}
+
 
 %% CLIENT_CODE
 

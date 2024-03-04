@@ -28,7 +28,7 @@ abstract class TextToolBase<T extends ItemType> extends ActionToolBase {
 
 	protected abstract makeItem(): Omit<SpecificItem<T>, "transform">;
 
-	protected override cancel() { }
+	protected override cancelAction() { }
 }
 
 export class TextTool extends TextToolBase<"Text"> {

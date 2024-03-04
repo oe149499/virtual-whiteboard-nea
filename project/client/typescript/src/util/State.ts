@@ -41,8 +41,6 @@ export type DeepReadonly<T> = T extends SkipReadonly ? T
 	// eslint-disable-next-line @stylistic/indent
 	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
-type Test = DeepReadonly<MutableState<number>>
-
 export interface WatchHandle {
 	end(): void;
 	poll(): this;
@@ -119,7 +117,6 @@ export abstract class State<out T> {
 	[ReadonlyAs]?(): State<T>;
 	private watchers = new Map<number, ROAction<T>>();
 	private weakWatchers = new Map<number, WeakRef<ROAction<T>>>();
-	public updateDerived = true;
 
 	protected constructor(protected value: T) { }
 	public get() {
@@ -132,7 +129,7 @@ export abstract class State<out T> {
 
 	protected update(value: DeepReadonly<T> = this.value as DeepReadonly<T>) {
 		this.value = value as T;
-		if (this.updateDerived) for (const f of this.weakWatchers.values()) {
+		for (const f of this.weakWatchers.values()) {
 			f.deref()?.(value);
 		}
 		for (const f of this.watchers.values()) {
@@ -164,7 +161,6 @@ export abstract class State<out T> {
 	public [watchWeak](f: ROAction<T>): WatchHandle {
 		const id = getObjectID(f);
 		this.weakWatchers.set(id, new WeakRef(f));
-		this.weakRemover.register(f, id, f);
 		const handle = {
 			end: this.removeWeak.bind(this, id),
 			poll: () => (
@@ -173,8 +169,6 @@ export abstract class State<out T> {
 		};
 		return handle;
 	}
-
-	private weakRemover = new FinalizationRegistry((id: number) => this.removeWeak(id));
 
 	private removeWatcher(id: number) {
 		this.watchers.delete(id);

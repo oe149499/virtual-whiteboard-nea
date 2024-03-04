@@ -186,10 +186,6 @@ macro_rules! iterate_declarations {
 					$name: ($name, $itype),
 				)*
 			}
-
-			impl $spec_name {
-				pub const NAMES: &'static [&'static str] = &[$(stringify!($name)),*];
-			}
 		}
 		$(
 			$(#[$($attr)*])*
@@ -218,11 +214,6 @@ macro_rules! iterate_declarations {
 iterate_declarations! {
     enum Iterates => IterateResponses;
     spec IterateSpec;
-
-    Count(
-        from: u32,
-        to: u32,
-    ) => u32
 
     GetPartialItems(
         ids: Vec<ItemID>,

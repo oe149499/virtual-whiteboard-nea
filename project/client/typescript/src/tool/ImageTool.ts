@@ -26,7 +26,7 @@ const { keys, schema } = builder()
 export class ImageTool extends ActionToolBase {
 	public override readonly properties = new SingletonPropertyStore(schema);
 
-	protected override cancel(): void { }
+	protected override cancelAction(): void { }
 
 	protected override async onPressGesture(gesture: PressGesture) {
 		logger.debug("Press gesture");

@@ -8,7 +8,6 @@ import { ClientID, ClientInfo, PathID, Stroke } from "./gen/Types.js";
 import { ToolIcon } from "./ui/Icon.js";
 import { createEditToolList, createViewToolList } from "./ui/ToolLayout.js";
 import { UIManager } from "./ui/UIManager.js";
-import { AsyncIter } from "./util/AsyncIter.js";
 import { None } from "./util/Utils.js";
 
 const logger = new Logger("board");
@@ -37,7 +36,7 @@ export class Board {
 		public readonly ui: UIManager,
 		public readonly client: SessionClient,
 		public readonly canvas: CanvasController,
-		public readonly items: BoardTable,
+		public readonly table: BoardTable,
 		public readonly info: BoardInfo,
 	) { }
 
@@ -70,10 +69,9 @@ export class Board {
 
 		if (first === None) return;
 
-		const pathElem = this.canvas.ctx.createElement("path");
+		const pathElem = this.canvas.ctx.createRootElement("path");
 		pathElem.setAttribute("fill", "none");
 
-		this.canvas.addRawElement(pathElem);
 
 		const helper = new PathHelper(pathElem, first.shift()!.position);
 		new StrokeHelper(pathElem.style, stroke);

@@ -3,7 +3,7 @@ import type { Point } from "../gen/Types.js";
 import type { State } from "../util/State.js";
 import { point, rad2deg } from "../util/Utils.js";
 import { CanvasContext, type UnscaledHandle } from "./CanvasBase.js";
-import { GestureLayer, type FilterHandle, FilterMode, type DragGestureState, GestureType } from "./Gesture.js";
+import { GestureLayer, type FilterHandle, type DragGestureState, GestureType } from "./Gesture.js";
 
 const logger = new Logger("canvas/SelectionUI");
 
@@ -183,7 +183,7 @@ export class StretchHandleSet {
 		}
 	}
 
-	private handles: StretchHandle[];
+	public readonly handles: StretchHandle[];
 
 	public constructor(
 		handle: UnscaledHandle,
@@ -195,12 +195,5 @@ export class StretchHandleSet {
 			const offset = size.derived(({ x, y }: Point) => point(x * p.x / 2, y * p.y / 2));
 			return new StretchHandle(handle, srt, offset, updateSrt);
 		});
-	}
-
-	public connectParent(parent: SVGElement): this {
-		for (const handle of this.handles) {
-			parent.appendChild(handle.element);
-		}
-		return this;
 	}
 }

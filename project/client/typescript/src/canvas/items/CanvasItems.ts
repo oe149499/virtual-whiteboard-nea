@@ -28,7 +28,7 @@ export abstract class CanvasItem {
 		UpdateHook.trigger(this);
 	}
 
-	public abstract updateItem(value: Item): void;
+	protected abstract updateItem(value: Item): void;
 	protected abstract item: Item;
 
 	private static schemas: { [K in ItemType]?: PropertySchema[] } = {};
@@ -91,7 +91,7 @@ type AccMap<T extends ItemType> = AutoMap<PropKey<any>, ItemAcc<T, any>>;
 export class ItemPropertyStore extends PropertyStore {
 	public constructor(private table: BoardTable) { super(); }
 
-	private currentItem: ItemEntry[] = [];
+	private currentItems: ItemEntry[] = [];
 	private accessorTable: {
 		[T in ItemType]?: AccMap<T>
 	} = {};
@@ -107,14 +107,8 @@ export class ItemPropertyStore extends PropertyStore {
 		return map.get(key);
 	}
 
-	public bind(id: ItemID) {
-		const entry = this.table.get(id);
-		if (entry === None) return;
-		this.currentItem = [entry];
-	}
-
 	public bindEntries(entries: Iterable<ItemEntry>) {
-		this.currentItem = Array.from(entries);
+		this.currentItems = Array.from(entries);
 	}
 
 	public getter<T extends ItemType, N extends PropType>(type: T, key: PropKey<N>, fn: Required<ItemAcc<T, N>>["getter"]): this {
@@ -128,7 +122,7 @@ export class ItemPropertyStore extends PropertyStore {
 	}
 
 	protected override get<N extends PropType>(key: PropKey<N>) {
-		for (const { item } of this.currentItem) {
+		for (const { item } of this.currentItems) {
 			const getter = this.getAccessor(item.type, key).getter;
 			if (!getter) return PropertyStore.NoValue;
 			return getter(item);
@@ -137,7 +131,7 @@ export class ItemPropertyStore extends PropertyStore {
 	}
 
 	protected override set<N extends PropType>(key: PropKey<N>, value: PropValue<N>) {
-		for (const entry of this.currentItem) {
+		for (const entry of this.currentItems) {
 			const { item } = entry;
 			const setter = this.getAccessor(item.type, key).setter;
 			if (!setter) continue;

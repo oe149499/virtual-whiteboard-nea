@@ -1,6 +1,6 @@
 import type { CanvasContext } from "./CanvasBase.js";
 
-const MD_TOKEN = /\*+|_+|~+|[^*_~]+/;
+const MD_TOKEN = /\\[_*~\\]|\*+|_+|~+|[^*_~]+/;
 
 const CONTROL_SCHEMA = [
 	["*", "italic"],

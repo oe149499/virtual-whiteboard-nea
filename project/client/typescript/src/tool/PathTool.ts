@@ -47,7 +47,7 @@ export class PathTool extends ActionToolBase {
 		await this.board.client.method.EndPath({ pathId });
 	}
 
-	protected override cancel(): void {
+	protected override cancelAction(): void {
 
 	}
 }

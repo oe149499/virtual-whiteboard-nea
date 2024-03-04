@@ -1,7 +1,7 @@
 import { Logger } from "../Logger.js";
 import { asDomMatrix, fromMatrix, updateMatrix } from "../Transform.js";
 import type { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
-import { mutableStateOf, type State } from "../util/State.js";
+import { mutableStateOf, type DeepReadonly, type State } from "../util/State.js";
 import { None, OwnedInterval, point } from "../util/Utils.js";
 import type { CanvasContext, UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
@@ -15,7 +15,7 @@ export type TransformRecord = [id: ItemID, transform: Transform];
 
 class ItemHolder {
 	public readonly element: SVGGElement;
-	public readonly sit: DOMMatrix;
+	public readonly sit: SVGMatrix;
 
 	private transform: SVGTransform;
 
@@ -96,7 +96,7 @@ export abstract class SelectionBox {
 	protected addFromCanvas(entries: ItemEntry[]): MArgs<"SelectionAddItems"> {
 		if (this.items.size === 0 && entries.length === 1) {
 			const [entry] = entries;
-			if ("transform" in entry.item) {
+			if ("transform" in entry.item && entry.item.type !== "Path") {
 				const holder = new ItemHolder(this.ctx, entry.canvasItem.element);
 				this.items.set(entry.id, holder);
 				this.rootTransform.appendChild(holder.element);
@@ -177,7 +177,7 @@ export class RemoteSelection extends SelectionBox {
 	public constructor(
 		ctx: CanvasContext,
 		table: BoardTable,
-		private init: RemoteSelectionInit,
+		init: RemoteSelectionInit,
 	) {
 		super(ctx, table);
 
@@ -249,28 +249,21 @@ export class LocalSelection extends SelectionBox {
 			this.addFromTransforms(init.items, init.srt);
 			this.srt.updateTransform(init.srt);
 		}
-		// this.srt.updateDerived = false;
-
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
 		this.unscaled.insertStatic(this.border.element);
 
 		this.rotateHandle = new RotateHandle(this.unscaled, this.srt, this.size, this.updateSrt);
-		// this.uiContainer.appendChild(this.rotateHandle.element);
 
 		this.stretchHandles = new StretchHandleSet(this.unscaled, this.srt, this.size, this.updateSrt);
-		// .connectParent(this.uiContainer);
 
 		const invSrt = this.srt.derived(m => m.inverse());
 
 		ctx.createGestureFilter(GestureLayer.Selection)
 			.setTest(p => {
-				// logger.debug("Initial location: %o, SRT: %o", p, this.srt.get());
 				const transformed = invSrt.get().transformPoint(p);
-				// logger.debug("location in selection space: ", transformed);
 				const tx = Math.abs(transformed.x * 2);
 				const ty = Math.abs(transformed.y * 2);
 				const { x, y } = this.size.get();
-				// logger.debug("Size: %o, %o; Transformed: %o, %o", x, y, tx, ty);
 				return (tx <= x) && (ty <= y);
 			})
 			.addHandler(GestureType.Drag, this.handleDrag.bind(this));
@@ -283,7 +276,6 @@ export class LocalSelection extends SelectionBox {
 		const offsetY = startTransform.f - gesture.location.y;
 
 		for await (const { x, y } of gesture.points) {
-			// logger.debug("Cursor location: x %o, y %o; Start location: x %o, y %o", x, y, startX, startY);
 			startTransform.e = offsetX + x;
 			startTransform.f = offsetY + y;
 			this.updateSrt(startTransform);

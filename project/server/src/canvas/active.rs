@@ -59,11 +59,6 @@ impl ActiveCanvas {
         Some(ItemRef(self.items.get_async(&id).await?, &self.edit_count))
     }
 
-    // /// Get a mutable reference to an item
-    // pub async fn get_ref_mut(&self, id: ItemID) -> Option<impl DerefMut<Target = Item> + '_> {
-    //     Some(ItemRef(self.items.get_async(&id).await?))
-    // }
-
     /// Retrieve the specified item if present
     pub async fn get_item(&self, id: ItemID) -> Option<Item> {
         Some(self.items.get_async(&id).await?.get().clone())
@@ -81,6 +76,11 @@ impl ActiveCanvas {
         id
     }
 
+    /// Remove the item from the canvas if it exists
+    pub async fn delete_item(&self, id: ItemID) {
+        self.items.remove_async(&id).await;
+    }
+
     /// Insert a new item synchronously from an exclusive reference
     pub fn add_item_owned(&mut self, item: Item) -> ItemID {
         let id = self.get_id();
@@ -91,6 +91,7 @@ impl ActiveCanvas {
         id
     }
 
+    /// Run the provided callback on each item in the canvas
     pub async fn scan_items(&self, mut f: impl FnMut(ItemID, &Item)) {
         self.items.scan_async(|&id, item| f(id, item)).await
     }
@@ -100,6 +101,7 @@ impl ActiveCanvas {
         self.item_ids.read().await.iter().cloned().collect()
     }
 
+    /// Try to read the current ItemIDs without blocking
     pub fn get_item_ids_sync(&self) -> Result<Vec<ItemID>, ()> {
         let ids = self.item_ids.try_read().or(Err(()))?;
         Ok(ids.iter().cloned().collect())

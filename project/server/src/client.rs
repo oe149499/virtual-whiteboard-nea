@@ -1,16 +1,15 @@
 //! Interfacing with clients
 //! The main interface of this module is [`create_client_filter`], which builds a filter to forward WebSocket requests to a board
 
-use std::time::SystemTime;
-
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info, warn};
-use tokio::{sync::mpsc, time::Instant};
+use tokio::sync::mpsc;
 use warp::{
     filters::{
         ws::{Message, WebSocket, Ws},
         BoxedFilter,
     },
+    reject::Rejection,
     reply::Reply,
     Filter,
 };
@@ -78,8 +77,7 @@ impl ClientHandle {
 pub static MAX_SESSION_CREATE_LENGTH: u64 = 1024;
 
 #[derive(Clone)]
-#[doc(hidden)]
-pub struct Session {
+struct Session {
     client_id: ClientID,
     handle: BoardHandle,
 }
@@ -98,32 +96,33 @@ impl Session {
     }
 }
 
+type RegistryInner = tokio::sync::RwLock<std::collections::HashMap<SessionID, Session>>;
+
 /// Lookup table of session IDs
-pub type SessionRegistry = tokio::sync::RwLock<std::collections::HashMap<SessionID, Session>>;
+#[derive(Default)]
+pub struct SessionRegistry(RegistryInner);
 
-/// Create the board route as a [`Filter`]
-pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
-    let time = SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
-        .to_string()
-        .leak::<'static>();
-    let time = &*time;
-
-    let start_time = warp::path("start_time").map(move || time);
-
-    let session: _ = warp::path!("session" / SessionID).and(warp::ws()).and_then(
-        move |id: SessionID, ws: Ws| async move {
-            let sessions = res.sessions.read().await;
+fn create_session_filter(
+    registry: &'static RegistryInner,
+) -> impl Filter<Extract = impl Reply, Error = Rejection> {
+    warp::path("session")
+        .and(warp::path::param())
+        .and(warp::ws())
+        .and_then(move |id: SessionID, ws: Ws| async move {
+            let sessions = registry.read().await;
             if let Some(session) = sessions.get(&id) {
                 let session = session.clone();
                 Ok(ws.on_upgrade(|ws| async { handle_session(session, ws).await }))
             } else {
                 Err(warp::reject())
             }
-        },
-    );
+        })
+}
+
+/// Create the board route as a [`Filter`]
+pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
+    let session = create_session_filter(&res.sessions.0);
+
     let session_create: _ = warp::path!("board" / String)
         .and(warp::body::content_length_limit(MAX_SESSION_CREATE_LENGTH))
         .and(warp::body::json())
@@ -131,7 +130,7 @@ pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
             if let Some(handle) = res.boards.load_board(name).await {
                 let session = handle.create_session(info).await;
                 if let Ok(info) = &session {
-                    if let Some(_) = res.sessions.write().await.insert(
+                    if let Some(_) = res.sessions.0.write().await.insert(
                         info.session_id,
                         Session {
                             client_id: info.client_id,
@@ -152,7 +151,7 @@ pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
                 Err(warp::reject())
             }
         });
-    session.or(session_create).or(start_time).boxed()
+    session.or(session_create).boxed()
 }
 
 async fn handle_session(session: Session, ws: WebSocket) {
@@ -174,26 +173,19 @@ async fn handle_session(session: Session, ws: WebSocket) {
         }
     });
 
-    while let Some(msg) = rx.next().await {
-        match msg {
-            Ok(msg) => {
-                if msg.is_close() {
-                    session.disconnect();
-                    info!("Socket closed");
-                } else {
-                    match serde_json::from_slice(msg.as_bytes()) {
-                        Ok(msg) => session.message(msg),
-                        Err(e) => {
-                            info!(
-                                "Received malformed message from client: {e}\n{}",
-                                msg.to_str().unwrap_or(""),
-                            )
-                        }
-                    }
+    while let Some(Ok(msg)) = rx.next().await {
+        if msg.is_close() {
+            session.disconnect();
+            info!("Socket closed");
+        } else {
+            match serde_json::from_slice(msg.as_bytes()) {
+                Ok(msg) => session.message(msg),
+                Err(e) => {
+                    info!(
+                        "Received malformed message from client: {e}\n{}",
+                        msg.to_str().unwrap_or(""),
+                    )
                 }
-            }
-            Err(e) => {
-                warn!("Error receiving WebSocket message: {e}");
             }
         }
     }

@@ -38,7 +38,6 @@ macro_rules! notify_c_declarations {
 		paste!{
 			$(#[$($eattr)*])*
 			#[derive(Serialize, Debug)]
-            #[cfg_attr(feature = "codegen", derive(TS))]
 			#[serde(tag = "name")]
 			pub enum $enum_name {
 				$(
@@ -54,13 +53,6 @@ macro_rules! notify_c_declarations {
                 $(
                     $name: $name,
                 )*
-            }
-
-            #[cfg(feature = "codegen")]
-            impl $spec_name {
-                pub const NAMES: &'static [&'static str] = &[
-                    $(stringify!($name)),*
-                ];
             }
 		}
 		$(

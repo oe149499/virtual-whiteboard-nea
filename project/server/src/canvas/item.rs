@@ -54,7 +54,7 @@ item_enum! {
 }
 
 impl Item {
-    /// Attempt to update the position of an item, returning the update if it is successful and the original location if not
+    /// Attempt to update the position of an item, returning the original location if the update is invalid
     pub fn apply_location_update(
         &mut self,
         id: ItemID,
@@ -80,66 +80,56 @@ impl Item {
             };
         }
 
-        match update {
-            LocationUpdate::Transform(t) => transform_types! {
-                Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
+        let t = transform_types! {
+            Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
+                if let LocationUpdate::Transform(t) = update {
                     item.transform = t.clone();
                     Ok(())
-                },
-                Line(item) => {
-                    Err((
-                        LocationUpdate::Points(vec![item.start, item.end]),
-                        RejectReason::IncorrectType {
-                            key: Some(id.to_string()),
-                            expected: "Point[2]",
-                            received: "Transform".to_string()
-                        }
-                    ))
-                },
-                Polygon(item) => {
-                    Err((
-                        LocationUpdate::Points(item.points.clone()),
-                        RejectReason::IncorrectType {
-                            key: Some(id.to_string()),
-                            expected: "Point[]",
-                            received: "Transform".to_string()
-                        }
-                    ))
-                },
+                } else { Err((
+                    LocationUpdate::Transform(item.transform.clone()),
+                    "Transform",
+                    "Point[]"
+                ))}
             },
-            LocationUpdate::Points(p) => transform_types! {
-                Rectangle, Ellipse, Path, Image, Text, Link, Tag (item) => {
-                    Err((
-                        LocationUpdate::Transform(item.transform.clone()),
-                        RejectReason::IncorrectType {
-                            key: Some(id.to_string()),
-                            expected: "Transform",
-                            received: "Point[]".to_string()
-                        }
-                    ))
-                },
-                Polygon(item) => {
-                    item.points = p.clone();
-                    Ok(())
-                },
-                Line(item) => {
+            Line(item) => {
+                if let LocationUpdate::Points(p) = update {
                     if p.len() == 2 {
                         item.start = p[0];
                         item.end = p[1];
                         Ok(())
-                    } else {
-                        Err((
-                            LocationUpdate::Points(vec![item.start, item.end]),
-                            RejectReason::IncorrectType {
-                                key: Some(id.to_string()),
-                                expected: "Point[2]",
-                                received: "Point[]".to_string()
-                            }
-                        ))
-                    }
-                },
+                    } else { Err((
+                        LocationUpdate::Points(vec![item.start, item.end]),
+                        "Point[2]",
+                        "Point[]"
+                    ))}
+                } else { Err((
+                    LocationUpdate::Points(vec![item.start, item.end]),
+                    "Point[2]",
+                    "Transform"
+                ))}
             },
-        }
+            Polygon(item) => {
+                if let LocationUpdate::Points(p) = update {
+                    item.points = p.clone();
+                    Ok(())
+                } else { Err((
+                    LocationUpdate::Points(item.points.clone()),
+                    "Point[]",
+                    "Transform"
+                ))}
+            },
+        };
+
+        t.map_err(|(update, expected, received)| {
+            (
+                update,
+                RejectReason::IncorrectType {
+                    key: Some(id.to_string()),
+                    expected,
+                    received: received.to_string(),
+                },
+            )
+        })
     }
 }
 

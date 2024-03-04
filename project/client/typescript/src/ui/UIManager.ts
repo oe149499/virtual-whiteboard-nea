@@ -3,12 +3,11 @@ import { CanvasController } from "../canvas/Canvas.js";
 import { ToolIcon, ToolIconCallback } from "./Icon.js";
 import { EnabledState, PanelController } from "./Panel.js";
 import { PropertyEditor } from "./PropertiesEditor.js";
-import { MutableState, State, deadStateOf, mutableStateOfNone } from "../util/State.js";
+import { State, deadStateOf, mutableStateOf } from "../util/State.js";
 import { Logger } from "../Logger.js";
-import { None, Option, todo } from "../util/Utils.js";
-import { LocalSelectionCount, type BoardTable } from "../BoardTable.js";
+import { None, Option } from "../util/Utils.js";
+import { type BoardTable } from "../BoardTable.js";
 import { PropertyInstance } from "../Properties.js";
-import { CanvasItem } from "../canvas/items/CanvasItems.js";
 
 const logger = new Logger("ui/manager");
 
@@ -27,7 +26,7 @@ export class UIManager {
 	public readonly propertiesPanel: PanelController;
 	public readonly properties: PropertyEditor;
 
-	private readonly _toolState = mutableStateOfNone<ToolState>();
+	private readonly _toolState = mutableStateOf<ToolState>(None);
 	public readonly toolState = this._toolState.asReadonly();
 
 	public constructor(
@@ -50,7 +49,7 @@ export class UIManager {
 			.derivedT((items, tool) => {
 				if (items > 0) return EnabledState.Cancellable;
 				if (tool === None) return EnabledState.Active;
-				if ("action" in tool && tool.action) return EnabledState.Cancellable;
+				if ("action" in tool) return EnabledState.Cancellable;
 				return EnabledState.Active;
 			});
 
@@ -59,7 +58,7 @@ export class UIManager {
 		this.toolPanel.events.connect("cancel", () => {
 			const tool = this.toolState.get();
 			if (tool !== None) this.cancelTool();
-			else table.cancelSelection();
+			table.cancelSelection();
 		});
 
 		const toolProps = this.toolState.derived<Option<PropertyInstance>>(t => {
@@ -97,8 +96,7 @@ export class UIManager {
 		if (state === None) return;
 		const { tool } = state;
 		if (tool.type == ToolType.Action) {
-			// @ts-ignore there should be narrowing here
-			state.action?.cancel();
+			tool.cancel();
 		} else {
 			tool.unbind();
 		}
@@ -118,8 +116,7 @@ export class UIManager {
 						}; else return s;
 					},
 				);
-				await action.completion;
-				this._toolState.set(None);
+				action.then(() => this._toolState.set(None));
 			});
 			this._toolState.set({ tool });
 		} else if (tool.type == ToolType.Mode) {

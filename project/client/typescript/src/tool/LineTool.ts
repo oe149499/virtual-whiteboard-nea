@@ -49,5 +49,5 @@ export class LineTool extends ActionToolBase {
 		elem.remove();
 	}
 
-	protected override cancel(): void { }
+	protected override cancelAction(): void { }
 }

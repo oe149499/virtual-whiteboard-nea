@@ -63,7 +63,7 @@ abstract class ShapeToolBase extends ActionToolBase {
 		this.end();
 	}
 
-	protected override cancel(): void {
+	protected override cancelAction(): void {
 
 	}
 }

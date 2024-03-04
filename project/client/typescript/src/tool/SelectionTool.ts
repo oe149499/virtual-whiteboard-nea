@@ -27,7 +27,7 @@ export class SelectionTool extends ModeToolBase {
 
 		// this.start();
 
-		this.board.items.addOwnSelection(items);
+		this.board.table.addOwnSelection(items);
 
 		// this.end();
 	}

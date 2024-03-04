@@ -234,8 +234,7 @@ class ResourcePropertyUI extends WidePropertyUI<"resource"> {
 		logger.debug("ui built", this);
 	}
 
-	protected override load(value: Option<URL>): void {
-		logger.debug("", this);
+	protected override load(value: Option<string>): void {
 		this.picker.load(value);
 	}
 }
