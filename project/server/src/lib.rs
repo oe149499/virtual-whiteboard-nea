@@ -33,8 +33,6 @@ pub struct Configuration {
     pub script_root: PathBuf,
     /// Path to media files (upload and serving)
     pub media_root: PathBuf,
-    /// Path to stored boards
-    pub board_root: PathBuf,
     /// Whether or not to serve TypeScript files as well as generated JS
     pub serve_ts: bool,
 }

@@ -1,7 +1,7 @@
 import { Logger } from "../Logger.js";
-import { asDomMatrix, fromMatrix, updateMatrix } from "../Transform.js";
+import { asDomMatrix, fromMatrix, translation, updateMatrix } from "../Transform.js";
 import type { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
-import { mutableStateOf, type DeepReadonly, type State } from "../util/State.js";
+import { mutableStateOf, type State } from "../util/State.js";
 import { None, OwnedInterval, point } from "../util/Utils.js";
 import type { CanvasContext, UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
@@ -128,17 +128,9 @@ export abstract class SelectionBox {
 			y: (newBounds.top + newBounds.bottom) / 2,
 		};
 
-		const newSrt: Transform = {
-			origin: centre,
-			basisX: point(1, 0),
-			basisY: point(0, 1),
-		};
+		const newSrt = translation(centre);
 
-		const newTransform = {
-			origin: point(-centre.x, -centre.y),
-			basisX: point(1, 0),
-			basisY: point(0, 1),
-		};
+		const newTransform = translation(point(-centre.x, -centre.y));
 
 		this.addFromTransforms(entries.map(
 			({ id }) => [id, newTransform],
@@ -256,7 +248,7 @@ export class LocalSelection extends SelectionBox {
 
 		this.stretchHandles = new StretchHandleSet(this.unscaled, this.srt, this.size, this.updateSrt);
 
-		const invSrt = this.srt.derived(m => m.inverse());
+		const invSrt = this.srt.derivedI("inverse");
 
 		ctx.createGestureFilter(GestureLayer.Selection)
 			.setTest(p => {

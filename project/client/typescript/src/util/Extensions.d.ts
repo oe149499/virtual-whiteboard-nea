@@ -1,6 +1,6 @@
 import { BoundsTester } from "../Bounds";
 import { Result, type Point } from "../gen/Types";
-import { State, type ReadonlyAs, type DeepReadonly } from "./State";
+import { State, type ReadonlyAs } from "./State";
 
 type EventMap<E extends Element> = {
 	[K in keyof E as (K extends `on${infer N}` ? N : never)]?: E[K]

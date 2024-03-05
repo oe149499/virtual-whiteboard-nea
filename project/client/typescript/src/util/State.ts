@@ -1,5 +1,4 @@
 import { Logger } from "../Logger.js";
-import type { Transform } from "../gen/Types.js";
 import { clone } from "./Clone.js";
 import { None, Option, getObjectID } from "./Utils.js";
 
@@ -46,14 +45,6 @@ export interface WatchHandle {
 	poll(): this;
 }
 
-export function stateWithSetterOf<T>(value: T) {
-	const state = new MutableState(value);
-	return {
-		state: state as State<T>,
-		setter: state.set,
-	};
-}
-
 export function mutableStateOf<T>(value: T) {
 	return new MutableState(value) as MutableState<T>;
 }
@@ -84,16 +75,15 @@ export function valueOf<T>(from: MaybeState<T>): DeepReadonly<T> {
 
 type MaybeStateArray<T> = { [K in keyof T]: MaybeState<T[K]> }
 
-export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArray<T>) {
-	const { setter, state } = stateWithSetterOf([] as unknown as T);
+const keepaliveMap = new WeakMap();
 
+export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArray<T>) {
 	const handles = [] as unknown[];
 
 	const out = <T>source.map((val, index) => {
 		if (val instanceof State) {
 			const handle = val[watchWeak](value => {
-				out[index] = value;
-				setter(out);
+				state.updateBy(a => a[index] = value);
 			});
 			handles.push(handle);
 			return val.get();
@@ -102,7 +92,8 @@ export function collectMaybeState<T extends unknown[]>(...source: MaybeStateArra
 		}
 	});
 
-	setter(out);
+	const state = new MutableState(out);
+	keepaliveMap.set(state, handles);
 
 	return state;
 }
@@ -183,7 +174,7 @@ export abstract class State<out T> {
 	}
 
 	public derivedI<T extends object, N extends keyof T>(this: State<T>, name: N, ...args: MaybeParameters<T[N]>): State<MaybeReturnType<T[N]>> {
-		// @ts-expect-error this is deep fuckery
+		// @ts-expect-error this is beyond typescript's inference capabilities
 		return this.derived(v => v[name](...args));
 	}
 
@@ -224,10 +215,6 @@ class DerivedState<T, U> extends State<U> {
 		source[watchWeak](callback);
 		this.#_c = callback;
 	}
-
-	// public override derived<V>(f: ROMap<U, V>): State<V> {
-	// 	return new DerivedState(this.source, compose(this.map as (_: DeepReadonly<T>) => DeepReadonly<U>, f));
-	// }
 }
 
 export abstract class MutableTransformer<T, U> {

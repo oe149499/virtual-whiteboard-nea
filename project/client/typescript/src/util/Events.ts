@@ -7,15 +7,6 @@ interface EventSchema {
 	[x: string]: (..._: any) => void;
 }
 
-// export enum DispatchMode {
-// 	SingleTarget,
-// 	MultiTarget,
-// }
-
-export function singleTargetProvider<T extends EventSchema>() {
-	return new EventProvider<T, SingleTargetDispatcher<T>>(new SingleTargetDispatcher());
-}
-
 export function multiTargetProvider<T extends EventSchema>() {
 	return new EventProvider<T, MultiTargetDispatcher<T>>(new MultiTargetDispatcher());
 }
@@ -42,20 +33,6 @@ const call = Symbol("call");
 
 abstract class EventDispatcherBase<T extends EventSchema> {
 	public abstract [call]<N extends keyof T>(name: N, params: Parameters<T[N]>): void;
-}
-
-class SingleTargetDispatcher<T extends EventSchema> extends EventDispatcherBase<T> {
-	private callbacks: Option<T> = None;
-
-	public override[call]<N extends keyof T>(name: N, params: Parameters<T[N]>): void {
-		if (this.callbacks === None) return;
-		this.callbacks[name].call(null, ...params);
-	}
-
-	public bind(handlers: T) {
-		if (this.callbacks === None) this.callbacks = handlers;
-		else logger.throw("Attempted to bind handler multiple times");
-	}
 }
 
 export class MultiTargetDispatcher<T extends EventSchema> extends EventDispatcherBase<T> {
@@ -95,15 +72,6 @@ class KeyedDispatcher<T extends EventSchema, TKey> extends EventDispatcherBase<K
 	}
 }
 
-// type DispatcherType<T extends EventSchema, M extends DispatchMode> = {
-// 	[DispatchMode.SingleTarget]: SingleTargetDispatcher<T>,
-// 	[DispatchMode.MultiTarget]: MultiTargetDispatcher<T>,
-// }[M];
-
-// const Dispatchers = {
-// 	[DispatchMode.SingleTarget]: SingleTargetDispatcher,
-// 	[DispatchMode.MultiTarget]: MultiTargetDispatcher,
-// } as const;
 const NoHandler = Symbol("NoHandler");
 
 class ExclusiveProvider<Params extends unknown[], Return> {

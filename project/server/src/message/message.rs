@@ -208,13 +208,3 @@ pub enum LocationUpdate {
     /// The new set of [`Point`]s of the item
     Points(Vec<Point>),
 }
-
-#[derive(Serialize, Deserialize, Debug)]
-#[cfg_attr(feature = "codegen", derive(TS))]
-/// The edits that can be made to multiple [`crate::canvas::Item`]s at the same time
-pub struct BatchChanges {
-    /// The new fill [`Color`] for the items
-    pub fill: Option<Color>,
-    /// The new [`Stroke`] information for the items
-    pub stroke: Option<Stroke>,
-}

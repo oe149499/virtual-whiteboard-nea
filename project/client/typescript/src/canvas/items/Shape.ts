@@ -1,22 +1,10 @@
 import { HasFill, HasStroke, HasTransform } from "../../GenWrapper.js";
 import { Logger } from "../../Logger.js";
-import { PropKey } from "../../Properties.js";
-import { PropertyTemplates, builder } from "../../PropertyTemplates.js";
 import { Item } from "../../gen/Types.js";
 import { CanvasContext } from "../CanvasBase.js";
-import { CanvasItem, FillItem, TransformMixin } from "./CanvasItems.js";
+import { FillItem, TransformMixin } from "./CanvasItems.js";
 
 const logger = new Logger("canvas/items/Shape");
-
-const { keys, schema } = builder()
-	.add(PropertyTemplates.TransformSchema())
-	.add(PropertyTemplates.StrokeSchema())
-	.add("fill", {
-		type: "color",
-		key: new PropKey("color", { defaultValue: "black" }),
-		displayName: "Fill color",
-	})
-	.build();
 
 
 abstract class ShapeItem extends TransformMixin(FillItem) {

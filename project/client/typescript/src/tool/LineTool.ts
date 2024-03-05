@@ -2,8 +2,6 @@ import { SingletonPropertyStore } from "../Properties.js";
 import { PropertyTemplates } from "../PropertyTemplates.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import type { DragGestureState } from "../canvas/Gesture.js";
-import type { Point } from "../gen/Types.js";
-import { point } from "../util/Utils.js";
 import { ActionToolBase } from "./Tool.js";
 
 const { schema, keys } = PropertyTemplates.StrokeSchema();

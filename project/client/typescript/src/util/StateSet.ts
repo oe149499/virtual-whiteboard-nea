@@ -1,15 +1,9 @@
 import { watchWeak } from "./State.js";
-import { mutableStateOf, type DeepReadonly, State, type MutableState } from "./State.js";
+import { type DeepReadonly, State } from "./State.js";
 
 // @ts-expect-error same logic as State<T>
 abstract class _StateSet<out T> extends State<Set<T>>{
 	public readonly size = this.derived(s => s.size);
-
-	// protected constructor(protected _inner: State<Set<T>>) {
-	// 	this.size = _inner.derived(s => s.size);
-	// }
-
-
 
 	public has(value: T) {
 		return this.derivedI("has", value);

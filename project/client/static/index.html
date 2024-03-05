@@ -3,41 +3,12 @@
 
 	<head>
 		<title>Virtual Whiteboard</title>
-		<script type="module">
-			import dumpList from "/script/ExportDump.js";
-
-			await dumpList({
-				"canvas/": [
-					"Canvas", "CanvasBase", "items/CanvasItems", "Gesture",
-				],
-				"client/": [
-					"Client", "RawClient",
-				],
-				"ui/": [
-					"Panel", "UIManager",
-				],
-				"tool/": [
-					"Tool", "ViewTool",
-				],
-				"util/": [
-					"Utils", "State", "Channel",
-				],
-				"": [
-					"GenWrapper", "Logger", "strftime", "test", "Properties",
-				]
-			});
-
-			console.log("Imported modules");
-
-			//LogOptions.minLevel = 0;
-
-			window.board = await createTestUI();
-		</script>
 		<meta name="viewport" content="width=device-width, height=device-height, user-scalable=no" />
 		<link rel="stylesheet" href="/static/css/import.css">
 	</head>
 
 	<body>
+		<script type="module" src="/script/index.js"></script>
 	</body>
 
 </html>

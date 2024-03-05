@@ -1,6 +1,5 @@
 import { PropKey, SingletonPropertyStore } from "../Properties.js";
 import { PropertyTemplates, builder } from "../PropertyTemplates.js";
-import { PX_PER_CM } from "../canvas/CanvasBase.js";
 import type { DragGestureState, PressGesture } from "../canvas/Gesture.js";
 import type { Item, Transform } from "../gen/Types.js";
 import { None, point } from "../util/Utils.js";

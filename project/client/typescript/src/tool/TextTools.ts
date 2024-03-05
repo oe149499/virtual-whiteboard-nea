@@ -1,7 +1,7 @@
 import type { ItemType, SpecificItem } from "../GenWrapper.js";
 import { PX_PER_CM } from "../canvas/CanvasBase.js";
 import type { PressGesture } from "../canvas/Gesture.js";
-import type { Item, LinkItem, Transform } from "../gen/Types.js";
+import type { LinkItem } from "../gen/Types.js";
 import { point } from "../util/Utils.js";
 import { ActionToolBase } from "./Tool.js";
 
@@ -18,11 +18,8 @@ abstract class TextToolBase<T extends ItemType> extends ActionToolBase {
 			...this.makeItem(),
 		};
 
-		const id = await this.board.client.method.CreateItem({ item });
+		await this.board.client.method.CreateItem({ item });
 
-		// await new Promise(r => setTimeout(r, 100));
-
-		// this.board.items.addOwnSelection([id]);
 		this.end();
 	}
 

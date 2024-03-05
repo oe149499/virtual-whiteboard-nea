@@ -195,7 +195,7 @@ mod _methods {
     use super::*;
     use crate::{
         canvas::{Item, SplineNode, Stroke, Transform},
-        message::{self as m, BatchChanges, ClientID, ClientState, ItemID, LocationUpdate, PathID},
+        message::{self as m, ClientID, ClientState, ItemID, LocationUpdate, PathID},
     };
 
     method_declarations! {

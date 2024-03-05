@@ -21,7 +21,6 @@ SVGPointList.prototype.replaceItem = function (newItem, index) {
 };
 
 SVGPointList.prototype.appendItem = function (newItem) {
-	// console.log(this, PointKeepaliveMap);
 	const map = getKeepaliveMap(this);
 	const index = this.length;
 	map.set(index, newItem);

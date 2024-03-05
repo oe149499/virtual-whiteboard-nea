@@ -150,7 +150,7 @@ class Builder<TKeys extends object> {
 			);
 		} else {
 			return new Builder<TKeys & Record<Name, PropKey<N>>>(
-				// @ts-ignore
+				// @ts-expect-error adding a key with a specific type doesn't convince TS
 				{
 					...this.keys,
 					[templOrName as Name]: prop!.key,
@@ -170,12 +170,6 @@ class Builder<TKeys extends object> {
 
 export function builder() {
 	return Builder.empty();
-}
-
-type Merged<A, T> = T extends [infer First, ...infer Rest] ? Merged<A & First, Rest> : A;
-
-export function merge<Ts extends object[]>(...objs: Ts): Merged<object, Ts> {
-	return Object.assign({}, ...objs);
 }
 
 export const PropertyTemplates = Object.freeze({

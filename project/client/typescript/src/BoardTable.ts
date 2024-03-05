@@ -1,7 +1,7 @@
 import { ItemType, SpecificItem } from "./GenWrapper.js";
 import { ClientID, Item, ItemID, Transform, type ClientInfo, type LocationUpdate } from "./gen/Types.js";
 import { CanvasItem } from "./canvas/items/CanvasItems.js";
-import { None, Option, Some, ok } from "./util/Utils.js";
+import { None, Option, Some } from "./util/Utils.js";
 import { exclusiveProvider, keyedProvider, multiTargetProvider } from "./util/Events.js";
 import { SessionClient } from "./client/Client.js";
 import { Logger } from "./Logger.js";
@@ -41,12 +41,6 @@ interface SelfEntry {
 	info: ClientInfo;
 	connection: ConnectionState;
 	box: Option<LocalSelection>;
-}
-
-export enum LocalSelectionCount {
-	None,
-	One,
-	Multiple,
 }
 
 interface SelectionHandlers {
@@ -119,7 +113,7 @@ export class BoardTable {
 		});
 
 		for await (const res of this.client.iterate.GetFullItems({ ids: items }).dechunk()) {
-			if (ok(res)) {
+			if (res.status === "Ok") {
 				const [id, item] = res.value;
 				this.addItem(id, item);
 			}

@@ -1,9 +1,10 @@
 import { Logger } from "../Logger.js";
 import { SingletonPropertyStore, PropKey } from "../Properties.js";
 import { builder } from "../PropertyTemplates.js";
+import { translation } from "../Transform.js";
 import { PressGesture } from "../canvas/Gesture.js";
 import { Item } from "../gen/Types.js";
-import { None, point } from "../util/Utils.js";
+import { None } from "../util/Utils.js";
 import { ActionToolBase } from "./Tool.js";
 
 const logger = new Logger("tool/Image");
@@ -37,12 +38,7 @@ export class ImageTool extends ActionToolBase {
 
 		const item: Item = {
 			type: "Image",
-			transform: {
-				origin: gesture.location,
-				basisX: point(1, 0),
-				basisY: point(0, 1),
-
-			},
+			transform: translation(gesture.location),
 			url: location.toString(),
 			description: this.properties.read(keys.alt),
 		};

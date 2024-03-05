@@ -43,7 +43,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .static_root(args.static_path.into())
         .script_root(args.script_root.into())
         .media_root(args.media_root.into())
-        .board_root(args.board_root.clone().into())
         .serve_ts(args.serve_ts)
         .build()
         .unwrap();
@@ -66,7 +65,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     runtime.block_on(async move {
         info!("Loading boards");
-        let boards = BoardManager::new(args.board_root.as_std_path());
+        let boards = BoardManager::new(Box::leak(
+            args.board_root
+                .as_std_path()
+                .to_path_buf()
+                .into_boxed_path(),
+        ));
 
         let res = GlobalResources::new(boards, config).as_static();
 

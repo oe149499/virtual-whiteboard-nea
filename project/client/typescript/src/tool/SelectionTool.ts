@@ -1,7 +1,7 @@
 import { Board } from "../Board.js";
 import { Logger } from "../Logger.js";
 import { PressGesture } from "../canvas/Gesture.js";
-import { ActionToolBase, ModeToolBase } from "./Tool.js";
+import { ModeToolBase } from "./Tool.js";
 const logger = new Logger("tool/SelectionTool");
 
 export class SelectionTool extends ModeToolBase {

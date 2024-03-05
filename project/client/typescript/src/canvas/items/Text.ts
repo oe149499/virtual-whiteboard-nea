@@ -2,7 +2,6 @@ import type { SpecificItem } from "../../GenWrapper.js";
 import { Logger } from "../../Logger.js";
 import { PropKey, type PropertySchema } from "../../Properties.js";
 import type { Item } from "../../gen/Types.js";
-import { todo } from "../../util/Utils.js";
 import { CenterHelper, type CanvasContext } from "../CanvasBase.js";
 import { GestureLayer, GestureType } from "../Gesture.js";
 import { parseMarkdown } from "../MarkdownParser.js";

@@ -126,30 +126,24 @@ pub fn create_client_filter(res: GlobalRes) -> BoxedFilter<(impl Reply,)> {
     let session_create: _ = warp::path!("board" / String)
         .and(warp::body::content_length_limit(MAX_SESSION_CREATE_LENGTH))
         .and(warp::body::json())
-        .and_then(|name, info: ClientInfo| async {
-            if let Some(handle) = res.boards.load_board(name).await {
-                let session = handle.create_session(info).await;
-                if let Ok(info) = &session {
-                    if let Some(_) = res.sessions.0.write().await.insert(
-                        info.session_id,
-                        Session {
-                            client_id: info.client_id,
-                            handle,
-                        },
-                    ) {
-                        error!("Duplicate session ID: {:?}", info.session_id);
-                    }
+        .then(|name, info: ClientInfo| async {
+            let handle = res.boards.load_board(name).await;
+            let session = handle.create_session(info).await;
+            if let Ok(info) = &session {
+                if let Some(_) = res.sessions.0.write().await.insert(
+                    info.session_id,
+                    Session {
+                        client_id: info.client_id,
+                        handle,
+                    },
+                ) {
+                    error!("Duplicate session ID: {:?}", info.session_id);
                 }
-                use crate::message::Result;
-                Ok(
-                    serde_json::to_string(&Result::from(session)).unwrap_or_else(|e| {
-                        error!("Failed to serialize response: {e}");
-                        String::new()
-                    }),
-                )
-            } else {
-                Err(warp::reject())
             }
+            serde_json::to_string(&Result::from(session)).unwrap_or_else(|e| {
+                error!("Failed to serialize response: {e}");
+                String::new()
+            })
         });
     session.or(session_create).boxed()
 }

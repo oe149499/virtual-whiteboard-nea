@@ -1,6 +1,5 @@
 import { Logger } from "../Logger.js";
 import { PropertyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue, type PropertyInstance } from "../Properties.js";
-import { ToolState } from "../tool/Tool.js";
 import { State } from "../util/State.js";
 import { None, Option, getObjectID } from "../util/Utils.js";
 import { ResourcePicker } from "./ResourcePicker.js";

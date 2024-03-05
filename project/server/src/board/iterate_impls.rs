@@ -9,7 +9,6 @@ use super::Board;
 impl Board {
     pub async fn handle_iterate(&self, id: ClientID, call: Iterates) {
         match call {
-            Iterates::GetPartialItems(_) => todo!(),
             Iterates::GetFullItems(call) => self.handle_get_full_items(id, call).await,
             Iterates::GetActivePath(call) => self.handle_get_active_path(id, call).await,
         }

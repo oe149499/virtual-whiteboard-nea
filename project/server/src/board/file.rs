@@ -1,5 +1,6 @@
 //! Implementation of boards stored on disk;
 
+use clap::builder::OsStr;
 use log::{debug, trace};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -45,6 +46,39 @@ impl BoardFileHandle {
             file_path,
             attrs: BoardFileAttrs { readonly: true },
         }
+    }
+
+    /// Create a handle for a board which may not exist on the filesystem
+    pub fn create_new(root: &Path, name: &str) -> Self {
+        let file_name = filenamify::filenamify(name).replace('.', "_");
+        let mut file_path = root.join(file_name);
+        file_path.set_extension("json");
+        Self::from_path(file_path)
+    }
+
+    fn try_get_board(entry: DirEntry) -> Option<(String, Self)> {
+        let path = entry.path();
+        let file_name = path.file_name()?.to_str()?;
+        if let Some(name) = file_name.strip_suffix(".json") {
+            Some((name.to_string(), BoardFileHandle::from_path(path)))
+        } else {
+            None
+        }
+    }
+
+    pub fn get_boards(path: &Path) -> io::Result<Vec<(String, Self)>> {
+        use std::fs;
+
+        let mut handles = Vec::new();
+
+        let dirs = fs::read_dir(path)?;
+        for entry in dirs.filter_ok() {
+            if let Some(board) = Self::try_get_board(entry) {
+                handles.push(board)
+            }
+        }
+
+        Ok(handles)
     }
 
     pub async fn load_canvas(&mut self) -> io::Result<ActiveCanvas> {
@@ -99,31 +133,4 @@ impl BoardFileHandle {
 
         Ok(())
     }
-}
-
-fn try_get_board(entry: DirEntry) -> Option<(String, BoardFileHandle)> {
-    let path = entry.path();
-    let file_name = path.file_name()?.to_str()?;
-    if let Some(name) = file_name.strip_suffix(".json") {
-        Some((name.to_string(), BoardFileHandle::from_path(path)))
-    } else {
-        None
-    }
-}
-
-pub fn get_boards(path: &Path) -> io::Result<Vec<(String, BoardFileHandle)>> {
-    use std::fs;
-
-    let mut handles = Vec::new();
-
-    let dirs = fs::read_dir(path)?;
-    for entry in dirs.filter_ok() {
-        debug!("Scanning entry: {entry:?}");
-        if let Some(board) = try_get_board(entry) {
-            debug!("Found board file");
-            handles.push(board)
-        }
-    }
-
-    Ok(handles)
 }

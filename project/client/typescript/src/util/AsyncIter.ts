@@ -103,7 +103,7 @@ class Wrapped<T> extends AsyncIter<T> {
 	}
 
 	public constructor(
-		source: AsyncIterable<T> | Iterable<T> | AsyncIterator<T>,
+		source: AsyncIterInit<T>,
 	) {
 		super();
 		if (Symbol.asyncIterator in source) {

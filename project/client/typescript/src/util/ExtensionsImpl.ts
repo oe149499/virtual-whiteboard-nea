@@ -1,6 +1,6 @@
 import { Point, Result } from "../gen/Types.js";
 import type { EventMap } from "./Extensions.js";
-import { MutableState, mutableStateOf, type DeepReadonly } from "./State.js";
+import { MutableState, mutableStateOf } from "./State.js";
 
 Set.prototype.addFrom = function <T>(this: Set<T>, src: Iterable<T>) {
 	for (const item of src) this.add(item);

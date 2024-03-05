@@ -1,6 +1,6 @@
 import type { Board } from "../Board.js";
 import { SingletonPropertyStore } from "../Properties.js";
-import { DragGestureState, FilterHandle, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
+import { DragGestureState, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
 import type { BlockDeepReadonly } from "../util/State.js";
 import { None } from "../util/Utils.js";
 

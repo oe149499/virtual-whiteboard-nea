@@ -3,7 +3,7 @@
 
 use crate::canvas::{Item, Stroke, Transform};
 
-use super::{BatchChanges, ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend, PathID};
+use super::{ClientID, ClientInfo, ItemID, LocationUpdate, MsgSend, PathID};
 use paste::paste;
 use serde::Serialize;
 #[cfg(feature = "codegen")]
@@ -120,11 +120,6 @@ notify_c_declarations! {
         #[serde(skip_serializing_if = "Option::is_none")]
         #[cfg_attr(feature = "codegen", ts(optional))]
         new_sits: Option<Vec<(ItemID, Transform)>>,
-    )
-
-    BatchItemsEdited (
-        ids: Vec<ItemID>,
-        changes: BatchChanges,
     )
 
     SingleItemEdited (

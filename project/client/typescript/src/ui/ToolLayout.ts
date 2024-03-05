@@ -9,7 +9,7 @@ import { EllipseTool, RectangleTool } from "../tool/ShapeTools.js";
 import { LinkTool, TextTool } from "../tool/TextTools.js";
 import { Tool } from "../tool/Tool.js";
 import { ViewTool } from "../tool/ViewTool.js";
-import { ZoomInTool, ZoomTool } from "../tool/ZoomTools.js";
+import { ZoomTool } from "../tool/ZoomTools.js";
 
 type ConstructorEntry = [iconName: string, tool: new (board: Board) => Tool];
 type ToolEntry = [iconName: string, tool: Tool];

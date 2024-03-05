@@ -215,10 +215,6 @@ iterate_declarations! {
     enum Iterates => IterateResponses;
     spec IterateSpec;
 
-    GetPartialItems(
-        ids: Vec<ItemID>,
-    ) => super::Result<Item>
-
     GetFullItems(
         ids: Vec<ItemID>,
     ) => super::Result<(ItemID, Item)>

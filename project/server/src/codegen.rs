@@ -92,9 +92,9 @@ fn make_spec_export<Spec: TS>(type_imports: &str, exports: String, names: Vec<St
 
 export {spec_export}
 
-export const {spec_name}Names: (keyof {spec_name})[] = {{
+export const {spec_name}Names: (keyof {spec_name})[] = [
     {names_str}
-}};
+];
 "#
     )
 }
@@ -136,7 +136,6 @@ fn main() {
                 m::ItemID,
                 m::PathID,
                 m::LocationUpdate,
-                m::BatchChanges,
                 r::RejectLevel,
                 r::RejectMessage,
                 r::RejectReason,
@@ -175,7 +174,6 @@ fn main() {
             SelectionAddItems,
             SelectionRemoveItems,
             SelectionMove,
-            EditBatchItems,
             EditSingleItem,
             DeleteItems,
             CreateItem,
@@ -203,7 +201,6 @@ fn main() {
             SelectionItemsAdded,
             SelectionItemsRemoved,
             SelectionMoved,
-            BatchItemsEdited,
             SingleItemEdited,
             ItemsDeleted,
             ItemCreated,
@@ -219,7 +216,6 @@ fn main() {
     let (iterate_export, iterate_names) = {
         use virtual_whiteboard::message::iterate::*;
         export_scanner!([
-            GetPartialItems,
             GetFullItems,
             GetActivePath,
         ] with T => T::decl())
