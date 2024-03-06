@@ -3,9 +3,9 @@ import { PX_PER_CM } from "../canvas/CanvasBase.js";
 import type { PressGesture } from "../canvas/Gesture.js";
 import type { LinkItem } from "../gen/Types.js";
 import { point } from "../util/Utils.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 
-abstract class TextToolBase<T extends ItemType> extends ActionToolBase {
+abstract class TextToolBase<T extends ItemType> extends ActionTool {
 	protected override async onPressGesture(gesture: PressGesture) {
 		this.start();
 		// @ts-ignore

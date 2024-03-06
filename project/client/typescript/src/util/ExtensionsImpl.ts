@@ -47,16 +47,6 @@ Element.prototype.addClasses = function (...classes) {
 	return this;
 };
 
-HTMLElement.prototype.createChild = function (tagname) {
-	const elem = document.createElement(tagname);
-	return this.appendChild(elem);
-};
-
-SVGElement.prototype.createChild = function (tagname) {
-	const elem = document.createElementNS("http://www.w3.org/2000/svg", tagname);
-	return this.appendChild(elem);
-};
-
 Element.prototype.setAttrs = function (attrs) {
 	for (const name in attrs) {
 		if (name === "asReadonly") continue;
@@ -78,6 +68,16 @@ Element.prototype.addHandlers = function <E extends Element>(this: E, handlers: 
 		this.addEventListener(name, handlers[name]);
 	}
 	return this;
+};
+
+HTMLElement.prototype.createChild = function (tagname) {
+	const elem = document.createElement(tagname);
+	return this.appendChild(elem);
+};
+
+SVGElement.prototype.createChild = function (tagname) {
+	const elem = document.createElementNS("http://www.w3.org/2000/svg", tagname);
+	return this.appendChild(elem);
 };
 
 DOMTokenList.prototype.set = function (name, value) {
@@ -136,7 +136,6 @@ Object.defineProperties(SVGRect.prototype, {
 const simpleNames = ["multiply", "rotate", "rotateAxisAngle", "rotateFromVector", "scale3d", "scale", "skewX", "skewY", "translate"] as const;
 
 const matrixMethods = [["inverse", "invertSelf"], ...simpleNames.map(n => [n, n + "Self"])];
-
 
 
 for (const [name, selfName] of matrixMethods) {

@@ -3,14 +3,14 @@ import { SingletonPropertyStore } from "../Properties.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import { PathHelper } from "../canvas/Path.js";
 import { DragGestureState } from "../canvas/Gesture.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 import { PropertyTemplates } from "../PropertyTemplates.js";
 const logger = new Logger("tool/Path");
 
 const { schema, keys } = PropertyTemplates.StrokeSchema();
 
 
-export class PathTool extends ActionToolBase {
+export class PathTool extends ActionTool {
 	public override readonly properties = new SingletonPropertyStore([schema]);
 
 	protected override async onDragGesture(gesture: DragGestureState) {

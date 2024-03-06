@@ -1,33 +1,18 @@
 import { Logger } from "../Logger.js";
 import { PropertyStore, PropType, ValuePropertyType, PropKey, PropertySchema, StructPropertySchema, PropValue, type PropertyInstance } from "../Properties.js";
+import { AutoMap } from "../util/Maps.js";
 import { State } from "../util/State.js";
 import { None, Option, getObjectID } from "../util/Utils.js";
 import { ResourcePicker } from "./ResourcePicker.js";
 const logger = new Logger("ui/PropertiesEditor");
 
-class ObjectCacheMap<K extends object, V> {
-	private idMap = new Map<number, V>();
-
-	public get(key: K, fallback: (_: K) => V): V {
-		const id = getObjectID(key);
-		if (this.idMap.has(id)) {
-			return this.idMap.get(id) as V;
-		} else {
-			const val = fallback(key);
-			this.idMap.set(id, val);
-			return val;
-		}
-	}
-}
-
 export class PropertyEditor {
-	private propertyCache = new ObjectCacheMap<PropertySchema[], RootPropertyUI>();
+	private uiTable = new AutoMap((props: PropertySchema[]) => new PropertyUIContainer(props));
 	private currentElement?: HTMLElement;
 
 	public constructor(
 		private container: HTMLElement,
 		propState: State<Option<PropertyInstance>>,
-		// toolState: State<ToolState>,
 	) {
 		propState.watchOn(this, s => {
 			if (s !== None) {
@@ -42,10 +27,7 @@ export class PropertyEditor {
 
 	public loadProperties(props: PropertySchema[], store: PropertyStore) {
 		logger.debug("loading properties");
-		const current = this.propertyCache.get(
-			props,
-			props => new RootPropertyUI(props),
-		);
+		const current = this.uiTable.get(props);
 		queueMicrotask(() => current.reload(store));
 		if (current.element !== this.currentElement) {
 			this.currentElement?.remove();
@@ -57,8 +39,9 @@ export class PropertyEditor {
 
 abstract class PropertyUI {
 	public abstract reload(store: PropertyStore): void;
+	protected abstract build(): void;
 
-	public static create(
+	private static _create(
 		target: HTMLElement,
 		prop: PropertySchema,
 	): PropertyUI {
@@ -75,16 +58,24 @@ abstract class PropertyUI {
 			default: return logger.throw("Unimplemented property schema type");
 		}
 	}
+
+	public static create(
+		target: HTMLElement,
+		prop: PropertySchema,
+	): PropertyUI {
+		const ui = this._create(target, prop);
+		ui.build();
+		return ui;
+	}
 }
 
-class RootPropertyUI extends PropertyUI {
+class PropertyUIContainer {
 	public readonly element: HTMLElement;
 	private children: PropertyUI[] = [];
 
 	public constructor(
 		public readonly schema: PropertySchema[],
 	) {
-		super();
 		this.element = document.createElement("div")
 			.addClasses("property-container");
 		for (const item of schema) {
@@ -92,7 +83,7 @@ class RootPropertyUI extends PropertyUI {
 		}
 	}
 
-	public override reload(store: PropertyStore) {
+	public reload(store: PropertyStore) {
 		for (const child of this.children) {
 			child.reload(store);
 		}
@@ -103,24 +94,26 @@ abstract class ValuePropertyUI<N extends PropType> extends PropertyUI {
 	protected readonly key: PropKey<N>;
 	protected store: Option<PropertyStore> = None;
 
+	protected container: HTMLDivElement;
+	protected label: HTMLLabelElement;
+	protected id: number;
+
 	public constructor(
 		target: HTMLElement,
 		protected readonly prop: ValuePropertyType<N>,
 	) {
 		super();
-		const id = getObjectID(prop);
-		const label = target.createChild("label")
-			.setAttrs({ htmlFor: id })
+		this.id = getObjectID(prop);
+
+		this.label = target.createChild("label")
+			.setAttrs({ htmlFor: this.id })
 			.setContent(prop.displayName ?? "");
 
-		const container = target.createChild("div")
+		this.container = target.createChild("div")
 			.addClasses("passthrough");
 
 		this.key = prop.key;
-		queueMicrotask(() => this.buildUI(container, label, id));
 	}
-
-	protected abstract buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void;
 
 	protected update(value: PropValue<N>) {
 		if (this.store !== None) this.store.store(this.key, value);
@@ -137,9 +130,9 @@ abstract class ValuePropertyUI<N extends PropType> extends PropertyUI {
 abstract class ShortPropertyUI<N extends PropType> extends ValuePropertyUI<N> {
 	protected input!: HTMLInputElement;
 
-	protected override buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void {
-		this.input = target.createChild("input")
-			.setAttrs({ id });
+	protected override build(): void {
+		this.input = this.container.createChild("input")
+			.setAttrs({ id: this.id });
 		this.init();
 	}
 
@@ -147,12 +140,12 @@ abstract class ShortPropertyUI<N extends PropType> extends ValuePropertyUI<N> {
 }
 
 abstract class WidePropertyUI<N extends PropType> extends ValuePropertyUI<N> {
-	protected override buildUI(target: HTMLElement, label: HTMLLabelElement, id: number): void {
-		label.addClasses("property-label-wide");
-		this.build(target, id);
+	protected override build(): void {
+		this.label.addClasses("property-label-wide");
+		this.init();
 	}
 
-	protected abstract build(target: HTMLElement, id: number): void;
+	protected abstract init(): void;
 }
 
 class NumberPropertyUI extends ShortPropertyUI<"number"> {
@@ -207,9 +200,9 @@ class ShortTextPropertyUI extends ShortPropertyUI<"text"> {
 class LongTextPropertyUI extends WidePropertyUI<"text"> {
 	private area!: HTMLTextAreaElement;
 
-	protected override build(target: HTMLElement, id: number): void {
-		this.area = target.createChild("textarea")
-			.setAttrs({ id });
+	protected override init(): void {
+		this.area = this.container.createChild("textarea")
+			.setAttrs({ id: this.id });
 
 		this.area.oninput = () => {
 			this.update(this.area.value);
@@ -224,13 +217,10 @@ class LongTextPropertyUI extends WidePropertyUI<"text"> {
 class ResourcePropertyUI extends WidePropertyUI<"resource"> {
 	private picker!: ResourcePicker;
 
-	protected override build(target: HTMLElement, _id: number): void {
-		logger.debug("ui built");
-		this.picker = new ResourcePicker(target, url => {
-			logger.debug("Updating with", url);
+	protected override init(): void {
+		this.picker = new ResourcePicker(this.container, url => {
 			this.update(url);
 		});
-		logger.debug("ui built", this);
 	}
 
 	protected override load(value: Option<string>): void {
@@ -243,7 +233,7 @@ class StructPropertyUI extends PropertyUI {
 
 	public constructor(
 		target: HTMLElement,
-		private prop: StructPropertySchema,
+		prop: StructPropertySchema,
 	) {
 		super();
 
@@ -259,6 +249,10 @@ class StructPropertyUI extends PropertyUI {
 			const ui = PropertyUI.create(container, field);
 			this.children.push(ui);
 		}
+	}
+
+	protected override build(): void {
+		for (const child of this.children) child["build"]();
 	}
 
 	public override reload(store: PropertyStore): void {

@@ -162,7 +162,6 @@ export class Link extends TransformMixin(CanvasItem) {
 
 		this.item = value;
 
-		// this.innerElement.setAttribute("href", value.url);
 		this.textElement.setContent(value.text || value.url);
 	}
 

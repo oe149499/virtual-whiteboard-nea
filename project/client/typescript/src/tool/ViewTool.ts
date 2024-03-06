@@ -1,10 +1,10 @@
 import { Logger } from "../Logger.js";
 import { DragGestureState } from "../canvas/Gesture.js";
 import { None } from "../util/Utils.js";
-import { ModeToolBase } from "./Tool.js";
+import { ModeTool } from "./Tool.js";
 const logger = new Logger("tool/ViewTool");
 
-export class ViewTool extends ModeToolBase {
+export class ViewTool extends ModeTool {
 	public override async onDragGesture(gesture: DragGestureState) {
 		logger.trace("gesture", gesture);
 

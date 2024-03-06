@@ -80,13 +80,14 @@ export class PrototypeMap<K, V> {
 
 type HookCb<T, P, R> = (this: T, _: P) => R;
 
-export class HookMap<T, P = void, R = void> {
-	private inner = new PrototypeMap<T, HookCb<T, P, R>>();
-	private chainCache = new Map<object, HookCb<T, P, R>[]>();
+export class HookMap<T, Param = void, Return = void> {
+	private inner = new PrototypeMap<T, HookCb<T, Param, Return>>();
+	private chainCache = new Map<object, HookCb<T, Param, Return>[]>();
 
-	public add<U extends T>(cls: Constructor<U>, cb: HookCb<U, P, R>) {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		this.inner.addClass(cls, cb as any);
+	public add<U extends T>(cls: Constructor<U>, cb: HookCb<U, Param, Return>) {
+		// Similarly to State<T>, this is sound because the stored 
+		// callback will only ever be called on an instance derived from U
+		this.inner.addClass(cls, cb as unknown as HookCb<T, Param, Return>);
 	}
 
 	private getChain(value: T) {
@@ -99,13 +100,13 @@ export class HookMap<T, P = void, R = void> {
 		return chain;
 	}
 
-	public trigger(value: T, param: P) {
+	public trigger(value: T, param: Param) {
 		for (const cb of this.getChain(value)) {
 			cb.call(value, param);
 		}
 	}
 
-	public * collect(value: T, param: P) {
+	public * collect(value: T, param: Param) {
 		for (const cb of this.getChain(value)) {
 			yield cb.call(value, param);
 		}

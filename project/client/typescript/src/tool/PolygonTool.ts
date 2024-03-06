@@ -5,7 +5,7 @@ import { StrokeHelper, type CanvasContext, FillHelper } from "../canvas/CanvasBa
 import type { DragGestureState, PressGesture } from "../canvas/Gesture.js";
 import type { Color, Point, Stroke } from "../gen/Types.js";
 import { None } from "../util/Utils.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 
 const logger = new Logger("tool/Polygon");
 
@@ -22,7 +22,7 @@ function lenSquared(x: number, y: number) {
 	return (x * x) + (y * y);
 }
 
-export class PolygonTool extends ActionToolBase {
+export class PolygonTool extends ActionTool {
 	public override readonly properties = new SingletonPropertyStore(schema);
 	private builder?: PolygonBuilder;
 	private startPos?: Point;

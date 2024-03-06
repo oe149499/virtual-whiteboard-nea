@@ -3,14 +3,25 @@ import { None, Option } from "./Utils.js";
 const End = Symbol("IterEnd");
 type End = typeof End;
 
+
+/// Typescript doesn't allow accessing a protected base method of
+/// another instance from a derived class, so these symbols are used 
+/// to effectively restrict the scope of the methods to this file
+
 const Next = Symbol("Next");
 const getNext = Symbol("getNext");
 
 export type AsyncIterInit<T> = AsyncIterable<T> | AsyncIterator<T> | Iterable<T> | AsyncIter<T>;
 
+/** 
+ * A wrapper class around async iterators that provides methods for processing them
+ * This is impossible with the builtin system since it's just an interface
+ */
 export abstract class AsyncIter<T> implements AsyncIterable<T> {
+	/** Get the next item from whatever the underlying source is */
 	protected abstract [Next](): Promise<T | End>;
 
+	/** Extract the next item taking into account the peeked item */
 	protected async [getNext](): Promise<T | End> {
 		if (this.isEnd) return End;
 		if (this.peekCache !== None) {
@@ -26,6 +37,7 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 
 	private isEnd = false;
 
+	/** Implements the JS async iterator protocol for compatibility with for-await loops */
 	private readonly iterator: AsyncIterator<T> = {
 		next: async () => {
 			const n = await this[getNext]();
@@ -65,10 +77,6 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 		return new Dechunked(this);
 	}
 
-	public zipWith<U>(other: AsyncIterInit<U>): AsyncIter<[T, U]> {
-		return new Zipped(this, AsyncIter.of(other));
-	}
-
 	public async collect(): Promise<T[]> {
 		const output = [];
 		for await (const item of this) {
@@ -86,10 +94,6 @@ export abstract class AsyncIter<T> implements AsyncIterable<T> {
 	public static of<T>(source: AsyncIterInit<T>): AsyncIter<T> {
 		if (source instanceof this) return source;
 		return new Wrapped(source);
-	}
-
-	public static zip<T extends unknown[]>(...source: TupleIter<T>): AsyncIter<T> {
-		return new Zipped<T>(...source);
 	}
 }
 
@@ -148,26 +152,5 @@ class Dechunked<T> extends AsyncIter<T> {
 			this.currentChunk = await this.source[getNext]();
 			return this[Next]();
 		}
-	}
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type TupleIter<T extends unknown[]> = { [K in keyof T]: AsyncIter<T[K]> };
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-class Zipped<T extends unknown[]> extends AsyncIter<T> {
-	private source: TupleIter<T>;
-	public constructor(
-		...source: TupleIter<T>
-	) {
-		super();
-		this.source = source;
-	}
-
-	protected override async [Next]() {
-		const promises = this.source.map(i => i[getNext]());
-		const items = await Promise.all(promises);
-		if (items.indexOf(End) !== -1) return End;
-		else return items as T;
 	}
 }

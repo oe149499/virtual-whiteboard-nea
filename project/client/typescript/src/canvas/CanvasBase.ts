@@ -73,7 +73,6 @@ export class CanvasContext {
 
 	public createPoint(p?: Point): SVGPoint {
 		const point = this.svgroot.createSVGPoint();
-		// this.points.add(point);
 		if (p) {
 			point.x = p.x;
 			point.y = p.y;
@@ -158,7 +157,6 @@ export class CanvasContext {
 		}
 
 		public insert<E extends SVGGraphicsElement>(elem: E, pos: State<Point>) {
-			// this.element.appendChild(elem);
 			return this.ctx.insertUnscaled(elem, pos, this.element);
 		}
 

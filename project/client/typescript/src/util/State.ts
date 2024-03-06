@@ -5,17 +5,22 @@ import { None, Option, getObjectID } from "./Utils.js";
 export const BlockDeepReadonly = Symbol("BlockReadonly");
 export const ReadonlyAs = Symbol("ReadonlyAs");
 
+/// Hardcoded list of basic readonly types
 // eslint-disable-next-line @typescript-eslint/ban-types
 export type SkipReadonly = undefined | null | boolean | string | number | symbol | Function | URL | Promise<unknown>;
 
+/// This type and any subtype of it is already readonly
 interface BlockReadonly {
 	[BlockDeepReadonly]?: unknown;
 }
 
+/// This type and any subtype of it has a readonly supertype of T
 export interface ReadonlyAs<T> {
 	[ReadonlyAs]?(): T;
 }
 
+
+/// Interfaces which are already readonly can skip the recursive process
 declare global {
 	interface ReadonlyArray<T> extends ReadonlyAs<ReadonlyArray<T>> { }
 
@@ -32,8 +37,7 @@ declare global {
 
 type ROAction<T> = (_: DeepReadonly<T>) => void;
 type ROMap<T, U> = (_: DeepReadonly<T>) => U;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type StateTuple<T extends any[]> = { [K in keyof T]: State<T[K]> };
+type StateTuple<T extends unknown[]> = { [K in keyof T]: State<T[K]> };
 
 export type DeepReadonly<T> = T extends SkipReadonly ? T
 	: T extends ReadonlyAs<infer U> ? U : T extends BlockReadonly ? T
@@ -46,10 +50,11 @@ export interface WatchHandle {
 }
 
 export function mutableStateOf<T>(value: T) {
-	return new MutableState(value) as MutableState<T>;
+	return new MutableState(value);
 }
 
-export function mutableStateOfNone<T>(): MutableState<Option<T>> {
+/// This is common (and awkwardly verbose) enough to warrant a helper
+export function mutableStateOfNone<T>() {
 	return mutableStateOf<Option<T>>(None);
 }
 
@@ -103,7 +108,9 @@ export const watchWeak = Symbol();
 type MaybeParameters<T> = T extends (...args: infer P) => void ? P : never;
 type MaybeReturnType<T> = T extends (...args: infer _) => infer R ? R : never;
 
-// @ts-expect-error watcher maps will still recieve the type they watched
+/// While the watchers may expect a more specific type than T, the only way
+/// for them to be submitted is if the real type of the state is actually that specific type
+// @ts-expect-error ^^^
 export abstract class State<out T> {
 	[ReadonlyAs]?(): State<T>;
 	private watchers = new Map<number, ROAction<T>>();
@@ -178,9 +185,8 @@ export abstract class State<out T> {
 		return this.derived(v => v[name](...args));
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public derivedT<T extends any[], U>(this: State<T>, f: (..._: { readonly [K in keyof T]: DeepReadonly<T[K]> }) => U): State<U> {
-		// @ts-expect-error technically this is a slightly different type
+	public derivedT<T extends unknown[], U>(this: State<T>, f: (..._: { readonly [K in keyof T]: DeepReadonly<T[K]> }) => U): State<U> {
+		// @ts-expect-error This is sound as long as DeepReadonly<T> is a supertype of T, which should be the case
 		return this.derived(l => f(...l));
 	}
 
@@ -192,8 +198,7 @@ export abstract class State<out T> {
 		return f(this.get());
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public with<U extends any[]>(...others: StateTuple<U>): State<[T, ...U]> {
+	public with<U extends unknown[]>(...others: StateTuple<U>): State<[T, ...U]> {
 		const list: StateTuple<[T, ...U]> = [this, ...others];
 		return new CombinedState<[T, ...U]>(list);
 	}

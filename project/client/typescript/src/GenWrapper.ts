@@ -107,7 +107,6 @@ export type IterateDispatcher = {
 export type IterateHandler = <I extends IName>(name: I, args: IArgs<I>) => AsyncIter<IItem<I>[]>;
 
 export function createIterateReciever(handler: IterateHandler): IterateDispatcher {
-	// This should work but fails type checking
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const result = {} as any;
 	for (const name of IterateSpecNames) {
@@ -119,8 +118,6 @@ export function createIterateReciever(handler: IterateHandler): IterateDispatche
 }
 
 export type RejectPayload = { protocol: "Reject" } & RejectMessage
-
-//type Test = Id<IItem<"GetActivePath">>;
 
 export type MethodCall = MPayload<MName>;
 

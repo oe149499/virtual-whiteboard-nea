@@ -1,8 +1,7 @@
-import { Logger } from "../Logger.js";
 import { Point } from "../gen/Types.js";
 import { Channel, makeChannel } from "../util/Channel.js";
 import { mutableStateOf, stateBy } from "../util/State.js";
-import { CanvasContext, CoordinateMapping } from "./CanvasBase.js";
+import { CanvasContext, CoordinateMapping, PX_PER_CM } from "./CanvasBase.js";
 import { CanvasItem, FillItem, ItemPropertyStore, StrokeItem } from "./items/CanvasItems.js";
 import "./items/ItemBuilders.js";
 import { GestureHandler } from "./Gesture.js";
@@ -11,10 +10,6 @@ import { TimeoutMap } from "../util/TimeoutMap.js";
 import { LocalSelection, RemoteSelection } from "./Selection.js";
 import type { PropertyInstance, PropertySchema } from "../Properties.js";
 import { None, anyOf, point } from "../util/Utils.js";
-
-
-const PX_PER_CM = 37.8;
-const logger = new Logger("canvas/CanvasController");
 
 export class CanvasController {
 	private gestures!: GestureHandler;
@@ -99,7 +94,6 @@ export class CanvasController {
 	public * probePoint(target: Point): Iterable<ItemEntry> {
 		for (const entry of this.boardTable.entries()) {
 			if (entry.selection !== None) continue;
-			logger.debug("bounds: ", entry.canvasItem.bounds);
 			if (entry.canvasItem.bounds.testIntersection(target)) yield entry;
 		}
 	}
@@ -118,8 +112,6 @@ export class CanvasController {
 		} else if (anyOf(entries, ({ canvasItem }) => canvasItem instanceof StrokeItem)) {
 			schema = StrokeItem.schema;
 		}
-
-		logger.debug("Schema for %o is %o", entries, schema);
 
 		this.propertyStore.bindEntries(entries);
 		return { schema, store: this.propertyStore };

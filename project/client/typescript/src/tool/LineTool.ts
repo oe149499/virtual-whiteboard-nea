@@ -2,11 +2,11 @@ import { SingletonPropertyStore } from "../Properties.js";
 import { PropertyTemplates } from "../PropertyTemplates.js";
 import { StrokeHelper } from "../canvas/CanvasBase.js";
 import type { DragGestureState } from "../canvas/Gesture.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 
 const { schema, keys } = PropertyTemplates.StrokeSchema();
 
-export class LineTool extends ActionToolBase {
+export class LineTool extends ActionTool {
 	public override readonly properties = new SingletonPropertyStore([schema]);
 
 	protected override async onDragGesture(gesture: DragGestureState) {

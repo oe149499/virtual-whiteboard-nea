@@ -5,7 +5,7 @@ import { translation } from "../Transform.js";
 import { PressGesture } from "../canvas/Gesture.js";
 import { Item } from "../gen/Types.js";
 import { None } from "../util/Utils.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 
 const logger = new Logger("tool/Image");
 
@@ -24,7 +24,7 @@ const { keys, schema } = builder()
 	})
 	.build();
 
-export class ImageTool extends ActionToolBase {
+export class ImageTool extends ActionTool {
 	public override readonly properties = new SingletonPropertyStore(schema);
 
 	protected override cancelAction(): void { }

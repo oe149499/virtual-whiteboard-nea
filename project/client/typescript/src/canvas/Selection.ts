@@ -1,15 +1,12 @@
-import { Logger } from "../Logger.js";
 import { asDomMatrix, fromMatrix, translation, updateMatrix } from "../Transform.js";
 import type { ClientID, ItemID, Point, Transform } from "../gen/Types.js";
 import { mutableStateOf, type State } from "../util/State.js";
 import { None, OwnedInterval, point } from "../util/Utils.js";
-import type { CanvasContext, UnscaledHandle } from "./CanvasBase.js";
+import { type CanvasContext, type UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, GestureType, type DragGestureState } from "./Gesture.js";
 import type { ItemEntry, BoardTable } from "../BoardTable.js";
-import { SelectionBorder, RotateHandle, StretchHandleSet } from "./SelectionUI.js";
+import { SelectionBorder, HandleSet } from "./SelectionUI.js";
 import type { MArgs } from "../GenWrapper.js";
-
-const logger = new Logger("canvas/Selection");
 
 export type TransformRecord = [id: ItemID, transform: Transform];
 
@@ -54,11 +51,24 @@ export abstract class SelectionBox {
 		protected ctx: CanvasContext,
 		protected table: BoardTable,
 	) {
-		const rootElement = ctx.createRootElement("g").addClasses("selection-container");
-		this.rootElement = rootElement;
-		this.itemContainer = rootElement.createChild("g").addClasses("selection-item-container");
-		this.rootTransform = this.itemContainer.createChild("g").addClasses("selection-root-transform");
-		this.stagingContainer = this.itemContainer.createChild("g").addClasses("selection-staging-container");
+		this.rootElement = ctx
+			.createRootElement("g")
+			.addClasses("selection-container");
+
+		this.itemContainer = this
+			.rootElement
+			.createChild("g")
+			.addClasses("selection-item-container");
+
+		this.rootTransform = this
+			.itemContainer
+			.createChild("g")
+			.addClasses("selection-root-transform");
+
+		this.stagingContainer = this
+			.itemContainer
+			.createChild("g")
+			.addClasses("selection-staging-container");
 
 		this.unscaled = ctx.getUnscaledHandle();
 
@@ -188,7 +198,6 @@ export class RemoteSelection extends SelectionBox {
 
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
 		this.unscaled.insertStatic(this.border.element);
-		// this.uiContainer.appendChild(this.border.element);
 	}
 
 	public addItems(newSits: TransformRecord[], newSrt: Transform) {
@@ -211,8 +220,7 @@ export interface LocalSelectionInit {
 
 export class LocalSelection extends SelectionBox {
 	private border: SelectionBorder;
-	private rotateHandle: RotateHandle;
-	private stretchHandles: StretchHandleSet;
+	private handles: HandleSet;
 
 	private srtUpdateSent = true;
 
@@ -241,12 +249,11 @@ export class LocalSelection extends SelectionBox {
 			this.addFromTransforms(init.items, init.srt);
 			this.srt.updateTransform(init.srt);
 		}
+
 		this.border = new SelectionBorder(ctx, this.srt, this.size);
 		this.unscaled.insertStatic(this.border.element);
 
-		this.rotateHandle = new RotateHandle(this.unscaled, this.srt, this.size, this.updateSrt);
-
-		this.stretchHandles = new StretchHandleSet(this.unscaled, this.srt, this.size, this.updateSrt);
+		this.handles = new HandleSet(this.unscaled, this.srt, this.size, this.updateSrt);
 
 		const invSrt = this.srt.derivedI("inverse");
 

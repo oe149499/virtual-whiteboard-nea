@@ -1,3 +1,11 @@
+/// Due to bug in Firefox, some SVG objects get garbage collected when they shouldn't.
+/// This is already problematic, but is made even worse by the fact that these objects
+/// have a special garbage-collection mechanism that doesn't account for weak references,
+/// allowing the JS wrapper to be accessed after its backing data is freed, causing a tab crash
+///
+/// This module monkey-patches some of the methods on SVGPointList to keep their contained points alive,
+/// which is enough to make this application work
+
 const PointKeepaliveMap = new WeakMap<SVGPointList, Map<number, SVGPoint>>();
 
 console.log(PointKeepaliveMap);

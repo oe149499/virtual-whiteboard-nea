@@ -1,6 +1,13 @@
 import type { CanvasContext } from "./CanvasBase.js";
 
-const MD_TOKEN = /\\[_*~\\]|\*+|_+|~+|[^*_~]+/;
+/**
+ * Any of the following:
+ * 
+ * - A backslash followed by another control character or backslash
+ * - A control character repeated one or more times
+ * - Any number of characters which are neither a control character or a backslash
+ */
+const MD_TOKEN = /\\[_*~\\]|\*+|_+|~+|[^*_~\\]+/;
 
 const CONTROL_SCHEMA = [
 	["*", "italic"],
@@ -36,17 +43,11 @@ export function parseMarkdown(ctx: CanvasContext, source: string) {
 
 	const modifierStack: string[] = [];
 
-	// console.log("Parsing line: ", source);
-
 	for (const token of tokens(source)) {
-		// console.log(modifierStack, token);
 		if (CONTROL_TOKENS.has(token)) {
 			const top = modifierStack[modifierStack.length - 1];
 
 			if (top === token) {
-				// const classes = CONTROL_TOKENS.assume(token);
-				// current.setAttribute("class", classes);
-
 				// @ts-expect-error parentElement is just wrong
 				current = current.parentElement as SVGTSpanElement;
 				modifierStack.pop();

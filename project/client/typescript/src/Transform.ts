@@ -60,6 +60,7 @@ export function asDomMatrix(t: Transform | State<Transform>): DOMMatrix | State<
 }
 
 declare module "./util/State.js" {
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	interface MutableState<T> {
 		updateTransform(this: MutableState<DOMMatrix>, transform: Transform): void;
 	}

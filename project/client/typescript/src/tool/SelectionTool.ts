@@ -1,10 +1,10 @@
 import { Board } from "../Board.js";
 import { Logger } from "../Logger.js";
 import { PressGesture } from "../canvas/Gesture.js";
-import { ModeToolBase } from "./Tool.js";
+import { ModeTool } from "./Tool.js";
 const logger = new Logger("tool/SelectionTool");
 
-export class SelectionTool extends ModeToolBase {
+export class SelectionTool extends ModeTool {
 	// TODO: this is very incomplete
 	public constructor(
 		board: Board,

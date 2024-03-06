@@ -38,8 +38,8 @@ export const LogOptions = {
 
 export class Logger {
 	constructor(private module: string) { }
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public log(level: LogLevel, message: string, ...objs: any[]) {
+
+	public log(level: LogLevel, message: string, ...objs: unknown[]) {
 		if (level >= LogOptions.minLevel) {
 			const displayString = LogOptions.logFormat(new Date(), level, this.module, message);
 			switch (level) {
@@ -62,42 +62,34 @@ export class Logger {
 		}
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public trace(message: string, ...objs: any[]) {
+	public trace(message: string, ...objs: unknown[]) {
 		this.log(LogLevel.Trace, message, ...objs);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public info(message: string, ...objs: any[]) {
+	public info(message: string, ...objs: unknown[]) {
 		this.log(LogLevel.Info, message, ...objs);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public debug(message: string, ...objs: any[]) {
+	public debug(message: string, ...objs: unknown[]) {
 		this.log(LogLevel.Debug, message, ...objs);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public warn(message: string, ...objs: any[]) {
+	public warn(message: string, ...objs: unknown[]) {
 		this.log(LogLevel.Warn, message, ...objs);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public error(message: string, ...objs: any[]) {
+	public error(message: string, ...objs: unknown[]) {
 		this.log(LogLevel.Error, message, ...objs);
 	}
 
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public throw(message: string, ...objs: any[]): never {
+	public throw(message: string, ...objs: unknown[]): never {
 		this.log(LogLevel.Error, message, ...objs);
 		// eslint-disable-next-line no-debugger
 		debugger;
 		throw undefined;
 	}
 
-
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
-	public reject(rejector: (_?: any) => void, message: string, ...objs: any[]) {
+	public reject(rejector: (_?: unknown) => void, message: string, ...objs: unknown[]) {
 		const error = new Error(message, { cause: objs });
 		rejector(error);
 		this.log(LogLevel.Error, message, ...objs);

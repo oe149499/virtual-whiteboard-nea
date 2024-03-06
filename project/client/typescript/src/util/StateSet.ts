@@ -1,8 +1,9 @@
-import { watchWeak } from "./State.js";
+import { ReadonlyAs, watchWeak } from "./State.js";
 import { type DeepReadonly, State } from "./State.js";
 
 // @ts-expect-error same logic as State<T>
-abstract class _StateSet<out T> extends State<Set<T>>{
+abstract class _StateSet<out T> extends State<Set<T>> {
+	[ReadonlyAs]?(): StateSet<T>;
 	public readonly size = this.derived(s => s.size);
 
 	public has(value: T) {
@@ -14,7 +15,7 @@ abstract class _StateSet<out T> extends State<Set<T>>{
 	}
 }
 
-export type StateSet<T> = _StateSet<T> & State<Set<T>>;
+export type StateSet<T> = _StateSet<T>;
 
 class DerivedStateSet<T, U> extends _StateSet<U> {
 	#handle: unknown;
@@ -42,7 +43,6 @@ class DerivedStateSet<T, U> extends _StateSet<U> {
 }
 
 export class MutableStateSet<T> extends _StateSet<T> {
-	// private inner: MutableState<Set<T>>;
 	public constructor() {
 		super(new Set());
 	}

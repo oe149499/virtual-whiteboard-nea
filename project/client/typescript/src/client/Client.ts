@@ -39,7 +39,7 @@ export class SessionClient {
 
 		logger.info("Recieved connection information:", data);
 
-		const conn = unwrap({ res: data });
+		const conn = data;
 
 		const newCache: SessionCache = {
 			startTime: await API.startTime,

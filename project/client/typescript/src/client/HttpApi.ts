@@ -11,8 +11,8 @@ const START_TIME_URL = API_URL("start_time");
 
 
 export const API = Object.freeze({
-	openSession(boardName: string, info: ClientInfo): Promise<Result<ConnectionInfo>> {
-		const url = API_URL("board", boardName);//new URL(`board/${boardName}`, API_ROOT);
+	openSession(boardName: string, info: ClientInfo): Promise<ConnectionInfo> {
+		const url = API_URL("board", boardName);
 		const response = fetch(url, {
 			method: "POST",
 			body: JSON.stringify(info),
@@ -21,7 +21,7 @@ export const API = Object.freeze({
 			},
 		});
 		return response.then(
-			response => response.json() as Promise<Result<ConnectionInfo>>,
+			response => response.json(),
 		);
 	},
 

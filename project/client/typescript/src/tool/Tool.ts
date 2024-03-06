@@ -1,7 +1,7 @@
 import type { Board } from "../Board.js";
 import { SingletonPropertyStore } from "../Properties.js";
 import { DragGestureState, GestureLayer, GestureType, LongPressGesture, PressGesture } from "../canvas/Gesture.js";
-import type { BlockDeepReadonly } from "../util/State.js";
+import { BlockDeepReadonly } from "../util/State.js";
 import { None } from "../util/Utils.js";
 
 export type ToolState = {
@@ -17,44 +17,13 @@ export enum ToolType {
 	Instantaneous,
 }
 
-interface _Tool {
-	[BlockDeepReadonly]?(): unknown;
-	properties?: SingletonPropertyStore;
-}
-
-export interface ModeTool extends _Tool {
-	type: ToolType.Mode;
-
-	bind(): void;
-	unbind(): void;
-}
-
 export type Action = Promise<void>;
 type OnBegin = (_: Action) => void;
 
-export interface ActionTool extends _Tool {
-	type: ToolType.Action;
-
-	bind(onBegin: OnBegin): void;
-	cancel(): void;
-}
-
-export interface InstantaneousTool {
-	type: ToolType.Instantaneous;
-
-	execute(): void;
-}
-
 export type Tool = ModeTool | ActionTool | InstantaneousTool;
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
-interface ToolBase {
-	readonly properties?: SingletonPropertyStore;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
-abstract class ToolBase implements _Tool {
-	public abstract get type(): ToolType;
+abstract class ToolBase {
+	[BlockDeepReadonly]?(): unknown;
 	protected get canvas() {
 		return this.board.canvas;
 	}
@@ -66,6 +35,8 @@ abstract class ToolBase implements _Tool {
 	public constructor(
 		protected board: Board,
 	) { }
+
+	public readonly properties?: SingletonPropertyStore;
 }
 
 abstract class InteractiveToolBase extends ToolBase {
@@ -87,8 +58,9 @@ abstract class InteractiveToolBase extends ToolBase {
 	protected onLongPressGesture?(gesture: LongPressGesture): void;
 }
 
-export abstract class ActionToolBase extends InteractiveToolBase implements ActionTool {
-	public override get type(): ToolType.Action { return ToolType.Action; }
+export abstract class ActionTool extends InteractiveToolBase {
+	public get type(): ToolType.Action { return ToolType.Action; }
+
 	private onBegin?: OnBegin;
 	private completionResolve?: (() => void);
 	private active = false;
@@ -122,8 +94,8 @@ export abstract class ActionToolBase extends InteractiveToolBase implements Acti
 	protected abstract cancelAction(): void;
 }
 
-export abstract class ModeToolBase extends InteractiveToolBase implements ModeTool {
-	public override get type(): ToolType.Mode { return ToolType.Mode; }
+export abstract class ModeTool extends InteractiveToolBase {
+	public get type(): ToolType.Mode { return ToolType.Mode; }
 
 	public bind(): void {
 		this.gestureFilter.resume();
@@ -134,10 +106,8 @@ export abstract class ModeToolBase extends InteractiveToolBase implements ModeTo
 	}
 }
 
-export abstract class InstantaneousToolBase extends ToolBase implements InstantaneousTool {
-	public override get type(): ToolType.Instantaneous {
-		return ToolType.Instantaneous;
-	}
+export abstract class InstantaneousTool extends ToolBase {
+	public get type(): ToolType.Instantaneous { return ToolType.Instantaneous; }
 
 	public abstract execute(): void;
 }

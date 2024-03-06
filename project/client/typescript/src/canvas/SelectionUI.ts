@@ -1,12 +1,8 @@
-import { Logger } from "../Logger.js";
 import type { Point } from "../gen/Types.js";
 import type { State } from "../util/State.js";
 import { point, rad2deg } from "../util/Utils.js";
 import { CanvasContext, type UnscaledHandle } from "./CanvasBase.js";
 import { GestureLayer, type FilterHandle, type DragGestureState, GestureType } from "./Gesture.js";
-
-const logger = new Logger("canvas/SelectionUI");
-
 const DIRS = [
 	[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0.5, -0.5],
 ];
@@ -47,12 +43,7 @@ abstract class HandleBase {
 		srt: State<DOMMatrix>,
 		pos: State<Point>,
 	) {
-		// const pos = srt.with(offset).derivedT((t, p) => t.transformPoint(p));
-		// const transform = ctx.createTransform();
-		// pos.watchOn(this, p => transform.setTranslate(p.x, p.y));
-
 		const element = this.getElement(handle.ctx);
-		// element.transform.baseVal.appendItem(transform);
 		this.element = handle.insert(element, pos);
 
 
@@ -108,7 +99,6 @@ export class RotateHandle extends HandleBase {
 
 		const identity = new DOMMatrix();
 
-		// logger.debug("Direction: ", currentDir);
 		for await (const p of gesture.points) {
 			const cursorDir = Math.atan2(p.y - srt.f, p.x - srt.e);
 			const rotation = rad2deg(cursorDir - currentDir);
@@ -118,7 +108,6 @@ export class RotateHandle extends HandleBase {
 			newMatrix.f = srt.f;
 
 			this.updateSrt(newMatrix);
-			// logger.debug("Direction: ", cursorDir);
 		}
 	}
 }
@@ -150,19 +139,13 @@ export class StretchHandle extends HandleBase {
 
 		const startLen = (startX * startX) + (startY * startY);
 
-		logger.debug("Start: x %o, y %o, len %o", startX, startY, startLen);
-
 		const offset = this.offset.getSnapshot();
 
 		for await (const { x, y } of gesture.points) {
 			const newX = x - srt.e;
 			const newY = y - srt.f;
 
-			logger.debug("New: x %o, y %o", newX, newY);
-
 			const factor = ((newX * startX) + (newY * startY)) / startLen;
-
-			logger.debug("Scale factor: ", factor);
 
 			const scaleX = offset.x ? factor : 1;
 			const scaleY = offset.y ? factor : 1;
@@ -171,7 +154,7 @@ export class StretchHandle extends HandleBase {
 	}
 }
 
-export class StretchHandleSet {
+export class HandleSet {
 	private static Directions: Point[] = [];
 
 	static {
@@ -183,7 +166,8 @@ export class StretchHandleSet {
 		}
 	}
 
-	public readonly handles: StretchHandle[];
+	public readonly stretch: StretchHandle[];
+	public readonly rotate: RotateHandle;
 
 	public constructor(
 		handle: UnscaledHandle,
@@ -191,9 +175,11 @@ export class StretchHandleSet {
 		size: State<Point>,
 		updateSrt: (_: DOMMatrix) => void,
 	) {
-		this.handles = StretchHandleSet.Directions.map(p => {
+		this.stretch = HandleSet.Directions.map(p => {
 			const offset = size.derived(({ x, y }: Point) => point(x * p.x / 2, y * p.y / 2));
 			return new StretchHandle(handle, srt, offset, updateSrt);
 		});
+
+		this.rotate = new RotateHandle(handle, srt, size, updateSrt);
 	}
 }

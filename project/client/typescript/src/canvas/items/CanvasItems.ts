@@ -149,10 +149,7 @@ export function TransformMixin<TBase extends Constructor<CanvasItem>>(Base: TBas
 		public override getLocationUpdate(transform: DOMMatrix): LocationUpdate {
 			const mat = updateMatrix(new DOMMatrix(), this.item.transform);
 			mat.preMultiplySelf(transform);
-			const t = fromMatrix(mat);
-			// this.transform.update(t);
-			// this.item.transform = t;
-			return { Transform: t };
+			return { Transform: fromMatrix(mat) };
 		}
 
 		public override applylocationUpdate(update: LocationUpdate): void {

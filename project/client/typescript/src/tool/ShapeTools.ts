@@ -3,7 +3,7 @@ import { PropertyTemplates, builder } from "../PropertyTemplates.js";
 import type { DragGestureState, PressGesture } from "../canvas/Gesture.js";
 import type { Item, Transform } from "../gen/Types.js";
 import { None, point } from "../util/Utils.js";
-import { ActionToolBase } from "./Tool.js";
+import { ActionTool } from "./Tool.js";
 
 const { keys, schema } = builder()
 	.add("fill", {
@@ -15,7 +15,7 @@ const { keys, schema } = builder()
 	.add(PropertyTemplates.PointPropertySchema("Size", point(1, 1)))
 	.build();
 
-abstract class ShapeToolBase extends ActionToolBase {
+abstract class ShapeToolBase extends ActionTool {
 	override readonly properties = new SingletonPropertyStore(schema);
 	protected abstract itemType: "Ellipse" | "Rectangle";
 
